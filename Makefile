@@ -70,6 +70,6 @@ test:
 run:
 	cd backend && set -a && . ./.env && set +a && go run ./cmd/api
 
-# Example: make bootstrap-admin ARGS="-doc-number 10000001 -first-name Maju -last-name Admin -gender F -phone 999111222 -email maju@admin.com -birthdate 2004-10-05 -hire-date 2026-01-01"
+# Example of how to use it in README.md
 bootstrap-admin:
 	cd backend && set -a && . ./.env && set +a && go run ./cmd/bootstrap-admin $(ARGS)
