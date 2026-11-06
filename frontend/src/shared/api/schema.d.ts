@@ -771,6 +771,339 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/sales": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The sales workspace
+     * @description An Advisor only ever gets their own sales, in the list and in the count; the advisorId filter cannot widen
+     *     that. Managers and Admins see every sale. currentTask is the in-progress task or, when none is in
+     *     progress, the lowest task not yet completed; a completed sale has none.
+     */
+    get: operations["listSales"];
+    put?: never;
+    /**
+     * Start a sale
+     * @description Records the customer and the vehicle as they are now, creates the 13 pending tasks and assigns the advisor.
+     *     An Advisor creates for themselves; a Manager or Admin must choose an active Advisor. The customer must be
+     *     active and the version and color must be selectable. The customer is notified, and so is an advisor who
+     *     did not create the sale themselves.
+     */
+    post: operations["createSale"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    /**
+     * Read a sale
+     * @description A sale an Advisor does not own answers 404, as if it did not exist.
+     */
+    get: operations["getSale"];
+    put?: never;
+    post?: never;
+    /**
+     * Permanently delete a sale that never reached delivery (Admin)
+     * @description For test and erroneous sales only. The reason and the typed sale code are required. The sale's files leave
+     *     storage after the commit; the audit trail survives. A sale whose task 13 was ever completed cannot be
+     *     deleted, even if that task was reopened.
+     */
+    delete: operations["deleteSale"];
+    options?: never;
+    head?: never;
+    /**
+     * Edit the sale's notes
+     * @description Notes are the only editable field of a sale besides its advisor. version is required.
+     */
+    patch: operations["updateSaleNotes"];
+    trace?: never;
+  };
+  "/sales/{id}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    /** The sale's timeline, newest first */
+    get: operations["getSaleHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel an active sale
+     * @description An Advisor may cancel their own sale while the current task is 1 to 3, a Manager while it is 1 to 6, an Admin
+     *     at any stage (CANCEL_NOT_ALLOWED otherwise). The category and the reason are both required. The sale and its
+     *     tasks freeze; reminders stop; the series, VIN and plate become free for other sales.
+     */
+    post: operations["cancelSale"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/reopen": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reopen a cancelled sale (Manager, Admin)
+     * @description A Manager only if it was cancelled while the current task was 1 to 6; an Admin always (REOPEN_NOT_ALLOWED
+     *     otherwise). The in-progress task's start time and due date move forward by the time the sale spent cancelled.
+     *     If another sale took its series, VIN or plate meanwhile, the reopen is refused with that conflict.
+     */
+    post: operations["reopenSale"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/reassign": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Hand an active sale to another Advisor (Manager, Admin)
+     * @description The customer, the new advisor and the previous advisor are notified.
+     */
+    post: operations["reassignSale"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    /** The 13 tasks of a sale */
+    get: operations["listSaleTasks"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{number}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    /** One task with its data, calculated values, documents, warnings and the actions available */
+    get: operations["getSaleTask"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{number}/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start the eligible task
+     * @description A task is eligible when the previous one is completed and none is in progress. Starting sets the due date
+     *     when the task has an SLA. An Advisor acts only on their own sale.
+     */
+    post: operations["startTask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{number}/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Complete the task in progress
+     * @description Every missing field and required document is reported at once (TASK_INCOMPLETE, with the fields). An amount
+     *     that differs from the expected one needs a reason. Completing task 13 completes the sale. Customers are
+     *     notified at the milestone tasks (1, 3, 6, 7, 10, 11, 13), never twice for the same task.
+     */
+    post: operations["completeTask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{number}/restart": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Put the task in progress back to pending (Manager, Admin)
+     * @description Clears its clock and reminders. The data and files already saved are kept, read-only.
+     */
+    post: operations["restartTask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{number}/reopen": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reopen the last completed task (Manager, Admin)
+     * @description Only the last completed task, and only when no task is in progress. It keeps its original start time and due
+     *     date. Reopening task 13 of a completed sale makes the sale active again.
+     */
+    post: operations["reopenTask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{number}/data": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Save the fields of a task
+     * @description While the task is in progress an Advisor on their own sale (or a Manager or Admin) saves a draft: a field that
+     *     is absent is left alone, an empty string clears it. A completed task can only be corrected by a Manager or
+     *     Admin with a written reason, and the correction must leave it complete. Impossible values are refused;
+     *     out-of-order dates only warn. version (the task's) is required. A pending task is read-only.
+     *     Financial fields lock once a later task that depends on them is completed
+     *     (TASK_FINANCIAL_FIELD_LOCKED). Identifiers must be unique among active and completed sales.
+     */
+    patch: operations["saveTaskData"];
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{number}/notes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Save the free-text notes of a task */
+    patch: operations["saveTaskNotes"];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1249,6 +1582,430 @@ export interface components {
         mainImageUrl: string;
       }[];
     };
+    /** @enum {string} */
+    SaleState: "active" | "completed" | "cancelled";
+    /** @enum {string} */
+    SaleTemperature: "hot" | "warm" | "cold";
+    /** @enum {string} */
+    CancellationCategory:
+      | "customer_withdrew"
+      | "payment_or_financing_failed"
+      | "unit_unavailable"
+      | "due_diligence_finding"
+      | "registration_error"
+      | "other";
+    /** @enum {string} */
+    TaskStatus: "pending" | "in_progress" | "completed";
+    /** @enum {string} */
+    CompletionPhase:
+      | "early"
+      | "in_approaching"
+      | "overdue"
+      | "recurring_overdue"
+      | "not_applicable";
+    /** @enum {string} */
+    MilestoneState: "pending" | "in_progress" | "completed";
+    /** @description The customer as recorded when the sale was created. */
+    SaleCustomer: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      documentType: components["schemas"]["CustomerDocumentType"];
+      documentNumber: string;
+      customerType: components["schemas"]["CustomerType"];
+    };
+    /** @description The vehicle as recorded when the sale was created. The image is the catalog's Main view of the color, read live. */
+    SaleVehicle: {
+      /** Format: uuid */
+      modelId: string;
+      /** Format: uuid */
+      versionId: string;
+      /** Format: uuid */
+      colorId: string;
+      model: string;
+      version: string;
+      color: string;
+      /** Format: uri */
+      imageUrl?: string | null;
+      /** @example 35000.00 */
+      referencePrice: string;
+      /** @description Set by task 3. */
+      series?: string | null;
+      /** @description Set by task 3. */
+      vin?: string | null;
+      /** @description Set by task 10. */
+      licensePlate?: string | null;
+    };
+    SaleAdvisor: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+    };
+    /** @description One of six derived stages; never stored. */
+    SaleMilestone: {
+      number: number;
+      name: string;
+      description: string;
+      state: components["schemas"]["MilestoneState"];
+    };
+    SaleCurrentTask: {
+      number: number;
+      name: string;
+      status: components["schemas"]["TaskStatus"];
+      /** Format: date-time */
+      dueDate?: string | null;
+      isOverdue: boolean;
+      milestoneNumber: number;
+    };
+    SaleCancellation: {
+      category: components["schemas"]["CancellationCategory"];
+      text: string;
+      /** Format: date-time */
+      cancelledAt: string;
+      cancelledByName: string;
+      atTaskNumber: number;
+    };
+    /** @description What this person can do with this sale now. The server checks every request regardless. */
+    SalePermissions: {
+      canEditNotes: boolean;
+      canCancel: boolean;
+      canReopen: boolean;
+      canReassign: boolean;
+      canDelete: boolean;
+    };
+    Sale: {
+      /** Format: uuid */
+      id: string;
+      /** @example EF-2026-00419 */
+      code: string;
+      customer: components["schemas"]["SaleCustomer"];
+      vehicle: components["schemas"]["SaleVehicle"];
+      advisor: components["schemas"]["SaleAdvisor"];
+      temperature: components["schemas"]["SaleTemperature"];
+      state: components["schemas"]["SaleState"];
+      notes?: string | null;
+      /** @description Calculated by task 1. */
+      quotedFinalPrice?: string | null;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      /** Format: date-time */
+      completedAt?: string | null;
+      cancellation?: components["schemas"]["SaleCancellation"] | null;
+      /** @description Null when every task is completed. */
+      currentTask?: components["schemas"]["SaleCurrentTask"] | null;
+      milestones: components["schemas"]["SaleMilestone"][];
+      tasks: components["schemas"]["TaskSummary"][];
+      permissions: components["schemas"]["SalePermissions"];
+      version: number;
+    };
+    SaleListItem: {
+      /** Format: uuid */
+      id: string;
+      code: string;
+      customerName: string;
+      /** @example DNI 00123456 */
+      customerDocument: string;
+      customerType: components["schemas"]["CustomerType"];
+      vehicleModel: string;
+      vehicleVersion: string;
+      vehicleColor: string;
+      /** Format: uri */
+      imageUrl?: string | null;
+      /** Format: uuid */
+      advisorId: string;
+      advisorName: string;
+      temperature: components["schemas"]["SaleTemperature"];
+      state: components["schemas"]["SaleState"];
+      currentTask?: components["schemas"]["SaleCurrentTask"] | null;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    SaleList: {
+      items: components["schemas"]["SaleListItem"][];
+      page: number;
+      pageSize: number;
+      total: number;
+    };
+    CreateSaleRequest: {
+      /** Format: uuid */
+      customerId: string;
+      /** Format: uuid */
+      versionId: string;
+      /** Format: uuid */
+      colorId: string;
+      temperature: components["schemas"]["SaleTemperature"];
+      notes?: string;
+      /**
+       * Format: uuid
+       * @description Required for a Manager or Admin; absent or the caller's own for an Advisor.
+       */
+      advisorId?: string;
+    };
+    UpdateSaleNotesRequest: {
+      version: number;
+      /** @description An empty string clears the notes. */
+      notes?: string;
+    };
+    CancelSaleRequest: {
+      category: components["schemas"]["CancellationCategory"];
+      reason: string;
+    };
+    ReasonRequest: {
+      reason: string;
+    };
+    ReassignSaleRequest: {
+      /** Format: uuid */
+      advisorId: string;
+      reason?: string;
+    };
+    SaleHistoryEvent: {
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      at: string;
+      actorName: string;
+      isSystem: boolean;
+      entityType: string;
+      taskNumber?: number | null;
+      action: string;
+      reason?: string | null;
+      changes?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    SaleHistory: {
+      items: components["schemas"]["SaleHistoryEvent"][];
+      page: number;
+      pageSize: number;
+      total: number;
+    };
+    TaskSummary: {
+      number: number;
+      name: string;
+      milestoneNumber: number;
+      status: components["schemas"]["TaskStatus"];
+      /** Format: date-time */
+      startedAt?: string | null;
+      /** Format: date-time */
+      completedAt?: string | null;
+      /** Format: date-time */
+      dueDate?: string | null;
+      completionPhase?: components["schemas"]["CompletionPhase"] | null;
+      recommendedDurationHours?: number | null;
+      isEligible: boolean;
+      version: number;
+    };
+    TaskDocumentFile: {
+      /** Format: uuid */
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      /** Format: date-time */
+      uploadedAt: string;
+      uploadedByName: string;
+    };
+    TaskDocumentSlot: {
+      slotCode: string;
+      label: string;
+      allowedFormat: string;
+      /** @description Already accounts for the customer type (the power of attorney is required unless the customer is a Diplomático). */
+      required: boolean;
+      customerVisible: boolean;
+      file?: components["schemas"]["TaskDocumentFile"] | null;
+    };
+    TaskWarning: {
+      field: string;
+      /** @enum {string} */
+      code: "DATE_OUT_OF_ORDER" | "DATE_IN_THE_FUTURE";
+      message: string;
+    };
+    TaskPermissions: {
+      canStart: boolean;
+      canComplete: boolean;
+      canEditData: boolean;
+      /** @description Editing a completed task needs a written reason. */
+      needsReason: boolean;
+      canSaveNotes: boolean;
+      canRestart: boolean;
+      canReopen: boolean;
+    };
+    TaskDetail: components["schemas"]["TaskSummary"] & {
+      /** Format: uuid */
+      saleId: string;
+      notes?: string | null;
+      /** @description The task's fields; the shape depends on the task number. */
+      data:
+        | components["schemas"]["Task1Data"]
+        | components["schemas"]["Task2Data"]
+        | components["schemas"]["Task3Data"]
+        | components["schemas"]["PaymentData"]
+        | components["schemas"]["Task6Data"]
+        | components["schemas"]["Task8Data"]
+        | components["schemas"]["Task9Data"]
+        | components["schemas"]["Task10Data"]
+        | components["schemas"]["Task11Data"]
+        | components["schemas"]["Task12Data"]
+        | components["schemas"]["Task13Data"]
+        | Record<string, never>;
+      /**
+       * @description Values computed from the saved data, never typed in. Task 1: quotedFinalPrice. Task 3: quotedFinalPrice and
+       *     finalCommission. Tasks 4 and 5: expectedAmount and amountsMatch. Task 6: per invoice, expectedAmount and amountsMatch.
+       */
+      calculated: {
+        [key: string]: unknown;
+      };
+      documents: components["schemas"]["TaskDocumentSlot"][];
+      warnings: components["schemas"]["TaskWarning"][];
+      permissions: components["schemas"]["TaskPermissions"];
+    };
+    SaveTaskDataRequest: {
+      /** @description The task's version, as last read. */
+      version: number;
+      /** @description Required when the task is already completed. */
+      reason?: string;
+      /** @description The fields to change. Absent fields are left alone; an empty string clears a field. Unknown fields are refused. */
+      data:
+        | components["schemas"]["Task1Data"]
+        | components["schemas"]["Task2Data"]
+        | components["schemas"]["Task3Data"]
+        | components["schemas"]["PaymentData"]
+        | components["schemas"]["Task6Data"]
+        | components["schemas"]["Task8Data"]
+        | components["schemas"]["Task9Data"]
+        | components["schemas"]["Task10Data"]
+        | components["schemas"]["Task11Data"]
+        | components["schemas"]["Task12Data"]
+        | components["schemas"]["Task13Data"];
+    };
+    SaveTaskNotesRequest: {
+      version: number;
+      notes?: string;
+    };
+    /** @description Task 1: the initial quotation amounts. */
+    Task1Data: {
+      /**
+       * @description Decimal string with two decimals.
+       * @example 1250.50
+       */
+      initialToyotaAmount?: string | null;
+      /**
+       * @description Decimal string with two decimals.
+       * @example 1250.50
+       */
+      initialCommission?: string | null;
+      /**
+       * @description Decimal string with two decimals.
+       * @example 1250.50
+       */
+      accessoryAmount?: string | null;
+      /**
+       * @description Decimal string with two decimals.
+       * @example 1250.50
+       */
+      releaseProcessingAmount?: string | null;
+    };
+    /** @description Task 2: the person who signs and the due-diligence classification. */
+    Task2Data: {
+      /** @enum {string|null} */
+      signerDocumentType?: "DNI" | "CE" | "PAS" | "CDI" | null;
+      signerDocumentNumber?: string | null;
+      signerFirstName?: string | null;
+      signerLastName?: string | null;
+      /** @enum {string|null} */
+      signerNameSource?: "manual" | "looked_up" | null;
+      /** @enum {string|null} */
+      pepStatus?: "no_pep" | "pep" | "related_to_pep" | null;
+      /** @enum {string|null} */
+      ddcRegime?: "general" | "reinforced" | null;
+    };
+    /** @description Task 3: the unit assigned and the final amount Toyota charges. The final commission is calculated: initial Toyota amount plus initial commission minus the final Toyota amount, and must stay positive. */
+    Task3Data: {
+      vehicleSeries?: string | null;
+      /** @description 17 characters without I, O or Q. */
+      vin?: string | null;
+      /**
+       * @description Decimal string with two decimals.
+       * @example 1250.50
+       */
+      finalToyotaAmount?: string | null;
+    };
+    /** @description Tasks 4 (customer to Pana, expected amount = the quoted final price) and 5 (Pana to Toyota, expected amount = the final Toyota amount): one bank deposit. A deposit that differs from the expected amount needs a mismatchReason to complete. */
+    PaymentData: {
+      /** @enum {string|null} */
+      bank?: "bcp" | "bbva" | "scotiabank" | "interbank" | null;
+      /** Format: date */
+      paymentDate?: string | null;
+      transactionNumber?: string | null;
+      /**
+       * @description Decimal string with two decimals.
+       * @example 1250.50
+       */
+      depositedAmount?: string | null;
+      mismatchReason?: string | null;
+    };
+    InvoiceData: {
+      /** @example F001-000123 */
+      number?: string | null;
+      /** Format: date */
+      date?: string | null;
+      /**
+       * @description Decimal string with two decimals.
+       * @example 1250.50
+       */
+      amount?: string | null;
+      mismatchReason?: string | null;
+    };
+    /** @description Task 6: four invoices. Expected amounts: Toyota = final Toyota amount, commission = final commission, accessories = accessory amount, release processing = release amount. */
+    Task6Data: {
+      toyota?: components["schemas"]["InvoiceData"];
+      commission?: components["schemas"]["InvoiceData"];
+      accessories?: components["schemas"]["InvoiceData"];
+      releaseProcessing?: components["schemas"]["InvoiceData"];
+    };
+    /** @description Task 8: customs. */
+    Task8Data: {
+      damNumber?: string | null;
+      /** @enum {string|null} */
+      customsOffice?: "callao_maritima" | "chancay" | null;
+      /** @enum {string|null} */
+      controlChannel?: "green" | "orange" | "red" | null;
+    };
+    /** @description Task 9: the release process. */
+    Task9Data: {
+      personInCharge?: string | null;
+    };
+    /** @description Task 10: registration. */
+    Task10Data: {
+      /** @description 6 alphanumeric characters. */
+      licensePlate?: string | null;
+      /** Format: date */
+      registrationDate?: string | null;
+    };
+    /** @description Task 11: the transfer to the PDS. */
+    Task11Data: {
+      /** Format: date */
+      pdsTransferDate?: string | null;
+    };
+    /** @description Task 12: equipment installation. */
+    Task12Data: {
+      serviceOrderNumber?: string | null;
+      /** Format: date */
+      equipmentCompletionDate?: string | null;
+    };
+    /** @description Task 13: delivery. The Surquillo transfer date is optional. */
+    Task13Data: {
+      /** Format: date */
+      surquilloTransferDate?: string | null;
+      /** Format: date */
+      deliveryDate?: string | null;
+    };
   };
   responses: {
     /** @description The request is malformed. */
@@ -1318,6 +2075,8 @@ export interface components {
     };
   };
   parameters: {
+    SaleId: string;
+    TaskNumber: number;
     VehicleModelId: string;
     VehicleVersionId: string;
     VehicleColorId: string;
@@ -2711,6 +3470,531 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+    };
+  };
+  listSales: {
+    parameters: {
+      query?: {
+        /** @description Customer name, document, vehicle, series, VIN, plate or sale code. */
+        q?: string;
+        state?: components["schemas"]["SaleState"];
+        currentTask?: number;
+        /** @description Sales whose current task belongs to this milestone. */
+        milestone?: number;
+        advisorId?: string;
+        customerType?: components["schemas"]["CustomerType"];
+        temperature?: components["schemas"]["SaleTemperature"];
+        modelId?: string;
+        page?: number;
+        pageSize?: number;
+        sort?:
+          | "-createdAt"
+          | "createdAt"
+          | "customerName"
+          | "-customerName"
+          | "updatedAt"
+          | "-updatedAt"
+          | "dueDate";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description One page of sales. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleList"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  createSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateSaleRequest"];
+      };
+    };
+    responses: {
+      /** @description Created. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Sale"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  getSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The sale with its tasks, milestones and permissions. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Sale"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  deleteSale: {
+    parameters: {
+      query: {
+        reason: string;
+        /** @description The sale code, typed by the person. */
+        confirm: string;
+      };
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  updateSaleNotes: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateSaleNotesRequest"];
+      };
+    };
+    responses: {
+      /** @description The updated sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Sale"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  getSaleHistory: {
+    parameters: {
+      query?: {
+        page?: number;
+        pageSize?: number;
+      };
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description One page of events. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleHistory"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  cancelSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CancelSaleRequest"];
+      };
+    };
+    responses: {
+      /** @description The cancelled sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Sale"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  reopenSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReasonRequest"];
+      };
+    };
+    responses: {
+      /** @description The reopened sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Sale"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  reassignSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReassignSaleRequest"];
+      };
+    };
+    responses: {
+      /** @description The reassigned sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Sale"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  listSaleTasks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The tasks in order. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["TaskSummary"][];
+          };
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getSaleTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  startTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The started task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  completeTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The completed task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  restartTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReasonRequest"];
+      };
+    };
+    responses: {
+      /** @description The restarted task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  reopenTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReasonRequest"];
+      };
+    };
+    responses: {
+      /** @description The reopened task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  saveTaskData: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SaveTaskDataRequest"];
+      };
+    };
+    responses: {
+      /** @description The task after saving, with its warnings. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  saveTaskNotes: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        number: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SaveTaskNotesRequest"];
+      };
+    };
+    responses: {
+      /** @description The task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
     };
   };
 }
