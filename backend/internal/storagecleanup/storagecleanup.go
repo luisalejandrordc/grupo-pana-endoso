@@ -20,6 +20,7 @@ import (
 const (
 	CatalogImageReplaced = "catalog_image_replaced"
 	CatalogImageRemoved  = "catalog_image_removed"
+	SaleDeleted          = "sale_deleted"
 )
 
 type execer interface {

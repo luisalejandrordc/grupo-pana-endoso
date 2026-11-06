@@ -17,6 +17,8 @@ import (
 const (
 	EntityEmployee = "employee"
 	EntityCustomer = "customer"
+	EntitySale     = "sale_register"
+	EntityTask     = "task_instance"
 
 	EntityVehicleModel   = "vehicle_model"
 	EntityVehicleVersion = "vehicle_version"
@@ -29,6 +31,13 @@ const (
 	ActionReactivated = "REACTIVATED"
 	ActionDeleted     = "DELETED"
 	ActionRoleChanged = "ROLE_CHANGED"
+	ActionStarted     = "STARTED"
+	ActionCompleted   = "COMPLETED"
+	ActionRestarted   = "RESTARTED"
+	ActionReopened    = "REOPENED"
+	ActionCorrected   = "CORRECTED"
+	ActionCancelled   = "CANCELLED"
+	ActionReassigned  = "REASSIGNED"
 	ActionUploaded    = "UPLOADED"
 	ActionReplaced    = "REPLACED"
 	ActionRemoved     = "REMOVED"
