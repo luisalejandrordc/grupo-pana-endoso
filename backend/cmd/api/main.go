@@ -12,7 +12,9 @@ import (
 	"endosoflow/internal/platform/config"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/logging"
+	"endosoflow/internal/sales"
 	"endosoflow/internal/staff"
+	"endosoflow/internal/tasks"
 	"errors"
 	"fmt"
 	"net/http"
@@ -94,7 +96,13 @@ func run() error {
 	catalogService := catalog.NewService(catalog.Deps{DB: pool, Store: store, Logger: logger})
 	catalogHandler := catalog.NewHandler(catalogService, authHandler, logger)
 
-	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount)
+	salesService := sales.NewService(sales.Deps{DB: pool, Store: store, Logger: logger})
+	salesHandler := sales.NewHandler(salesService, authHandler, logger)
+	tasksService := tasks.NewService(tasks.Deps{DB: pool, Logger: logger})
+	tasksHandler := tasks.NewHandler(tasksService, authHandler, logger)
+
+	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount,
+		salesHandler.Mount, tasksHandler.Mount)
 	if localStore != nil {
 		mux := http.NewServeMux()
 		mux.Handle("/media/", http.StripPrefix("/media/", localStore.Handler()))
