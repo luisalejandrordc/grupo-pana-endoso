@@ -12,7 +12,9 @@ import (
 	"endosoflow/internal/platform/config"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/logging"
+	"endosoflow/internal/sales"
 	"endosoflow/internal/staff"
+	"endosoflow/internal/tasks"
 	"errors"
 	"fmt"
 	"net/http"
@@ -94,7 +96,23 @@ func run() error {
 	catalogService := catalog.NewService(catalog.Deps{DB: pool, Store: store, Logger: logger})
 	catalogHandler := catalog.NewHandler(catalogService, authHandler, logger)
 
-	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount)
+	// Sales and the task engine. Document checks come with phase 1F: until then a stand-in that reports
+	// nothing missing is wired in local and test environments only, and everywhere else completing a
+	// task answers DOCUMENTS_UNAVAILABLE.
+	var documents tasks.DocumentChecker
+	if cfg.Env == "local" || cfg.Env == "test" {
+		documents = tasks.StubDocuments{}
+		logger.Warn("document checks are stubbed: tasks can be completed without their documents")
+	} else {
+		logger.Warn("document checks are not available yet: tasks cannot be completed")
+	}
+	salesService := sales.NewService(sales.Deps{DB: pool, Logger: logger})
+	salesHandler := sales.NewHandler(salesService, authHandler, logger)
+	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: sales.Gate{}, Documents: documents, Logger: logger})
+	tasksHandler := tasks.NewHandler(tasksService, authHandler, logger)
+
+	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount,
+		salesHandler.Mount, tasksHandler.Mount)
 	if localStore != nil {
 		mux := http.NewServeMux()
 		mux.Handle("/media/", http.StripPrefix("/media/", localStore.Handler()))

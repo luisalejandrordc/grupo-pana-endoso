@@ -23,7 +23,13 @@ info:
     VERSION_NAME_ALREADY_USED, COLOR_NAME_ALREADY_USED, CATALOG_ENTRY_ALREADY_ARCHIVED,
     CATALOG_ENTRY_ALREADY_ACTIVE, CATALOG_ENTRY_IN_USE, CATALOG_INCOMPLETE, LAST_ACTIVE_VERSION,
     LAST_ACTIVE_COLOR, MAIN_IMAGE_REQUIRED, IMAGE_REQUIRED, IMAGE_TOO_LARGE, IMAGE_TYPE_NOT_ALLOWED,
-    INVALID_MULTIPART, STORAGE_UNAVAILABLE,
+    INVALID_MULTIPART, STORAGE_UNAVAILABLE, SALE_NOT_FOUND, TASK_NOT_FOUND, SALE_NOT_ACTIVE, SALE_NOT_CANCELLED,
+    SALE_INVALID_STATE, CUSTOMER_INACTIVE, VEHICLE_NOT_SELECTABLE, VEHICLE_COLOR_MISMATCH, INVALID_ADVISOR,
+    ADVISOR_MISMATCH, SAME_ADVISOR, CANCEL_NOT_ALLOWED, REOPEN_NOT_ALLOWED, TASK_INVALID_STATE,
+    TASK_NOT_IN_PROGRESS, TASK_NOT_ELIGIBLE, TASK_ALREADY_IN_PROGRESS, TASK_NOT_LAST_COMPLETED,
+    DOCUMENTS_UNAVAILABLE, DOCUMENT_REQUIRED, DOCUMENT_PAIR_REQUIRED, INVALID_DOCUMENT, INVALID_AMOUNT,
+    INVALID_DATE, COMMISSION_NOT_POSITIVE, MISMATCH_REASON_REQUIRED, INVOICE_NUMBER_INVALID, VIN_INVALID,
+    PLATE_INVALID, REASON_TOO_LONG,
     INTERNAL_ERROR.
 
     **Authentication.** Employees sign in with `POST /auth/employee/login` and send the returned access token as
@@ -37,6 +43,8 @@ tags:
   - name: Staff
   - name: Customers
   - name: Catalog
+  - name: Sales
+  - name: Tasks
 paths:
   /health:
     get:
@@ -1165,6 +1173,472 @@ paths:
                     items: { $ref: "#/components/schemas/SelectableModel" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /sales:
+    get:
+      tags: [Sales]
+      operationId: listSales
+      summary: List sales in the caller's scope (workspace)
+      description: |
+        Admins and Managers see every sale; an Advisor only the sales assigned to them. `q` searches the customer
+        name, series, VIN and plate, and the start of the customer document. `milestone` returns the sales whose
+        milestone is in progress.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - {
+            name: state,
+            in: query,
+            schema: { $ref: "#/components/schemas/SaleState" },
+          }
+        - {
+            name: currentTask,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 13 },
+          }
+        - {
+            name: milestone,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 6 },
+          }
+        - { name: advisorId, in: query, schema: { type: string, format: uuid } }
+        - { name: customerType, in: query, schema: { type: string } }
+        - {
+            name: temperature,
+            in: query,
+            schema: { $ref: "#/components/schemas/SaleTemperature" },
+          }
+        - { name: modelId, in: query, schema: { type: string, format: uuid } }
+        - { name: versionId, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - {
+            name: pageSize,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100 },
+          }
+        - {
+            name: sort,
+            in: query,
+            schema:
+              {
+                type: string,
+                enum: [createdAt, -createdAt, customerName, -customerName],
+              },
+          }
+      responses:
+        "200":
+          description: One page of sales.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaleList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Sales]
+      operationId: createSale
+      summary: Register a sale
+      description: |
+        Snapshots the customer and the vehicle, assigns the advisor and creates the 13 pending tasks in one
+        transaction. An Advisor may omit `assignedAdvisorId` or send their own id; a Manager or Admin must send an
+        active Advisor. An inactive customer answers CUSTOMER_INACTIVE; a version or color that cannot be selected
+        answers VEHICLE_NOT_SELECTABLE or VEHICLE_COLOR_MISMATCH.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateSaleRequest" }
+      responses:
+        "201":
+          description: The new sale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaleDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+    get:
+      tags: [Sales]
+      operationId: getSale
+      summary: Read a sale with its milestones
+      description: A sale outside an Advisor's scope answers 404, as if it did not exist.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The sale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaleDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Sales]
+      operationId: updateSale
+      summary: Edit the notes of a sale
+      description: Notes are the only editable field of the sale itself. `version` is required. A cancelled sale is read-only.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateSaleRequest" }
+      responses:
+        "200":
+          description: The updated sale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaleDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}/history:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+    get:
+      tags: [Sales]
+      operationId: getSaleHistory
+      summary: Audit timeline of a sale, newest first
+      description: Everyone who can see the sale can read its history, including reasons.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - {
+            name: pageSize,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100 },
+          }
+      responses:
+        "200":
+          description: One page of history.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaleHistory" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /sales/{id}/reassign:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+    post:
+      tags: [Sales]
+      operationId: reassignSale
+      summary: Give an active sale to another advisor (Manager, Admin)
+      description: The target must be an active Advisor other than the current one (SAME_ADVISOR, INVALID_ADVISOR). The previous advisor loses access immediately.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReassignSaleRequest" }
+      responses:
+        "200":
+          description: The reassigned sale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaleDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+    post:
+      tags: [Sales]
+      operationId: cancelSale
+      summary: Cancel an active sale
+      description: |
+        An Advisor may cancel their own sale while Tasks 1 to 3 are current, a Manager through Task 6 and an Admin
+        at any point; otherwise CANCEL_NOT_ALLOWED. `text` is required when the category is `other`. The tasks are
+        frozen and read-only until the sale is reopened.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CancelSaleRequest" }
+      responses:
+        "200":
+          description: The cancelled sale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaleDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}/reopen:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+    post:
+      tags: [Sales]
+      operationId: reopenSale
+      summary: Reopen a cancelled sale (Manager, Admin)
+      description: |
+        A Manager may reopen a sale cancelled while Tasks 1 to 6 were current; later cancellations need an Admin
+        (REOPEN_NOT_ALLOWED). The due date of the task in progress moves forward by the time spent cancelled. A series,
+        VIN or plate now used by another sale answers SERIES_ALREADY_USED, VIN_ALREADY_USED or PLATE_ALREADY_USED.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: The reopened sale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaleDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}/tasks:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+    get:
+      tags: [Tasks]
+      operationId: listSaleTasks
+      summary: The 13 tasks of a sale, without their data
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The tasks in order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /sales/{id}/tasks/{n}:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+      - $ref: "#/components/parameters/TaskNumber"
+    get:
+      tags: [Tasks]
+      operationId: getSaleTask
+      summary: One task with its data and the document slots it needs
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /sales/{id}/tasks/{n}/data:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+      - $ref: "#/components/parameters/TaskNumber"
+    patch:
+      tags: [Tasks]
+      operationId: saveSaleTaskData
+      summary: Save a draft of the data of the task in progress
+      description: |
+        `version` is the task's version and is required (VERSION_CONFLICT when stale). Only the keys present in `data`
+        change and null clears a value; the keys are those of the task's data schema, and the calculated ones
+        (`quotedFinalPrice`, `finalCommission`, `expectedAmount`) cannot be sent. Impossible values are field errors;
+        suspicious ones (a date before the sale) come back as `warnings`. Completeness is checked on completion. A task
+        that is not in progress answers TASK_NOT_IN_PROGRESS. For payments and invoices an amount that differs from the
+        expected one must be saved together with its `mismatchReason`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SaveTaskDataRequest" }
+      responses:
+        "200":
+          description: The task as saved, with any warnings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaveTaskDataResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}/tasks/{n}/notes:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+      - $ref: "#/components/parameters/TaskNumber"
+    patch:
+      tags: [Tasks]
+      operationId: saveSaleTaskNotes
+      summary: Replace the internal notes of a task
+      description: Free text, no version; the last save wins. An empty value clears the notes. An Advisor can only write notes while the task is in progress.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [notes]
+              properties:
+                notes: { type: string, maxLength: 2000 }
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}/tasks/{n}/start:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+      - $ref: "#/components/parameters/TaskNumber"
+    post:
+      tags: [Tasks]
+      operationId: startSaleTask
+      summary: Start an eligible task
+      description: |
+        The sale must be active, the task pending, the previous task completed and no other task in progress
+        (TASK_INVALID_STATE, TASK_NOT_ELIGIBLE, TASK_ALREADY_IN_PROGRESS, SALE_NOT_ACTIVE). The due date is the start plus
+        the task's duration in elapsed hours.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The task in progress.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /sales/{id}/tasks/{n}/complete:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+      - $ref: "#/components/parameters/TaskNumber"
+    post:
+      tags: [Tasks]
+      operationId: completeSaleTask
+      summary: Complete the task in progress
+      description: |
+        Succeeds only when every mandatory field and document is valid; otherwise answers 422 with all the failing
+        fields at once (`documents.<slot>` for missing documents). The completion phase is computed from the due date.
+        Completing Task 13 completes the sale in the same transaction. Until the documents module exists this answers 503
+        DOCUMENTS_UNAVAILABLE outside local and test environments.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The completed task.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503":
+          description: Document checks are not available (DOCUMENTS_UNAVAILABLE).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /sales/{id}/tasks/{n}/restart:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+      - $ref: "#/components/parameters/TaskNumber"
+    post:
+      tags: [Tasks]
+      operationId: restartSaleTask
+      summary: Send the task in progress back to pending (Manager, Admin)
+      description: The data is kept and becomes read-only until the task is started again. A reason is required.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: The pending task.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}/tasks/{n}/reopen:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+      - $ref: "#/components/parameters/TaskNumber"
+    post:
+      tags: [Tasks]
+      operationId: reopenSaleTask
+      summary: Reopen the last completed task (Manager, Admin)
+      description: |
+        Only the highest completed task can be reopened (TASK_NOT_LAST_COMPLETED). Its due date and reminder counters are
+        kept. Reopening Task 13 of a completed sale makes the sale active again. A reason is required.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: The task in progress.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
 components:
   securitySchemes:
     bearerAuth:
@@ -1196,6 +1670,17 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    SaleId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TaskNumber:
+      name: n
+      in: path
+      required: true
+      description: The task number, 1 to 13.
+      schema: { type: integer, minimum: 1, maximum: 13 }
     EmployeeId:
       name: id
       in: path
@@ -1910,3 +2395,369 @@ components:
               id: { type: string, format: uuid }
               name: { type: string }
               mainImageUrl: { type: string, format: uri }
+    SaleState:
+      type: string
+      enum: [active, completed, cancelled]
+    SaleTemperature:
+      type: string
+      enum: [hot, warm, cold]
+    Sale:
+      type: object
+      description: |
+        A sale register. The customer and vehicle fields are snapshots taken when the sale was created and never
+        change. `currentTaskNumber` is null once all 13 tasks are completed.
+      required:
+        [
+          id,
+          customerId,
+          customerName,
+          customerDocumentType,
+          customerDocumentNumber,
+          customerType,
+          modelId,
+          versionId,
+          colorId,
+          modelName,
+          versionName,
+          colorName,
+          referencePrice,
+          temperature,
+          state,
+          advisorId,
+          advisorName,
+          completedTasks,
+          version,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        customerName: { type: string }
+        customerDocumentType: { type: string }
+        customerDocumentNumber: { type: string }
+        customerType: { type: string }
+        modelId: { type: string, format: uuid }
+        versionId: { type: string, format: uuid }
+        colorId: { type: string, format: uuid }
+        modelName: { type: string }
+        versionName: { type: string }
+        colorName: { type: string }
+        referencePrice:
+          { type: string, description: Decimal USD, for example "35000.00". }
+        temperature: { $ref: "#/components/schemas/SaleTemperature" }
+        state: { $ref: "#/components/schemas/SaleState" }
+        vehicleSeries: { type: string, nullable: true }
+        vin: { type: string, nullable: true }
+        licensePlate: { type: string, nullable: true }
+        advisorId: { type: string, format: uuid }
+        advisorName: { type: string }
+        notes: { type: string, nullable: true }
+        currentTaskNumber: { type: integer, nullable: true }
+        currentTaskStatus:
+          {
+            type: string,
+            nullable: true,
+            enum: [pending, in_progress, completed],
+          }
+        completedTasks: { type: integer }
+        completedAt: { type: string, format: date-time, nullable: true }
+        cancelledAt: { type: string, format: date-time, nullable: true }
+        cancelledAtTaskNumber: { type: integer, nullable: true }
+        cancellationCategory:
+          type: string
+          nullable: true
+          enum:
+            [
+              customer_withdrew,
+              payment_or_financing_failed,
+              unit_unavailable,
+              due_diligence_finding,
+              registration_error,
+              other,
+            ]
+        cancellationText: { type: string, nullable: true }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Milestone:
+      type: object
+      required: [number, name, state]
+      properties:
+        number: { type: integer, minimum: 1, maximum: 6 }
+        name: { type: string }
+        state: { type: string, enum: [pending, in_progress, completed] }
+    SaleDetail:
+      description: A sale with its six milestones.
+      allOf:
+        - $ref: "#/components/schemas/Sale"
+        - type: object
+          required: [milestones]
+          properties:
+            milestones:
+              type: array
+              items: { $ref: "#/components/schemas/Milestone" }
+    SaleList:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Sale" }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    CreateSaleRequest:
+      type: object
+      required: [customerId, versionId, colorId, temperature]
+      properties:
+        customerId: { type: string, format: uuid }
+        versionId:
+          {
+            type: string,
+            format: uuid,
+            description: The model is taken from the version.,
+          }
+        colorId: { type: string, format: uuid }
+        temperature: { $ref: "#/components/schemas/SaleTemperature" }
+        assignedAdvisorId: { type: string, format: uuid, nullable: true }
+        notes: { type: string, maxLength: 2000 }
+    UpdateSaleRequest:
+      type: object
+      required: [version]
+      properties:
+        version: { type: integer }
+        notes: { type: string, nullable: true, maxLength: 2000 }
+    ReassignSaleRequest:
+      type: object
+      required: [advisorId]
+      properties:
+        advisorId: { type: string, format: uuid }
+    CancelSaleRequest:
+      type: object
+      required: [category]
+      properties:
+        category:
+          type: string
+          enum:
+            [
+              customer_withdrew,
+              payment_or_financing_failed,
+              unit_unavailable,
+              due_diligence_finding,
+              registration_error,
+              other,
+            ]
+        text:
+          {
+            type: string,
+            maxLength: 500,
+            description: Required when the category is other.,
+          }
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    SaleHistoryEntry:
+      type: object
+      required: [id, actorKind, entityType, entityId, action, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        actorId: { type: string, format: uuid, nullable: true }
+        actorName: { type: string, nullable: true }
+        actorKind: { type: string, enum: [employee, system] }
+        entityType: { type: string }
+        entityId: { type: string, format: uuid }
+        action: { type: string }
+        changes: { type: object, nullable: true, additionalProperties: true }
+        reason: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    SaleHistory:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SaleHistoryEntry" }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    Task:
+      type: object
+      required: [id, number, name, milestoneNumber, status, eligible, version]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, minimum: 1, maximum: 13 }
+        name: { type: string }
+        milestoneNumber: { type: integer }
+        status: { type: string, enum: [pending, in_progress, completed] }
+        eligible:
+          {
+            type: boolean,
+            description: Pending and the previous task is completed.,
+          }
+        startedAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+        completionPhase:
+          type: string
+          nullable: true
+          enum:
+            [early, in_approaching, overdue, recurring_overdue, not_applicable]
+        durationHours: { type: integer, nullable: true }
+        notes: { type: string, nullable: true }
+        version: { type: integer }
+    TaskDetail:
+      description: |
+        A task with its data. The shape of `data` depends on the task number: 1 Task1Data, 2 Task2Data, 3 Task3Data,
+        4 and 5 PaymentData, 6 Task6Data, 7 empty, 8 Task8Data, 9 Task9Data, 10 Task10Data, 11 Task11Data,
+        12 Task12Data, 13 Task13Data. `requiredDocuments` lists the document slot codes the task needs.
+      allOf:
+        - $ref: "#/components/schemas/Task"
+        - type: object
+          required: [data, requiredDocuments]
+          properties:
+            data:
+              oneOf:
+                - $ref: "#/components/schemas/Task1Data"
+                - $ref: "#/components/schemas/Task2Data"
+                - $ref: "#/components/schemas/Task3Data"
+                - $ref: "#/components/schemas/PaymentData"
+                - $ref: "#/components/schemas/Task6Data"
+                - $ref: "#/components/schemas/Task8Data"
+                - $ref: "#/components/schemas/Task9Data"
+                - $ref: "#/components/schemas/Task10Data"
+                - $ref: "#/components/schemas/Task11Data"
+                - $ref: "#/components/schemas/Task12Data"
+                - $ref: "#/components/schemas/Task13Data"
+                - type: object
+                  description: Task 7 collects no fields.
+            requiredDocuments:
+              type: array
+              items: { type: string }
+    SaveTaskDataRequest:
+      type: object
+      required: [version, data]
+      properties:
+        version: { type: integer, description: The task's version. }
+        data:
+          type: object
+          description: The fields to change, with the keys of the task's data schema.
+          additionalProperties: true
+    Warning:
+      type: object
+      required: [field, code, message]
+      properties:
+        field: { type: string }
+        code: { type: string }
+        message: { type: string }
+    SaveTaskDataResult:
+      type: object
+      required: [task, warnings]
+      properties:
+        task: { $ref: "#/components/schemas/TaskDetail" }
+        warnings:
+          type: array
+          items: { $ref: "#/components/schemas/Warning" }
+    Task1Data:
+      type: object
+      description: Initial amounts. quotedFinalPrice is calculated.
+      properties:
+        initialToyotaAmount: { type: string, nullable: true }
+        initialCommission: { type: string, nullable: true }
+        accessoryAmount: { type: string, nullable: true }
+        releaseProcessingAmount: { type: string, nullable: true }
+        quotedFinalPrice: { type: string, nullable: true, readOnly: true }
+    Task2Data:
+      type: object
+      description: Due diligence. The document type and number are saved together.
+      properties:
+        signerDocumentType:
+          { type: string, nullable: true, enum: [DNI, CE, PAS, CDI] }
+        signerDocumentNumber: { type: string, nullable: true }
+        signerFirstName: { type: string, nullable: true }
+        signerLastName: { type: string, nullable: true }
+        signerNameSource:
+          { type: string, nullable: true, enum: [looked_up, manual] }
+        pepStatus:
+          { type: string, nullable: true, enum: [no_pep, pep, related_to_pep] }
+        ddcRegime: { type: string, nullable: true, enum: [general, reinforced] }
+    Task3Data:
+      type: object
+      description: Unit settlement. finalCommission is calculated and must be greater than zero.
+      properties:
+        vehicleSeries: { type: string, nullable: true }
+        vin: { type: string, nullable: true }
+        finalToyotaAmount: { type: string, nullable: true }
+        finalCommission: { type: string, nullable: true, readOnly: true }
+    PaymentData:
+      type: object
+      description: |
+        Task 4 (payment to Grupo Pana, expected to equal the quoted final price) and Task 5 (payment to Toyota,
+        expected to equal the final Toyota amount). expectedAmount is calculated.
+      properties:
+        bank:
+          {
+            type: string,
+            nullable: true,
+            enum: [bcp, bbva, scotiabank, interbank],
+          }
+        paymentDate: { type: string, format: date, nullable: true }
+        transactionNumber: { type: string, nullable: true }
+        depositedAmount: { type: string, nullable: true }
+        expectedAmount: { type: string, nullable: true, readOnly: true }
+        mismatchReason: { type: string, nullable: true }
+    InvoiceData:
+      type: object
+      properties:
+        number:
+          {
+            type: string,
+            nullable: true,
+            description: "Series, hyphen and correlative, for example F001-000123.",
+          }
+        date: { type: string, format: date, nullable: true }
+        amount: { type: string, nullable: true }
+        expectedAmount: { type: string, nullable: true, readOnly: true }
+        mismatchReason: { type: string, nullable: true }
+    Task6Data:
+      type: object
+      description: The four invoices. Expected amounts come from Tasks 1 and 3.
+      properties:
+        toyota: { $ref: "#/components/schemas/InvoiceData" }
+        commission: { $ref: "#/components/schemas/InvoiceData" }
+        accessories: { $ref: "#/components/schemas/InvoiceData" }
+        releaseProcessing: { $ref: "#/components/schemas/InvoiceData" }
+    Task8Data:
+      type: object
+      properties:
+        damNumber: { type: string, nullable: true }
+        customsOffice:
+          { type: string, nullable: true, enum: [callao_maritima, chancay] }
+        controlChannel:
+          { type: string, nullable: true, enum: [green, orange, red] }
+    Task9Data:
+      type: object
+      properties:
+        personInCharge: { type: string, nullable: true }
+    Task10Data:
+      type: object
+      properties:
+        licensePlate: { type: string, nullable: true }
+        registrationDate: { type: string, format: date, nullable: true }
+    Task11Data:
+      type: object
+      properties:
+        transferDate: { type: string, format: date, nullable: true }
+    Task12Data:
+      type: object
+      properties:
+        serviceOrderNumber: { type: string, nullable: true }
+        completionDate: { type: string, format: date, nullable: true }
+    Task13Data:
+      type: object
+      description: The Surquillo transfer date is optional.
+      properties:
+        surquilloTransferDate: { type: string, format: date, nullable: true }
+        deliveryDate: { type: string, format: date, nullable: true }

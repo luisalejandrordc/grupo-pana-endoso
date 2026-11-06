@@ -15,8 +15,10 @@ import (
 
 // Entity types and actions. The database only accepts valid pairs (see audit_logs_valid_pair).
 const (
-	EntityEmployee = "employee"
-	EntityCustomer = "customer"
+	EntityEmployee     = "employee"
+	EntityCustomer     = "customer"
+	EntitySaleRegister = "sale_register"
+	EntityTaskInstance = "task_instance"
 
 	EntityVehicleModel   = "vehicle_model"
 	EntityVehicleVersion = "vehicle_version"
@@ -32,6 +34,13 @@ const (
 	ActionUploaded    = "UPLOADED"
 	ActionReplaced    = "REPLACED"
 	ActionRemoved     = "REMOVED"
+	ActionStarted     = "STARTED"
+	ActionCompleted   = "COMPLETED"
+	ActionRestarted   = "RESTARTED"
+	ActionReopened    = "REOPENED"
+	ActionCorrected   = "CORRECTED"
+	ActionCancelled   = "CANCELLED"
+	ActionReassigned  = "REASSIGNED"
 )
 
 type execer interface {
