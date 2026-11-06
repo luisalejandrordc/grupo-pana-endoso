@@ -2444,7 +2444,7 @@ components:
         versionName: { type: string }
         colorName: { type: string }
         referencePrice:
-          { type: string, description: Decimal USD, for example "35000.00". }
+          { type: string, description: "Decimal USD, for example 35000.00." }
         temperature: { $ref: "#/components/schemas/SaleTemperature" }
         state: { $ref: "#/components/schemas/SaleState" }
         vehicleSeries: { type: string, nullable: true }
