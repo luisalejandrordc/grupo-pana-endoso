@@ -1188,17 +1188,45 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: q, in: query, schema: { type: string } }
-        - { name: state, in: query, schema: { $ref: "#/components/schemas/SaleState" } }
-        - { name: currentTask, in: query, schema: { type: integer, minimum: 1, maximum: 13 } }
-        - { name: milestone, in: query, schema: { type: integer, minimum: 1, maximum: 6 } }
+        - {
+            name: state,
+            in: query,
+            schema: { $ref: "#/components/schemas/SaleState" },
+          }
+        - {
+            name: currentTask,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 13 },
+          }
+        - {
+            name: milestone,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 6 },
+          }
         - { name: advisorId, in: query, schema: { type: string, format: uuid } }
         - { name: customerType, in: query, schema: { type: string } }
-        - { name: temperature, in: query, schema: { $ref: "#/components/schemas/SaleTemperature" } }
+        - {
+            name: temperature,
+            in: query,
+            schema: { $ref: "#/components/schemas/SaleTemperature" },
+          }
         - { name: modelId, in: query, schema: { type: string, format: uuid } }
         - { name: versionId, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1 } }
-        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
-        - { name: sort, in: query, schema: { type: string, enum: [createdAt, -createdAt, customerName, -customerName] } }
+        - {
+            name: pageSize,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100 },
+          }
+        - {
+            name: sort,
+            in: query,
+            schema:
+              {
+                type: string,
+                enum: [createdAt, -createdAt, customerName, -customerName],
+              },
+          }
       responses:
         "200":
           description: One page of sales.
@@ -1319,7 +1347,11 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1 } }
-        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - {
+            name: pageSize,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100 },
+          }
       responses:
         "200":
           description: One page of history.
@@ -2578,7 +2610,8 @@ components:
         modelName: { type: string }
         versionName: { type: string }
         colorName: { type: string }
-        referencePrice: { type: string, description: "Decimal USD, for example 35000.00." }
+        referencePrice:
+          { type: string, description: "Decimal USD, for example 35000.00." }
         temperature: { $ref: "#/components/schemas/SaleTemperature" }
         state: { $ref: "#/components/schemas/SaleState" }
         vehicleSeries: { type: string, nullable: true }
@@ -2588,7 +2621,12 @@ components:
         advisorName: { type: string }
         notes: { type: string, nullable: true }
         currentTaskNumber: { type: integer, nullable: true }
-        currentTaskStatus: { type: string, nullable: true, enum: [pending, in_progress, completed] }
+        currentTaskStatus:
+          {
+            type: string,
+            nullable: true,
+            enum: [pending, in_progress, completed],
+          }
         completedTasks: { type: integer }
         completedAt: { type: string, format: date-time, nullable: true }
         cancelledAt: { type: string, format: date-time, nullable: true }
@@ -2641,7 +2679,12 @@ components:
       required: [customerId, versionId, colorId, temperature]
       properties:
         customerId: { type: string, format: uuid }
-        versionId: { type: string, format: uuid, description: The model is taken from the version. }
+        versionId:
+          {
+            type: string,
+            format: uuid,
+            description: The model is taken from the version.,
+          }
         colorId: { type: string, format: uuid }
         temperature: { $ref: "#/components/schemas/SaleTemperature" }
         assignedAdvisorId: { type: string, format: uuid, nullable: true }
@@ -2672,7 +2715,12 @@ components:
               registration_error,
               other,
             ]
-        text: { type: string, maxLength: 500, description: Required when the category is other. }
+        text:
+          {
+            type: string,
+            maxLength: 500,
+            description: Required when the category is other.,
+          }
     ReasonRequest:
       type: object
       required: [reason]
@@ -2711,14 +2759,19 @@ components:
         name: { type: string }
         milestoneNumber: { type: integer }
         status: { type: string, enum: [pending, in_progress, completed] }
-        eligible: { type: boolean, description: Pending and the previous task is completed. }
+        eligible:
+          {
+            type: boolean,
+            description: Pending and the previous task is completed.,
+          }
         startedAt: { type: string, format: date-time, nullable: true }
         completedAt: { type: string, format: date-time, nullable: true }
         dueDate: { type: string, format: date-time, nullable: true }
         completionPhase:
           type: string
           nullable: true
-          enum: [early, in_approaching, overdue, recurring_overdue, not_applicable]
+          enum:
+            [early, in_approaching, overdue, recurring_overdue, not_applicable]
         durationHours: { type: integer, nullable: true }
         notes: { type: string, nullable: true }
         version: { type: integer }
@@ -2755,7 +2808,12 @@ components:
       required: [version, data]
       properties:
         version: { type: integer, description: The task's version. }
-        reason: { type: string, maxLength: 500, description: Required only when the task is already completed. }
+        reason:
+          {
+            type: string,
+            maxLength: 500,
+            description: Required only when the task is already completed.,
+          }
         data:
           type: object
           description: The fields to change, with the keys of the task's data schema.
@@ -2788,12 +2846,15 @@ components:
       type: object
       description: Due diligence. The document type and number are saved together.
       properties:
-        signerDocumentType: { type: string, nullable: true, enum: [DNI, CE, PAS, CDI] }
+        signerDocumentType:
+          { type: string, nullable: true, enum: [DNI, CE, PAS, CDI] }
         signerDocumentNumber: { type: string, nullable: true }
         signerFirstName: { type: string, nullable: true }
         signerLastName: { type: string, nullable: true }
-        signerNameSource: { type: string, nullable: true, enum: [looked_up, manual] }
-        pepStatus: { type: string, nullable: true, enum: [no_pep, pep, related_to_pep] }
+        signerNameSource:
+          { type: string, nullable: true, enum: [looked_up, manual] }
+        pepStatus:
+          { type: string, nullable: true, enum: [no_pep, pep, related_to_pep] }
         ddcRegime: { type: string, nullable: true, enum: [general, reinforced] }
     Task3Data:
       type: object
@@ -2809,7 +2870,12 @@ components:
         Task 4 (payment to Grupo Pana, expected to equal the quoted final price) and Task 5 (payment to Toyota,
         expected to equal the final Toyota amount). expectedAmount is calculated.
       properties:
-        bank: { type: string, nullable: true, enum: [bcp, bbva, scotiabank, interbank] }
+        bank:
+          {
+            type: string,
+            nullable: true,
+            enum: [bcp, bbva, scotiabank, interbank],
+          }
         paymentDate: { type: string, format: date, nullable: true }
         transactionNumber: { type: string, nullable: true }
         depositedAmount: { type: string, nullable: true }
@@ -2818,7 +2884,12 @@ components:
     InvoiceData:
       type: object
       properties:
-        number: { type: string, nullable: true, description: "Series, hyphen and correlative, for example F001-000123." }
+        number:
+          {
+            type: string,
+            nullable: true,
+            description: "Series, hyphen and correlative, for example F001-000123.",
+          }
         date: { type: string, format: date, nullable: true }
         amount: { type: string, nullable: true }
         expectedAmount: { type: string, nullable: true, readOnly: true }
@@ -2835,8 +2906,10 @@ components:
       type: object
       properties:
         damNumber: { type: string, nullable: true }
-        customsOffice: { type: string, nullable: true, enum: [callao_maritima, chancay] }
-        controlChannel: { type: string, nullable: true, enum: [green, orange, red] }
+        customsOffice:
+          { type: string, nullable: true, enum: [callao_maritima, chancay] }
+        controlChannel:
+          { type: string, nullable: true, enum: [green, orange, red] }
     Task9Data:
       type: object
       properties:
@@ -2866,11 +2939,26 @@ components:
       required: [reason, confirmation]
       properties:
         reason: { type: string, minLength: 1, maxLength: 500 }
-        confirmation: { type: string, description: The customer's document number, typed by the Admin. }
+        confirmation:
+          {
+            type: string,
+            description: The customer's document number,
+            typed by the Admin.,
+          }
     DocumentFile:
       type: object
       description: The current file of a slot.
-      required: [id, fileName, mimeType, sizeBytes, checksumSha256, uploadedById, uploadedBy, uploadedAt]
+      required:
+        [
+          id,
+          fileName,
+          mimeType,
+          sizeBytes,
+          checksumSha256,
+          uploadedById,
+          uploadedBy,
+          uploadedAt,
+        ]
       properties:
         id: { type: string, format: uuid }
         fileName: { type: string }
@@ -2882,14 +2970,23 @@ components:
         uploadedAt: { type: string, format: date-time }
     DocumentSlot:
       type: object
-      required: [slotCode, taskNumber, label, allowedFormat, customerVisible, required]
+      required:
+        [slotCode, taskNumber, label, allowedFormat, customerVisible, required]
       properties:
         slotCode: { type: string }
         taskNumber: { type: integer, minimum: 1, maximum: 13 }
         label: { type: string }
         allowedFormat: { type: string, enum: [pdf, excel] }
-        customerVisible: { type: boolean, description: Fixed by the slot; the customer portal shows only these. }
-        required: { type: boolean, description: Needed to complete the task for this sale's customer type. }
+        customerVisible:
+          {
+            type: boolean,
+            description: Fixed by the slot; the customer portal shows only these.,
+          }
+        required:
+          {
+            type: boolean,
+            description: Needed to complete the task for this sale's customer type.,
+          }
         file:
           nullable: true
           allOf:
