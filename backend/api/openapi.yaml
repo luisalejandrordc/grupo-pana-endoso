@@ -2942,8 +2942,7 @@ components:
         confirmation:
           {
             type: string,
-            description: The customer's document number,
-            typed by the Admin.,
+            description: "The customer's document number, typed by the Admin.",
           }
     DocumentFile:
       type: object
