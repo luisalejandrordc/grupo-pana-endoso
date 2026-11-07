@@ -92,3 +92,19 @@ func anyInProgress(ctx context.Context, q Querier, saleID uuid.UUID) (bool, erro
 		saleID).Scan(&busy)
 	return busy, err
 }
+
+// TaskInfo is the little the documents module needs to know about a task.
+type TaskInfo struct {
+	ID     uuid.UUID
+	Number int
+	Status string
+}
+
+// FindTask returns a task of a sale, or (nil, nil) when it does not exist. With forUpdate the row is locked.
+func FindTask(ctx context.Context, q Querier, saleID uuid.UUID, number int, forUpdate bool) (*TaskInfo, error) {
+	t, err := findTask(ctx, q, saleID, number, forUpdate)
+	if err != nil || t == nil {
+		return nil, err
+	}
+	return &TaskInfo{ID: t.ID, Number: t.Number, Status: t.Status}, nil
+}

@@ -136,7 +136,7 @@ func (s *Service) detail(ctx context.Context, q Querier, sale *SaleRef, number i
 	if err != nil {
 		return nil, err
 	}
-	return &Detail{Task: t.Task, Data: data, RequiredDocuments: requiredSlots(number, sale.CustomerType)}, nil
+	return &Detail{Task: t.Task, Data: data, RequiredDocuments: RequiredSlots(number, sale.CustomerType)}, nil
 }
 
 // refreshed returns the sale as it is now, inside the transaction that changed it.
@@ -283,7 +283,7 @@ func (s *Service) Complete(ctx context.Context, actor auth.Actor, saleID uuid.UU
 		if err != nil {
 			return err
 		}
-		missing, err := s.documents.MissingSlots(ctx, tx, t.ID, requiredSlots(number, sale.CustomerType))
+		missing, err := s.documents.MissingSlots(ctx, tx, t.ID, RequiredSlots(number, sale.CustomerType))
 		if err != nil {
 			return err
 		}

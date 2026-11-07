@@ -54,9 +54,9 @@ func kindFor(number int) kind {
 	return nil
 }
 
-// requiredSlots lists the document slots a task needs before it can be completed. Power of attorney
+// RequiredSlots lists the document slots a task needs before it can be completed. Power of attorney
 // (Task 2) is only needed when the customer is not a Diplomático.
-func requiredSlots(number int, customerType string) []string {
+func RequiredSlots(number int, customerType string) []string {
 	switch number {
 	case 1:
 		return []string{"quotation_pdf", "quotation_excel"}

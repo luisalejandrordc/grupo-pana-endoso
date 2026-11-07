@@ -28,20 +28,20 @@ func TestRequiredSlots(t *testing.T) {
 		}
 		return false
 	}
-	if has(requiredSlots(2, "diplomatico"), "power_of_attorney") {
+	if has(RequiredSlots(2, "diplomatico"), "power_of_attorney") {
 		t.Error("a Diplomático needs no power of attorney")
 	}
 	for _, customerType := range []string{"embajada", "entidad_religiosa_catolica", "organismo_internacional"} {
-		if !has(requiredSlots(2, customerType), "power_of_attorney") {
+		if !has(RequiredSlots(2, customerType), "power_of_attorney") {
 			t.Errorf("%s needs a power of attorney", customerType)
 		}
 	}
 	for _, n := range []int{9, 11} {
-		if got := requiredSlots(n, "embajada"); got == nil || len(got) != 0 {
+		if got := RequiredSlots(n, "embajada"); got == nil || len(got) != 0 {
 			t.Errorf("task %d needs no document and must list an empty array, got %v", n, got)
 		}
 	}
-	if got := requiredSlots(6, "embajada"); len(got) != 4 {
+	if got := RequiredSlots(6, "embajada"); len(got) != 4 {
 		t.Errorf("task 6 needs its four invoices, got %v", got)
 	}
 }
