@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,6 +162,76 @@ func TestMemoryStoreAndUnconfigured(t *testing.T) {
 		t.Fatal("delete did not remove the object")
 	}
 	if err := Unconfigured().Put(context.Background(), "a", "x", nil); err != ErrNotConfigured {
+		t.Fatalf("unconfigured: %v", err)
+	}
+}
+
+// The example of a presigned GET from the AWS documentation ("Authenticating Requests: Using Query
+// Parameters"). The same signature proves the canonical request and key derivation are right.
+func TestPresignV4MatchesTheAWSDocumentationExample(t *testing.T) {
+	u, err := url.Parse("https://examplebucket.s3.amazonaws.com/test.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := presignV4(u, "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "us-east-1", "s3",
+		time.Date(2013, 5, 24, 0, 0, 0, 0, time.UTC), 86400*time.Second)
+	want := "https://examplebucket.s3.amazonaws.com/test.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256" +
+		"&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request" +
+		"&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host" +
+		"&X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404"
+	if got != want {
+		t.Fatalf("presigned URL\n got: %s\nwant: %s", got, want)
+	}
+}
+
+func TestR2SignedURLCarriesTheFileNameAndTheLifetime(t *testing.T) {
+	store := NewR2(R2Config{
+		AccountID: "acct", AccessKeyID: "AKID", SecretAccessKey: "secret", Bucket: "docs",
+		Now: func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC) },
+	})
+	raw, err := store.SignedURL(context.Background(), "documents/s1/d1.pdf", `Constancia "final"; ñ.pdf`, 5*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Host != "acct.r2.cloudflarestorage.com" || u.Path != "/docs/documents/s1/d1.pdf" {
+		t.Fatalf("address = %s", raw)
+	}
+	q := u.Query()
+	if q.Get("X-Amz-Expires") != "300" || q.Get("X-Amz-Signature") == "" || q.Get("X-Amz-SignedHeaders") != "host" {
+		t.Fatalf("query = %v", q)
+	}
+	disposition := q.Get("response-content-disposition")
+	if !strings.HasPrefix(disposition, "attachment; filename=") || strings.Contains(disposition, `"final"`) ||
+		!strings.Contains(disposition, "filename*=UTF-8''") || !strings.Contains(disposition, "%C3%B1") {
+		t.Fatalf("content disposition = %q", disposition)
+	}
+	if strings.Contains(raw, "secret") {
+		t.Fatal("the secret key must never appear in a URL")
+	}
+	for _, ttl := range []time.Duration{0, -time.Second, 8 * 24 * time.Hour} {
+		if _, err := store.SignedURL(context.Background(), "k", "a.pdf", ttl); err == nil {
+			t.Errorf("a lifetime of %s must be refused", ttl)
+		}
+	}
+}
+
+func TestLocalMemoryAndUnconfiguredSignedURLs(t *testing.T) {
+	local := NewLocal(t.TempDir(), "http://localhost:8080/media/")
+	if got, err := local.SignedURL(context.Background(), "documents/a.pdf", "a.pdf", time.Minute); err != nil || got != "http://localhost:8080/media/documents/a.pdf" {
+		t.Fatalf("local: %q, %v", got, err)
+	}
+	if _, err := local.SignedURL(context.Background(), "../secret", "a.pdf", time.Minute); err == nil {
+		t.Fatal("local must refuse a key that escapes the folder")
+	}
+	mem := NewMemory("https://m.test")
+	if got, _ := mem.SignedURL(context.Background(), "k", "a b.pdf", 5*time.Minute); got != "https://m.test/k?name=a+b.pdf&ttl=5m0s" {
+		t.Fatalf("memory: %q", got)
+	}
+	if _, err := Unconfigured().SignedURL(context.Background(), "k", "a.pdf", time.Minute); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("unconfigured: %v", err)
 	}
 }

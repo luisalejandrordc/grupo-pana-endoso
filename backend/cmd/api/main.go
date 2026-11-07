@@ -9,6 +9,7 @@ import (
 	"endosoflow/internal/auth"
 	"endosoflow/internal/catalog"
 	"endosoflow/internal/customers"
+	"endosoflow/internal/documents"
 	"endosoflow/internal/platform/config"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/logging"
@@ -96,23 +97,35 @@ func run() error {
 	catalogService := catalog.NewService(catalog.Deps{DB: pool, Store: store, Logger: logger})
 	catalogHandler := catalog.NewHandler(catalogService, authHandler, logger)
 
-	// Sales and the task engine. Document checks come with phase 1F: until then a stand-in that reports
-	// nothing missing is wired in local and test environments only, and everywhere else completing a
-	// task answers DOCUMENTS_UNAVAILABLE.
-	var documents tasks.DocumentChecker
-	if cfg.Env == "local" || cfg.Env == "test" {
-		documents = tasks.StubDocuments{}
-		logger.Warn("document checks are stubbed: tasks can be completed without their documents")
-	} else {
-		logger.Warn("document checks are not available yet: tasks cannot be completed")
+	// Sales, documents and the task engine. The task engine asks the documents service which required files
+	// are missing. Documents live in private storage: without R2 (or the local folder in local and test
+	// environments) uploads and downloads answer STORAGE_UNAVAILABLE, but completion checks still work.
+	// Sale documents are private: R2 uses its own bucket with no public access, never the public catalog
+	// bucket. Local and test environments keep them in the local folder, which is public and for development
+	// only. Anywhere else without a documents bucket, uploads and downloads fail loudly.
+	var documentStore storage.Store = storage.Unconfigured()
+	switch {
+	case cfg.R2Configured() && cfg.R2DocumentsBucket != "":
+		documentStore = storage.NewR2(storage.R2Config{
+			AccountID: cfg.R2AccountID, AccessKeyID: cfg.R2AccessKeyID, SecretAccessKey: cfg.R2SecretAccessKey,
+			Bucket: cfg.R2DocumentsBucket, PublicBaseURL: cfg.R2PublicBaseURL, Endpoint: cfg.R2Endpoint,
+		})
+	case localStore != nil:
+		documentStore = localStore
+		logger.Warn("documents are kept on the local media folder, which is public: development only")
+	default:
+		logger.Warn("R2_DOCUMENTS_BUCKET is not configured: document uploads and downloads will fail")
 	}
+	salesGate := sales.Gate{}
 	salesService := sales.NewService(sales.Deps{DB: pool, Logger: logger})
 	salesHandler := sales.NewHandler(salesService, authHandler, logger)
-	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: sales.Gate{}, Documents: documents, Logger: logger})
+	documentsService := documents.NewService(documents.Deps{DB: pool, Store: documentStore, Sales: salesGate, Logger: logger})
+	documentsHandler := documents.NewHandler(documentsService, authHandler, logger)
+	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: salesGate, Documents: documentsService, Logger: logger})
 	tasksHandler := tasks.NewHandler(tasksService, authHandler, logger)
 
 	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount,
-		salesHandler.Mount, tasksHandler.Mount)
+		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount)
 	if localStore != nil {
 		mux := http.NewServeMux()
 		mux.Handle("/media/", http.StripPrefix("/media/", localStore.Handler()))

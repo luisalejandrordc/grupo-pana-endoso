@@ -19,6 +19,7 @@ const (
 	EntityCustomer     = "customer"
 	EntitySaleRegister = "sale_register"
 	EntityTaskInstance = "task_instance"
+	EntityDocument     = "document"
 
 	EntityVehicleModel   = "vehicle_model"
 	EntityVehicleVersion = "vehicle_version"

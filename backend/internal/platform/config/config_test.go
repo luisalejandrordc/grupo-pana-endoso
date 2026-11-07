@@ -151,3 +151,32 @@ func TestLoadRejectsAHalfConfiguredR2WithoutLeakingValues(t *testing.T) {
 		t.Fatalf("the error must not echo secrets: %v", err)
 	}
 }
+
+func TestLoadRequiresADifferentPrivateBucketForDocuments(t *testing.T) {
+	full := map[string]string{
+		"R2_ACCOUNT_ID": "acct", "R2_ACCESS_KEY_ID": "key", "R2_SECRET_ACCESS_KEY": "secret",
+		"R2_BUCKET": "endosoflow", "R2_PUBLIC_BASE_URL": "https://img.example.pe",
+	}
+	with := func(extra map[string]string) map[string]string {
+		out := map[string]string{}
+		for k, v := range full {
+			out[k] = v
+		}
+		for k, v := range extra {
+			out[k] = v
+		}
+		return out
+	}
+	cfg, err := Load(env(withBase(with(map[string]string{"R2_DOCUMENTS_BUCKET": " endosoflow-docs "}))))
+	if err != nil || cfg.R2DocumentsBucket != "endosoflow-docs" {
+		t.Fatalf("a separate documents bucket must be accepted and trimmed: %+v, %v", cfg, err)
+	}
+	if _, err := Load(env(withBase(with(map[string]string{"R2_DOCUMENTS_BUCKET": "endosoflow"})))); err == nil ||
+		!strings.Contains(err.Error(), "R2_DOCUMENTS_BUCKET") {
+		t.Fatalf("the public bucket must be refused for documents: %v", err)
+	}
+	if _, err := Load(env(withBase(map[string]string{"R2_DOCUMENTS_BUCKET": "docs"}))); err == nil ||
+		!strings.Contains(err.Error(), "R2_DOCUMENTS_BUCKET") {
+		t.Fatalf("a documents bucket without the rest of R2 must be refused: %v", err)
+	}
+}

@@ -33,6 +33,9 @@ type Config struct {
 	R2Bucket          string
 	R2PublicBaseURL   string
 	R2Endpoint        string // optional override, for tests
+	// R2DocumentsBucket is the private bucket for sale documents. It must not be the public catalog bucket: a
+	// document in a public bucket would be readable by anyone who guesses its address.
+	R2DocumentsBucket string
 	LocalMediaDir     string
 	MediaBaseURL      string
 }
@@ -144,6 +147,13 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if setCount > 0 && setCount < len(r2Values) {
 		problems = append(problems, "R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET and R2_PUBLIC_BASE_URL must be set together")
+	}
+	cfg.R2DocumentsBucket = strings.TrimSpace(getenv("R2_DOCUMENTS_BUCKET"))
+	switch {
+	case cfg.R2DocumentsBucket != "" && cfg.R2AccountID == "":
+		problems = append(problems, "R2_DOCUMENTS_BUCKET needs the other R2 settings (account, keys and R2_BUCKET)")
+	case cfg.R2DocumentsBucket != "" && cfg.R2DocumentsBucket == cfg.R2Bucket:
+		problems = append(problems, "R2_DOCUMENTS_BUCKET must be a different, private bucket than R2_BUCKET, which is public")
 	}
 	cfg.LocalMediaDir = valueOr(getenv("LOCAL_MEDIA_DIR"), "./var/media")
 	cfg.MediaBaseURL = strings.TrimRight(valueOr(getenv("MEDIA_BASE_URL"), "http://localhost:8080/media"), "/")

@@ -54,6 +54,77 @@ func NewR2(cfg R2Config) *R2 {
 
 func (r *R2) PublicURL(key string) string { return r.cfg.PublicBaseURL + "/" + key }
 
+// SignedURL returns a presigned GET address (AWS Signature Version 4 in the query string) that expires after
+// ttl and makes the browser save the object as fileName. R2 allows at most seven days.
+func (r *R2) SignedURL(_ context.Context, key, fileName string, ttl time.Duration) (string, error) {
+	if ttl <= 0 || ttl > 7*24*time.Hour {
+		return "", fmt.Errorf("r2 signed url: lifetime %s is not allowed", ttl)
+	}
+	u, err := url.Parse(r.cfg.Endpoint + escapePath("/"+r.cfg.Bucket+"/"+key))
+	if err != nil {
+		return "", err
+	}
+	query := u.Query()
+	query.Set("response-content-disposition", contentDisposition(fileName))
+	u.RawQuery = query.Encode()
+	return presignV4(u, r.cfg.AccessKeyID, r.cfg.SecretAccessKey, "auto", "s3", r.now(), ttl), nil
+}
+
+// contentDisposition makes a download header that keeps accents in the file name and cannot be broken out of.
+func contentDisposition(fileName string) string {
+	ascii := make([]rune, 0, len(fileName))
+	for _, c := range fileName {
+		switch {
+		case c < 0x20 || c == 0x7f || c == '"' || c == '\\' || c == ';' || c == '%':
+			ascii = append(ascii, '_')
+		case c > 0x7e:
+			ascii = append(ascii, '_')
+		default:
+			ascii = append(ascii, c)
+		}
+	}
+	return `attachment; filename="` + string(ascii) + `"; filename*=UTF-8''` + awsEscape(fileName)
+}
+
+// presignV4 returns u with the X-Amz-* query parameters and signature of a GET that is valid for ttl.
+// Only the host header is signed and the payload is not, as S3 expects for a presigned download.
+func presignV4(u *url.URL, accessKey, secretKey, region, service string, t time.Time, ttl time.Duration) string {
+	t = t.UTC()
+	amzDate := t.Format("20060102T150405Z")
+	day := t.Format("20060102")
+	scope := day + "/" + region + "/" + service + "/aws4_request"
+
+	signed := *u
+	query := signed.Query()
+	query.Set("X-Amz-Algorithm", "AWS4-HMAC-SHA256")
+	query.Set("X-Amz-Credential", accessKey+"/"+scope)
+	query.Set("X-Amz-Date", amzDate)
+	query.Set("X-Amz-Expires", fmt.Sprintf("%d", int64(ttl.Seconds())))
+	query.Set("X-Amz-SignedHeaders", "host")
+	signed.RawQuery = query.Encode()
+
+	canonicalRequest := strings.Join([]string{
+		http.MethodGet,
+		signed.EscapedPath(),
+		canonicalQuery(&signed),
+		"host:" + signed.Host + "\n",
+		"host",
+		"UNSIGNED-PAYLOAD",
+	}, "\n")
+	hashed := sha256.Sum256([]byte(canonicalRequest))
+	stringToSign := strings.Join([]string{"AWS4-HMAC-SHA256", amzDate, scope, hex.EncodeToString(hashed[:])}, "\n")
+
+	key := hmacSHA256([]byte("AWS4"+secretKey), day)
+	key = hmacSHA256(key, region)
+	key = hmacSHA256(key, service)
+	key = hmacSHA256(key, "aws4_request")
+	signature := hex.EncodeToString(hmacSHA256(key, stringToSign))
+
+	// The signature goes last, after the sorted parameters it covers.
+	signed.RawQuery = query.Encode() + "&X-Amz-Signature=" + signature
+	return signed.String()
+}
+
 func (r *R2) Put(ctx context.Context, key, contentType string, data []byte) error {
 	res, err := r.do(ctx, http.MethodPut, key, contentType, data)
 	if err != nil {

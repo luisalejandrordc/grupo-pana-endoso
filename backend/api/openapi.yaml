@@ -29,7 +29,8 @@ info:
     TASK_NOT_IN_PROGRESS, TASK_NOT_ELIGIBLE, TASK_ALREADY_IN_PROGRESS, TASK_NOT_LAST_COMPLETED,
     DOCUMENTS_UNAVAILABLE, DOCUMENT_REQUIRED, DOCUMENT_PAIR_REQUIRED, INVALID_DOCUMENT, INVALID_AMOUNT,
     INVALID_DATE, COMMISSION_NOT_POSITIVE, MISMATCH_REASON_REQUIRED, INVOICE_NUMBER_INVALID, VIN_INVALID,
-    PLATE_INVALID, REASON_TOO_LONG,
+    PLATE_INVALID, REASON_TOO_LONG, DOCUMENT_SLOT_NOT_FOUND, DOCUMENT_NOT_FOUND, DOCUMENT_TOO_LARGE,
+    DOCUMENT_TYPE_NOT_ALLOWED,
     INTERNAL_ERROR.
 
     **Authentication.** Employees sign in with `POST /auth/employee/login` and send the returned access token as
@@ -45,6 +46,7 @@ tags:
   - name: Catalog
   - name: Sales
   - name: Tasks
+  - name: Documents
 paths:
   /health:
     get:
@@ -1639,6 +1641,128 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+  /sales/{id}/documents:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+    get:
+      tags: [Documents]
+      operationId: listSaleDocuments
+      summary: Every document slot of a sale with its current file
+      description: |
+        One entry per slot, in task order. `required` says whether the task engine needs the slot for this sale's
+        customer type (the power of attorney is not required for a Diplomático). A sale outside an Advisor's scope
+        answers 404.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The slots.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentSlotList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /sales/{id}/tasks/{n}/documents/{slot}:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+      - $ref: "#/components/parameters/TaskNumber"
+      - $ref: "#/components/parameters/DocumentSlot"
+    put:
+      tags: [Documents]
+      operationId: uploadSaleDocument
+      summary: Upload a file to a slot, replacing the current one
+      description: |
+        `multipart/form-data` with one `file` part and an optional `reason` text part. The file is checked by its
+        content, not its name or declared type: a PDF slot takes only a PDF and an Excel slot only an .xlsx or .xls
+        workbook, up to 10 MB (DOCUMENT_TYPE_NOT_ALLOWED, DOCUMENT_TOO_LARGE). While the task is in progress its
+        actors (the assigned Advisor, a Manager, an Admin) can upload. On a completed task only a Manager or Admin can
+        replace a file, and `reason` is then required. A new file answers 201 and a replacement 200. The replaced
+        file is deleted from storage after the change commits.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: The file replaced the previous one.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentFile" }
+        "201":
+          description: The file was stored in an empty slot.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentFile" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413":
+          description: The file is larger than 10 MB (DOCUMENT_TOO_LARGE).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503":
+          description: File storage is not available (STORAGE_UNAVAILABLE).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Documents]
+      operationId: removeSaleDocument
+      summary: Remove the file of a slot
+      description: |
+        Allowed only while the task is in progress; a completed task can have a file replaced but never removed. The
+        stored file is deleted after the change commits and the removal is audited.
+      security:
+        - bearerAuth: []
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /documents/{id}/download-url:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Documents]
+      operationId: getDocumentDownloadUrl
+      summary: A short-lived signed address to download a file
+      description: |
+        Issued only after the caller's role and scope are checked; a document of a sale outside an Advisor's scope
+        answers 404. The address expires after a few minutes and makes the browser save the file under its original
+        name. Storage addresses are never exposed in any other way.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The signed address.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDownload" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503":
+          description: File storage is not available (STORAGE_UNAVAILABLE).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 components:
   securitySchemes:
     bearerAuth:
@@ -1681,6 +1805,12 @@ components:
       required: true
       description: The task number, 1 to 13.
       schema: { type: integer, minimum: 1, maximum: 13 }
+    DocumentSlot:
+      name: slot
+      in: path
+      required: true
+      description: The slot code, such as quotation_pdf. It must belong to the task in the path.
+      schema: { type: string }
     EmployeeId:
       name: id
       in: path
@@ -2761,3 +2891,64 @@ components:
       properties:
         surquilloTransferDate: { type: string, format: date, nullable: true }
         deliveryDate: { type: string, format: date, nullable: true }
+    DocumentFile:
+      type: object
+      description: The current file of a slot.
+      required:
+        [
+          id,
+          fileName,
+          mimeType,
+          sizeBytes,
+          checksumSha256,
+          uploadedById,
+          uploadedBy,
+          uploadedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        fileName: { type: string }
+        mimeType: { type: string }
+        sizeBytes: { type: integer }
+        checksumSha256: { type: string }
+        uploadedById: { type: string, format: uuid }
+        uploadedBy: { type: string }
+        uploadedAt: { type: string, format: date-time }
+    DocumentSlot:
+      type: object
+      required:
+        [slotCode, taskNumber, label, allowedFormat, customerVisible, required]
+      properties:
+        slotCode: { type: string }
+        taskNumber: { type: integer, minimum: 1, maximum: 13 }
+        label: { type: string }
+        allowedFormat: { type: string, enum: [pdf, excel] }
+        customerVisible:
+          {
+            type: boolean,
+            description: Fixed by the slot; the customer portal shows only these.,
+          }
+        required:
+          {
+            type: boolean,
+            description: Needed to complete the task for this sale's customer type.,
+          }
+        file:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DocumentFile"
+    DocumentSlotList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentSlot" }
+    DocumentDownload:
+      type: object
+      required: [url, expiresAt, fileName, mimeType]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+        fileName: { type: string }
+        mimeType: { type: string }
