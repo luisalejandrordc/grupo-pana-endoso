@@ -31,6 +31,7 @@ func NewHandler(svc *Service, authHandler *auth.Handler, logger *slog.Logger) *H
 func (h *Handler) Mount(r chi.Router) {
 	staff := auth.RequireRoles(h.logger, auth.RoleSystemAdmin, auth.RoleSalesManager, auth.RoleSalesAdvisor)
 	management := auth.RequireRoles(h.logger, auth.RoleSystemAdmin, auth.RoleSalesManager)
+	adminOnly := auth.RequireRoles(h.logger, auth.RoleSystemAdmin)
 
 	r.Group(func(r chi.Router) {
 		r.Use(h.auth.Authenticate)
@@ -38,6 +39,7 @@ func (h *Handler) Mount(r chi.Router) {
 		r.With(staff).Post("/sales", h.create)
 		r.With(staff).Get("/sales/{id}", h.get)
 		r.With(staff).Patch("/sales/{id}", h.update)
+		r.With(adminOnly).Delete("/sales/{id}", h.delete)
 		r.With(staff).Get("/sales/{id}/history", h.history)
 		r.With(management).Post("/sales/{id}/reassign", h.reassign)
 		r.With(staff).Post("/sales/{id}/cancel", h.cancel)
@@ -276,4 +278,21 @@ func (h *Handler) reopen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, detail)
+}
+
+func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
+	id, ok := h.saleID(w, r)
+	if !ok {
+		return
+	}
+	var body DeleteInput
+	if err := httpx.DecodeJSON(w, r, &body); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	if err := h.svc.Delete(r.Context(), h.actor(r), id, body); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

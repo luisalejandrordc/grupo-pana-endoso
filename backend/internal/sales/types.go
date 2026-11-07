@@ -108,6 +108,13 @@ type ReasonInput struct {
 	Reason string `json:"reason"`
 }
 
+// DeleteInput is the body of a permanent deletion. Confirmation must be the customer's document number, typed
+// by the Admin, as proof that the right sale is meant.
+type DeleteInput struct {
+	Reason       string `json:"reason"`
+	Confirmation string `json:"confirmation"`
+}
+
 // ListFilter selects and orders the workspace list.
 type ListFilter struct {
 	Search       string // customer name, series, VIN or plate; or the start of the customer's document

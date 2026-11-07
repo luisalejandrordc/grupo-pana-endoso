@@ -63,9 +63,11 @@ type SaveResult struct {
 	Warnings []Warning `json:"warnings"`
 }
 
-// SaveInput is the body of a data save. Only the fields present in Data change; null clears a field.
+// SaveInput is the body of a data save. Only the fields present in Data change; null clears a field. Reason
+// is required (and used) only when the task is already completed.
 type SaveInput struct {
 	Version *int            `json:"version"`
+	Reason  string          `json:"reason"`
 	Data    json.RawMessage `json:"data"`
 }
 

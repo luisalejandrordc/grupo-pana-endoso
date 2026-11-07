@@ -30,7 +30,7 @@ info:
     DOCUMENTS_UNAVAILABLE, DOCUMENT_REQUIRED, DOCUMENT_PAIR_REQUIRED, INVALID_DOCUMENT, INVALID_AMOUNT,
     INVALID_DATE, COMMISSION_NOT_POSITIVE, MISMATCH_REASON_REQUIRED, INVOICE_NUMBER_INVALID, VIN_INVALID,
     PLATE_INVALID, REASON_TOO_LONG, DOCUMENT_SLOT_NOT_FOUND, DOCUMENT_NOT_FOUND, DOCUMENT_TOO_LARGE,
-    DOCUMENT_TYPE_NOT_ALLOWED,
+    DOCUMENT_TYPE_NOT_ALLOWED, FIELD_LOCKED, SALE_ALREADY_DELIVERED, CONFIRMATION_MISMATCH,
     INTERNAL_ERROR.
 
     **Authentication.** Employees sign in with `POST /auth/employee/login` and send the returned access token as
@@ -1188,45 +1188,17 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: q, in: query, schema: { type: string } }
-        - {
-            name: state,
-            in: query,
-            schema: { $ref: "#/components/schemas/SaleState" },
-          }
-        - {
-            name: currentTask,
-            in: query,
-            schema: { type: integer, minimum: 1, maximum: 13 },
-          }
-        - {
-            name: milestone,
-            in: query,
-            schema: { type: integer, minimum: 1, maximum: 6 },
-          }
+        - { name: state, in: query, schema: { $ref: "#/components/schemas/SaleState" } }
+        - { name: currentTask, in: query, schema: { type: integer, minimum: 1, maximum: 13 } }
+        - { name: milestone, in: query, schema: { type: integer, minimum: 1, maximum: 6 } }
         - { name: advisorId, in: query, schema: { type: string, format: uuid } }
         - { name: customerType, in: query, schema: { type: string } }
-        - {
-            name: temperature,
-            in: query,
-            schema: { $ref: "#/components/schemas/SaleTemperature" },
-          }
+        - { name: temperature, in: query, schema: { $ref: "#/components/schemas/SaleTemperature" } }
         - { name: modelId, in: query, schema: { type: string, format: uuid } }
         - { name: versionId, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1 } }
-        - {
-            name: pageSize,
-            in: query,
-            schema: { type: integer, minimum: 1, maximum: 100 },
-          }
-        - {
-            name: sort,
-            in: query,
-            schema:
-              {
-                type: string,
-                enum: [createdAt, -createdAt, customerName, -customerName],
-              },
-          }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: sort, in: query, schema: { type: string, enum: [createdAt, -createdAt, customerName, -customerName] } }
       responses:
         "200":
           description: One page of sales.
@@ -1305,6 +1277,36 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+    delete:
+      tags: [Sales]
+      operationId: deleteSale
+      summary: Permanently delete a sale that never reached delivery (Admin)
+      description: |
+        For test or corrupted sales only. The body carries a `reason` and a `confirmation`, which must be the customer's
+        document number typed by the Admin (CONFIRMATION_MISMATCH otherwise). A sale that ever completed Task 13, even if
+        it was reopened later, cannot be deleted (SALE_ALREADY_DELIVERED). The tasks, financial data, payments, invoices
+        and documents are removed, the stored files are deleted from storage after the change commits, and the audit rows
+        stay, including the DELETED event.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeleteSaleRequest" }
+      responses:
+        "204": { description: Deleted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503":
+          description: File storage is not configured, so the sale's files could not be removed (STORAGE_UNAVAILABLE).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
   /sales/{id}/history:
     parameters:
       - $ref: "#/components/parameters/SaleId"
@@ -1317,11 +1319,7 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1 } }
-        - {
-            name: pageSize,
-            in: query,
-            schema: { type: integer, minimum: 1, maximum: 100 },
-          }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
       responses:
         "200":
           description: One page of history.
@@ -1469,14 +1467,21 @@ paths:
     patch:
       tags: [Tasks]
       operationId: saveSaleTaskData
-      summary: Save a draft of the data of the task in progress
+      summary: Save the data of a task (a draft, or a correction of a completed task)
       description: |
         `version` is the task's version and is required (VERSION_CONFLICT when stale). Only the keys present in `data`
         change and null clears a value; the keys are those of the task's data schema, and the calculated ones
         (`quotedFinalPrice`, `finalCommission`, `expectedAmount`) cannot be sent. Impossible values are field errors;
-        suspicious ones (a date before the sale) come back as `warnings`. Completeness is checked on completion. A task
-        that is not in progress answers TASK_NOT_IN_PROGRESS. For payments and invoices an amount that differs from the
-        expected one must be saved together with its `mismatchReason`.
+        suspicious ones (a date before the sale) come back as `warnings`. Completeness is checked on completion. For
+        payments and invoices an amount that differs from the expected one must be saved together with its
+        `mismatchReason`.
+
+        While the task is in progress this saves a draft. On a **completed** task it is an audited correction: only a
+        Manager or Admin, `reason` is required, the sale must be active, and the task must keep all its mandatory
+        data (422 otherwise). The financial source fields cannot be corrected once a later task is completed
+        (FIELD_LOCKED): Task 1 amounts from Task 2, the Task 3 final Toyota amount from Task 4, and the Task 4 and 5
+        deposited amounts from Task 6; reopen the tasks in reverse order first. A pending task answers
+        TASK_NOT_IN_PROGRESS.
       security:
         - bearerAuth: []
       requestBody:
@@ -2573,8 +2578,7 @@ components:
         modelName: { type: string }
         versionName: { type: string }
         colorName: { type: string }
-        referencePrice:
-          { type: string, description: "Decimal USD, for example 35000.00." }
+        referencePrice: { type: string, description: "Decimal USD, for example 35000.00." }
         temperature: { $ref: "#/components/schemas/SaleTemperature" }
         state: { $ref: "#/components/schemas/SaleState" }
         vehicleSeries: { type: string, nullable: true }
@@ -2584,12 +2588,7 @@ components:
         advisorName: { type: string }
         notes: { type: string, nullable: true }
         currentTaskNumber: { type: integer, nullable: true }
-        currentTaskStatus:
-          {
-            type: string,
-            nullable: true,
-            enum: [pending, in_progress, completed],
-          }
+        currentTaskStatus: { type: string, nullable: true, enum: [pending, in_progress, completed] }
         completedTasks: { type: integer }
         completedAt: { type: string, format: date-time, nullable: true }
         cancelledAt: { type: string, format: date-time, nullable: true }
@@ -2642,12 +2641,7 @@ components:
       required: [customerId, versionId, colorId, temperature]
       properties:
         customerId: { type: string, format: uuid }
-        versionId:
-          {
-            type: string,
-            format: uuid,
-            description: The model is taken from the version.,
-          }
+        versionId: { type: string, format: uuid, description: The model is taken from the version. }
         colorId: { type: string, format: uuid }
         temperature: { $ref: "#/components/schemas/SaleTemperature" }
         assignedAdvisorId: { type: string, format: uuid, nullable: true }
@@ -2678,12 +2672,7 @@ components:
               registration_error,
               other,
             ]
-        text:
-          {
-            type: string,
-            maxLength: 500,
-            description: Required when the category is other.,
-          }
+        text: { type: string, maxLength: 500, description: Required when the category is other. }
     ReasonRequest:
       type: object
       required: [reason]
@@ -2722,19 +2711,14 @@ components:
         name: { type: string }
         milestoneNumber: { type: integer }
         status: { type: string, enum: [pending, in_progress, completed] }
-        eligible:
-          {
-            type: boolean,
-            description: Pending and the previous task is completed.,
-          }
+        eligible: { type: boolean, description: Pending and the previous task is completed. }
         startedAt: { type: string, format: date-time, nullable: true }
         completedAt: { type: string, format: date-time, nullable: true }
         dueDate: { type: string, format: date-time, nullable: true }
         completionPhase:
           type: string
           nullable: true
-          enum:
-            [early, in_approaching, overdue, recurring_overdue, not_applicable]
+          enum: [early, in_approaching, overdue, recurring_overdue, not_applicable]
         durationHours: { type: integer, nullable: true }
         notes: { type: string, nullable: true }
         version: { type: integer }
@@ -2771,6 +2755,7 @@ components:
       required: [version, data]
       properties:
         version: { type: integer, description: The task's version. }
+        reason: { type: string, maxLength: 500, description: Required only when the task is already completed. }
         data:
           type: object
           description: The fields to change, with the keys of the task's data schema.
@@ -2803,15 +2788,12 @@ components:
       type: object
       description: Due diligence. The document type and number are saved together.
       properties:
-        signerDocumentType:
-          { type: string, nullable: true, enum: [DNI, CE, PAS, CDI] }
+        signerDocumentType: { type: string, nullable: true, enum: [DNI, CE, PAS, CDI] }
         signerDocumentNumber: { type: string, nullable: true }
         signerFirstName: { type: string, nullable: true }
         signerLastName: { type: string, nullable: true }
-        signerNameSource:
-          { type: string, nullable: true, enum: [looked_up, manual] }
-        pepStatus:
-          { type: string, nullable: true, enum: [no_pep, pep, related_to_pep] }
+        signerNameSource: { type: string, nullable: true, enum: [looked_up, manual] }
+        pepStatus: { type: string, nullable: true, enum: [no_pep, pep, related_to_pep] }
         ddcRegime: { type: string, nullable: true, enum: [general, reinforced] }
     Task3Data:
       type: object
@@ -2827,12 +2809,7 @@ components:
         Task 4 (payment to Grupo Pana, expected to equal the quoted final price) and Task 5 (payment to Toyota,
         expected to equal the final Toyota amount). expectedAmount is calculated.
       properties:
-        bank:
-          {
-            type: string,
-            nullable: true,
-            enum: [bcp, bbva, scotiabank, interbank],
-          }
+        bank: { type: string, nullable: true, enum: [bcp, bbva, scotiabank, interbank] }
         paymentDate: { type: string, format: date, nullable: true }
         transactionNumber: { type: string, nullable: true }
         depositedAmount: { type: string, nullable: true }
@@ -2841,12 +2818,7 @@ components:
     InvoiceData:
       type: object
       properties:
-        number:
-          {
-            type: string,
-            nullable: true,
-            description: "Series, hyphen and correlative, for example F001-000123.",
-          }
+        number: { type: string, nullable: true, description: "Series, hyphen and correlative, for example F001-000123." }
         date: { type: string, format: date, nullable: true }
         amount: { type: string, nullable: true }
         expectedAmount: { type: string, nullable: true, readOnly: true }
@@ -2863,10 +2835,8 @@ components:
       type: object
       properties:
         damNumber: { type: string, nullable: true }
-        customsOffice:
-          { type: string, nullable: true, enum: [callao_maritima, chancay] }
-        controlChannel:
-          { type: string, nullable: true, enum: [green, orange, red] }
+        customsOffice: { type: string, nullable: true, enum: [callao_maritima, chancay] }
+        controlChannel: { type: string, nullable: true, enum: [green, orange, red] }
     Task9Data:
       type: object
       properties:
@@ -2891,20 +2861,16 @@ components:
       properties:
         surquilloTransferDate: { type: string, format: date, nullable: true }
         deliveryDate: { type: string, format: date, nullable: true }
+    DeleteSaleRequest:
+      type: object
+      required: [reason, confirmation]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        confirmation: { type: string, description: The customer's document number, typed by the Admin. }
     DocumentFile:
       type: object
       description: The current file of a slot.
-      required:
-        [
-          id,
-          fileName,
-          mimeType,
-          sizeBytes,
-          checksumSha256,
-          uploadedById,
-          uploadedBy,
-          uploadedAt,
-        ]
+      required: [id, fileName, mimeType, sizeBytes, checksumSha256, uploadedById, uploadedBy, uploadedAt]
       properties:
         id: { type: string, format: uuid }
         fileName: { type: string }
@@ -2916,23 +2882,14 @@ components:
         uploadedAt: { type: string, format: date-time }
     DocumentSlot:
       type: object
-      required:
-        [slotCode, taskNumber, label, allowedFormat, customerVisible, required]
+      required: [slotCode, taskNumber, label, allowedFormat, customerVisible, required]
       properties:
         slotCode: { type: string }
         taskNumber: { type: integer, minimum: 1, maximum: 13 }
         label: { type: string }
         allowedFormat: { type: string, enum: [pdf, excel] }
-        customerVisible:
-          {
-            type: boolean,
-            description: Fixed by the slot; the customer portal shows only these.,
-          }
-        required:
-          {
-            type: boolean,
-            description: Needed to complete the task for this sale's customer type.,
-          }
+        customerVisible: { type: boolean, description: Fixed by the slot; the customer portal shows only these. }
+        required: { type: boolean, description: Needed to complete the task for this sale's customer type. }
         file:
           nullable: true
           allOf:

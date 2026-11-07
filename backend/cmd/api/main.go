@@ -117,9 +117,9 @@ func run() error {
 		logger.Warn("R2_DOCUMENTS_BUCKET is not configured: document uploads and downloads will fail")
 	}
 	salesGate := sales.Gate{}
-	salesService := sales.NewService(sales.Deps{DB: pool, Logger: logger})
-	salesHandler := sales.NewHandler(salesService, authHandler, logger)
 	documentsService := documents.NewService(documents.Deps{DB: pool, Store: documentStore, Sales: salesGate, Logger: logger})
+	salesService := sales.NewService(sales.Deps{DB: pool, Documents: documentsService, Store: documentStore, Logger: logger})
+	salesHandler := sales.NewHandler(salesService, authHandler, logger)
 	documentsHandler := documents.NewHandler(documentsService, authHandler, logger)
 	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: salesGate, Documents: documentsService, Logger: logger})
 	tasksHandler := tasks.NewHandler(tasksService, authHandler, logger)

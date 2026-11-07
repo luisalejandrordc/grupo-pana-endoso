@@ -173,3 +173,20 @@ func presentSlots(ctx context.Context, q querier, taskID uuid.UUID, wanted []str
 	}
 	return present, rows.Err()
 }
+
+func storedKeys(ctx context.Context, q querier, saleID uuid.UUID) ([]string, error) {
+	rows, err := q.Query(ctx, `SELECT storage_key FROM documents WHERE sale_id = $1 ORDER BY storage_key`, saleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	keys := []string{}
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, rows.Err()
+}

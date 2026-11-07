@@ -2,13 +2,16 @@ package sales
 
 import (
 	"context"
+	"endosoflow/internal/adapters/storage"
 	"endosoflow/internal/audit"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/ids"
+	"endosoflow/internal/storagecleanup"
 	"endosoflow/internal/tasks"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -45,25 +48,35 @@ func (NoopNotifier) AdvisorChanged(context.Context, tasks.Querier, uuid.UUID, uu
 	return nil
 }
 
+// DocumentFiles lists the stored files of a sale, so a permanent deletion can remove them from storage.
+// The documents module implements it.
+type DocumentFiles interface {
+	StoredKeys(ctx context.Context, q tasks.Querier, saleID uuid.UUID) ([]string, error)
+}
+
 // Deps are the service's dependencies.
 type Deps struct {
-	DB       auth.Database
-	Notifier Notifier // nil means NoopNotifier
-	Logger   *slog.Logger
-	Now      func() time.Time // nil means time.Now
+	DB        auth.Database
+	Notifier  Notifier // nil means NoopNotifier
+	Documents DocumentFiles
+	Store     storage.Store // where the documents live; used to remove them after a permanent deletion
+	Logger    *slog.Logger
+	Now       func() time.Time // nil means time.Now
 }
 
 // Service implements the sale use cases.
 type Service struct {
-	db       auth.Database
-	notifier Notifier
-	logger   *slog.Logger
-	now      func() time.Time
+	db        auth.Database
+	notifier  Notifier
+	documents DocumentFiles
+	store     storage.Store
+	logger    *slog.Logger
+	now       func() time.Time
 }
 
 // NewService builds the service.
 func NewService(d Deps) *Service {
-	s := &Service{db: d.DB, notifier: d.Notifier, logger: d.Logger, now: d.Now}
+	s := &Service{db: d.DB, notifier: d.Notifier, documents: d.Documents, store: d.Store, logger: d.Logger, now: d.Now}
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -475,4 +488,71 @@ func (s *Service) History(ctx context.Context, actor auth.Actor, id uuid.UUID, p
 		return nil, err
 	}
 	return &HistoryResult{Items: items, Page: page, PageSize: pageSize, Total: total}, nil
+}
+
+// Delete permanently removes a test or corrupted sale that never reached delivery (S7). Only an Admin can do it,
+// with a reason and the customer's document number typed as confirmation. The sale's files are queued for
+// removal from storage in the same transaction and deleted after it commits; the audit rows stay, including
+// the DELETED event.
+func (s *Service) Delete(ctx context.Context, actor auth.Actor, id uuid.UUID, in DeleteInput) error {
+	if actor.Role != auth.RoleSystemAdmin {
+		return errForbidden
+	}
+	reason := strings.TrimSpace(in.Reason)
+	switch {
+	case reason == "":
+		return fieldProblem("REASON_REQUIRED", "reason", "El motivo es obligatorio.")
+	case utf8.RuneCountInString(reason) > 500:
+		return fieldProblem("REASON_TOO_LONG", "reason", "El motivo no puede superar los 500 caracteres.")
+	}
+	if s.documents == nil || s.store == nil {
+		return apperr.New(http.StatusServiceUnavailable, "STORAGE_UNAVAILABLE", "No se puede eliminar la venta: el almacenamiento de archivos no está configurado.")
+	}
+	typed := strings.ToUpper(strings.TrimSpace(in.Confirmation))
+
+	now := s.now()
+	var pending []storagecleanup.Pending
+	err := database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
+		sale, err := s.load(ctx, tx, actor, id, true)
+		if err != nil {
+			return err
+		}
+		if typed != strings.ToUpper(strings.TrimSpace(sale.CustomerDocument)) {
+			return fieldProblem("CONFIRMATION_MISMATCH", "confirmation", "Escriba el número de documento del cliente para confirmar la eliminación.")
+		}
+		delivered, err := wasDelivered(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if delivered {
+			return apperr.Conflict("SALE_ALREADY_DELIVERED", "La venta llegó a completar la Tarea 13 y no se puede eliminar.")
+		}
+		keys, err := s.documents.StoredKeys(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		for _, key := range keys {
+			item, err := storagecleanup.Enqueue(ctx, tx, key, storagecleanup.SaleDeleted)
+			if err != nil {
+				return err
+			}
+			pending = append(pending, item)
+		}
+		// The event is written before the rows go: it names the sale and what was removed, never personal data.
+		if err := audit.Record(ctx, tx, audit.Event{
+			ActorID: &actor.ID, SaleID: &id, EntityType: audit.EntitySaleRegister, EntityID: id, Action: audit.ActionDeleted,
+			Reason: reason, Changes: map[string]any{
+				"state": sale.State, "completedTasks": sale.CompletedTasks, "documents": len(keys),
+				"customerId": sale.CustomerID, "versionId": sale.VersionID,
+			},
+		}, now); err != nil {
+			return err
+		}
+		return deleteSale(ctx, tx, id)
+	})
+	if err != nil {
+		return apperr.FromError(err)
+	}
+	storagecleanup.Process(ctx, s.db, s.store, s.logger, pending...)
+	return nil
 }

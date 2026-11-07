@@ -453,8 +453,10 @@ func (s *Service) Reopen(ctx context.Context, actor auth.Actor, saleID uuid.UUID
 	return result, nil
 }
 
-// SaveData saves a draft of the data of the task in progress. The caller sends the task's version.
-// A completed task is edited through a different, audited path that ships in 1G-b.
+// SaveData saves the data of a task. While the task is in progress it saves a draft. On a completed task it is
+// an audited correction (T5): only a Manager or Admin, with a reason, never touching the financial source
+// fields once a later task is completed, and the task must still be valid afterwards. The caller sends the
+// task's version.
 func (s *Service) SaveData(ctx context.Context, actor auth.Actor, saleID uuid.UUID, number int, in SaveInput) (*SaveResult, error) {
 	if err := checkNumber(number); err != nil {
 		return nil, err
@@ -472,9 +474,29 @@ func (s *Service) SaveData(ctx context.Context, actor auth.Actor, saleID uuid.UU
 		if t.Version != *in.Version {
 			return errVersionConflict
 		}
-		if t.Status != StatusInProgress {
+
+		correction := t.Status == StatusCompleted
+		reason := ""
+		switch {
+		case t.Status == StatusInProgress:
+		case correction:
+			if !isManagement(actor) {
+				return errForbidden
+			}
+			if reason, err = cleanReason(in.Reason); err != nil {
+				return err
+			}
+			highest, err := highestCompleted(ctx, tx, saleID)
+			if err != nil {
+				return err
+			}
+			if locked := lockedFields(number, highest, topLevelKeys(in.Data)); len(locked) > 0 {
+				return fieldsLocked(locked)
+			}
+		default:
 			return errNotInProgress
 		}
+
 		d, err := kindFor(number).save(ctx, tx, sale, in.Data, actor.ID, now, s.sales)
 		if err != nil {
 			return err
@@ -483,11 +505,26 @@ func (s *Service) SaveData(ctx context.Context, actor auth.Actor, saleID uuid.UU
 			return problem
 		}
 		if len(d.changes) > 0 {
+			if correction {
+				// A completed task has to stay complete: an edit cannot empty a mandatory field.
+				problems, err := kindFor(number).check(ctx, tx, sale, actor.ID, now)
+				if err != nil {
+					return err
+				}
+				if len(problems) > 0 {
+					return apperr.Unprocessable("VALIDATION_FAILED", "La tarea completada debe conservar todos sus datos obligatorios.").
+						WithFields(problems...)
+				}
+			}
 			if _, err := tx.Exec(ctx, `UPDATE task_instances SET updated_by = $2, updated_at = $3, row_version = row_version + 1
 				WHERE id = $1`, t.ID, actor.ID, now); err != nil {
 				return err
 			}
-			if err := s.recordTask(ctx, tx, actor, saleID, t.ID, audit.ActionUpdated, "", d.changes, now); err != nil {
+			action := audit.ActionUpdated
+			if correction {
+				action = audit.ActionCorrected
+			}
+			if err := s.recordTask(ctx, tx, actor, saleID, t.ID, action, reason, d.changes, now); err != nil {
 				return err
 			}
 		}
@@ -510,6 +547,19 @@ func (s *Service) SaveData(ctx context.Context, actor auth.Actor, saleID uuid.UU
 		return nil, apperr.FromError(err)
 	}
 	return result, nil
+}
+
+// fieldsLocked is the answer to an edit of a financial source field after a later task was completed.
+func fieldsLocked(keys []string) error {
+	problems := make([]apperr.FieldError, len(keys))
+	for i, key := range keys {
+		problems[i] = apperr.FieldError{
+			Field: key, Code: "LOCKED",
+			Message: "Este dato alimenta tareas posteriores que ya están completadas. Reabra las tareas en orden inverso antes de corregirlo.",
+		}
+	}
+	return apperr.Unprocessable("FIELD_LOCKED", "Hay datos que no se pueden modificar mientras existan tareas posteriores completadas.").
+		WithFields(problems...)
 }
 
 // SaveNotes replaces the internal notes of a task. Notes are free text with no version: the last save

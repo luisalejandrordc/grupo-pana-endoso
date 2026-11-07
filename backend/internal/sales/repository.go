@@ -296,3 +296,22 @@ func listHistory(ctx context.Context, q querier, saleID uuid.UUID, page, pageSiz
 	}
 	return items, total, rows.Err()
 }
+
+// wasDelivered reports whether the sale ever completed Task 13: now, or at any earlier time (a reopened Task 13
+// has no completion date left, but its completion is in the audit log).
+func wasDelivered(ctx context.Context, q querier, saleID uuid.UUID) (bool, error) {
+	var delivered bool
+	err := q.QueryRow(ctx, `SELECT
+		EXISTS (SELECT 1 FROM task_instances WHERE sale_id = $1 AND task_number = 13 AND status = 'completed')
+		OR EXISTS (SELECT 1 FROM audit_logs WHERE sale_id = $1 AND entity_type = 'task_instance'
+		           AND action = 'COMPLETED' AND changes_summary ->> 'taskNumber' = '13')
+		OR EXISTS (SELECT 1 FROM audit_logs WHERE sale_id = $1 AND entity_type = 'sale_register' AND action = 'COMPLETED')`,
+		saleID).Scan(&delivered)
+	return delivered, err
+}
+
+// deleteSale removes the sale. Its tasks, detail rows, payments, invoices and documents go with it (cascade).
+func deleteSale(ctx context.Context, q querier, id uuid.UUID) error {
+	_, err := q.Exec(ctx, `DELETE FROM sale_registers WHERE id = $1`, id)
+	return err
+}

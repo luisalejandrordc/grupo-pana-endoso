@@ -359,3 +359,9 @@ func (s *Service) MissingSlots(ctx context.Context, q tasks.Querier, taskInstanc
 	}
 	return missing, nil
 }
+
+// StoredKeys lists the storage keys of every file of a sale. Deleting a sale queues them for removal from
+// storage before the rows disappear.
+func (s *Service) StoredKeys(ctx context.Context, q tasks.Querier, saleID uuid.UUID) ([]string, error) {
+	return storedKeys(ctx, q, saleID)
+}
