@@ -771,6 +771,447 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/sales": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List sales in the caller's scope (workspace)
+     * @description Admins and Managers see every sale; an Advisor only the sales assigned to them. `q` searches the customer
+     *     name, series, VIN and plate, and the start of the customer document. `milestone` returns the sales whose
+     *     milestone is in progress.
+     */
+    get: operations["listSales"];
+    put?: never;
+    /**
+     * Register a sale
+     * @description Snapshots the customer and the vehicle, assigns the advisor and creates the 13 pending tasks in one
+     *     transaction. An Advisor may omit `assignedAdvisorId` or send their own id; a Manager or Admin must send an
+     *     active Advisor. An inactive customer answers CUSTOMER_INACTIVE; a version or color that cannot be selected
+     *     answers VEHICLE_NOT_SELECTABLE or VEHICLE_COLOR_MISMATCH.
+     */
+    post: operations["createSale"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    /**
+     * Read a sale with its milestones
+     * @description A sale outside an Advisor's scope answers 404, as if it did not exist.
+     */
+    get: operations["getSale"];
+    put?: never;
+    post?: never;
+    /**
+     * Permanently delete a sale that never reached delivery (Admin)
+     * @description For test or corrupted sales only. The body carries a `reason` and a `confirmation`, which must be the customer's
+     *     document number typed by the Admin (CONFIRMATION_MISMATCH otherwise). A sale that ever completed Task 13, even if
+     *     it was reopened later, cannot be deleted (SALE_ALREADY_DELIVERED). The tasks, financial data, payments, invoices
+     *     and documents are removed, the stored files are deleted from storage after the change commits, and the audit rows
+     *     stay, including the DELETED event.
+     */
+    delete: operations["deleteSale"];
+    options?: never;
+    head?: never;
+    /**
+     * Edit the notes of a sale
+     * @description Notes are the only editable field of the sale itself. `version` is required. A cancelled sale is read-only.
+     */
+    patch: operations["updateSale"];
+    trace?: never;
+  };
+  "/sales/{id}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    /**
+     * Audit timeline of a sale, newest first
+     * @description Everyone who can see the sale can read its history, including reasons.
+     */
+    get: operations["getSaleHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/reassign": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Give an active sale to another advisor (Manager, Admin)
+     * @description The target must be an active Advisor other than the current one (SAME_ADVISOR, INVALID_ADVISOR). The previous advisor loses access immediately.
+     */
+    post: operations["reassignSale"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel an active sale
+     * @description An Advisor may cancel their own sale while Tasks 1 to 3 are current, a Manager through Task 6 and an Admin
+     *     at any point; otherwise CANCEL_NOT_ALLOWED. `text` is required when the category is `other`. The tasks are
+     *     frozen and read-only until the sale is reopened.
+     */
+    post: operations["cancelSale"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/reopen": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reopen a cancelled sale (Manager, Admin)
+     * @description A Manager may reopen a sale cancelled while Tasks 1 to 6 were current; later cancellations need an Admin
+     *     (REOPEN_NOT_ALLOWED). The due date of the task in progress moves forward by the time spent cancelled. A series,
+     *     VIN or plate now used by another sale answers SERIES_ALREADY_USED, VIN_ALREADY_USED or PLATE_ALREADY_USED.
+     */
+    post: operations["reopenSale"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    /** The 13 tasks of a sale, without their data */
+    get: operations["listSaleTasks"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{n}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    /** One task with its data and the document slots it needs */
+    get: operations["getSaleTask"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{n}/data": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Save the data of a task (a draft, or a correction of a completed task)
+     * @description `version` is the task's version and is required (VERSION_CONFLICT when stale). Only the keys present in `data`
+     *     change and null clears a value; the keys are those of the task's data schema, and the calculated ones
+     *     (`quotedFinalPrice`, `finalCommission`, `expectedAmount`) cannot be sent. Impossible values are field errors;
+     *     suspicious ones (a date before the sale) come back as `warnings`. Completeness is checked on completion. For
+     *     payments and invoices an amount that differs from the expected one must be saved together with its
+     *     `mismatchReason`.
+     *
+     *     While the task is in progress this saves a draft. On a **completed** task it is an audited correction: only a
+     *     Manager or Admin, `reason` is required, the sale must be active, and the task must keep all its mandatory
+     *     data (422 otherwise). The financial source fields cannot be corrected once a later task is completed
+     *     (FIELD_LOCKED): Task 1 amounts from Task 2, the Task 3 final Toyota amount from Task 4, and the Task 4 and 5
+     *     deposited amounts from Task 6; reopen the tasks in reverse order first. A pending task answers
+     *     TASK_NOT_IN_PROGRESS.
+     */
+    patch: operations["saveSaleTaskData"];
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{n}/notes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Replace the internal notes of a task
+     * @description Free text, no version; the last save wins. An empty value clears the notes. An Advisor can only write notes while the task is in progress.
+     */
+    patch: operations["saveSaleTaskNotes"];
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{n}/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start an eligible task
+     * @description The sale must be active, the task pending, the previous task completed and no other task in progress
+     *     (TASK_INVALID_STATE, TASK_NOT_ELIGIBLE, TASK_ALREADY_IN_PROGRESS, SALE_NOT_ACTIVE). The due date is the start plus
+     *     the task's duration in elapsed hours.
+     */
+    post: operations["startSaleTask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{n}/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Complete the task in progress
+     * @description Succeeds only when every mandatory field and document is valid; otherwise answers 422 with all the failing
+     *     fields at once (`documents.<slot>` for missing documents). The completion phase is computed from the due date.
+     *     Completing Task 13 completes the sale in the same transaction. Until the documents module exists this answers 503
+     *     DOCUMENTS_UNAVAILABLE outside local and test environments.
+     */
+    post: operations["completeSaleTask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{n}/restart": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Send the task in progress back to pending (Manager, Admin)
+     * @description The data is kept and becomes read-only until the task is started again. A reason is required.
+     */
+    post: operations["restartSaleTask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{n}/reopen": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reopen the last completed task (Manager, Admin)
+     * @description Only the highest completed task can be reopened (TASK_NOT_LAST_COMPLETED). Its due date and reminder counters are
+     *     kept. Reopening Task 13 of a completed sale makes the sale active again. A reason is required.
+     */
+    post: operations["reopenSaleTask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/documents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    /**
+     * Every document slot of a sale with its current file
+     * @description One entry per slot, in task order. `required` says whether the task engine needs the slot for this sale's
+     *     customer type (the power of attorney is not required for a Diplomático). A sale outside an Advisor's scope
+     *     answers 404.
+     */
+    get: operations["listSaleDocuments"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/sales/{id}/tasks/{n}/documents/{slot}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+        /** @description The slot code, such as quotation_pdf. It must belong to the task in the path. */
+        slot: components["parameters"]["DocumentSlot"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Upload a file to a slot, replacing the current one
+     * @description `multipart/form-data` with one `file` part and an optional `reason` text part. The file is checked by its
+     *     content, not its name or declared type: a PDF slot takes only a PDF and an Excel slot only an .xlsx or .xls
+     *     workbook, up to 10 MB (DOCUMENT_TYPE_NOT_ALLOWED, DOCUMENT_TOO_LARGE). While the task is in progress its
+     *     actors (the assigned Advisor, a Manager, an Admin) can upload. On a completed task only a Manager or Admin can
+     *     replace a file, and `reason` is then required. A new file answers 201 and a replacement 200. The replaced
+     *     file is deleted from storage after the change commits.
+     */
+    put: operations["uploadSaleDocument"];
+    post?: never;
+    /**
+     * Remove the file of a slot
+     * @description Allowed only while the task is in progress; a completed task can have a file replaced but never removed. The
+     *     stored file is deleted after the change commits and the removal is audited.
+     */
+    delete: operations["removeSaleDocument"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/documents/{id}/download-url": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * A short-lived signed address to download a file
+     * @description Issued only after the caller's role and scope are checked; a document of a sale outside an Advisor's scope
+     *     answers 404. The address expires after a few minutes and makes the browser save the file under its original
+     *     name. Storage addresses are never exposed in any other way.
+     */
+    get: operations["getDocumentDownloadUrl"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1249,6 +1690,347 @@ export interface components {
         mainImageUrl: string;
       }[];
     };
+    /** @enum {string} */
+    SaleState: "active" | "completed" | "cancelled";
+    /** @enum {string} */
+    SaleTemperature: "hot" | "warm" | "cold";
+    /**
+     * @description A sale register. The customer and vehicle fields are snapshots taken when the sale was created and never
+     *     change. `currentTaskNumber` is null once all 13 tasks are completed.
+     */
+    Sale: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      customerId: string;
+      customerName: string;
+      customerDocumentType: string;
+      customerDocumentNumber: string;
+      customerType: string;
+      /** Format: uuid */
+      modelId: string;
+      /** Format: uuid */
+      versionId: string;
+      /** Format: uuid */
+      colorId: string;
+      modelName: string;
+      versionName: string;
+      colorName: string;
+      /** @description Decimal USD, for example 35000.00. */
+      referencePrice: string;
+      temperature: components["schemas"]["SaleTemperature"];
+      state: components["schemas"]["SaleState"];
+      vehicleSeries?: string | null;
+      vin?: string | null;
+      licensePlate?: string | null;
+      /** Format: uuid */
+      advisorId: string;
+      advisorName: string;
+      notes?: string | null;
+      currentTaskNumber?: number | null;
+      /** @enum {string|null} */
+      currentTaskStatus?: "pending" | "in_progress" | "completed" | null;
+      completedTasks: number;
+      /** Format: date-time */
+      completedAt?: string | null;
+      /** Format: date-time */
+      cancelledAt?: string | null;
+      cancelledAtTaskNumber?: number | null;
+      /** @enum {string|null} */
+      cancellationCategory?:
+        | "customer_withdrew"
+        | "payment_or_financing_failed"
+        | "unit_unavailable"
+        | "due_diligence_finding"
+        | "registration_error"
+        | "other"
+        | null;
+      cancellationText?: string | null;
+      version: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    Milestone: {
+      number: number;
+      name: string;
+      /** @enum {string} */
+      state: "pending" | "in_progress" | "completed";
+    };
+    /** @description A sale with its six milestones. */
+    SaleDetail: components["schemas"]["Sale"] & {
+      milestones: components["schemas"]["Milestone"][];
+    };
+    SaleList: {
+      items: components["schemas"]["Sale"][];
+      page: number;
+      pageSize: number;
+      total: number;
+    };
+    CreateSaleRequest: {
+      /** Format: uuid */
+      customerId: string;
+      /**
+       * Format: uuid
+       * @description The model is taken from the version.
+       */
+      versionId: string;
+      /** Format: uuid */
+      colorId: string;
+      temperature: components["schemas"]["SaleTemperature"];
+      /** Format: uuid */
+      assignedAdvisorId?: string | null;
+      notes?: string;
+    };
+    UpdateSaleRequest: {
+      version: number;
+      notes?: string | null;
+    };
+    ReassignSaleRequest: {
+      /** Format: uuid */
+      advisorId: string;
+    };
+    CancelSaleRequest: {
+      /** @enum {string} */
+      category:
+        | "customer_withdrew"
+        | "payment_or_financing_failed"
+        | "unit_unavailable"
+        | "due_diligence_finding"
+        | "registration_error"
+        | "other";
+      /** @description Required when the category is other. */
+      text?: string;
+    };
+    ReasonRequest: {
+      reason: string;
+    };
+    SaleHistoryEntry: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      actorId?: string | null;
+      actorName?: string | null;
+      /** @enum {string} */
+      actorKind: "employee" | "system";
+      entityType: string;
+      /** Format: uuid */
+      entityId: string;
+      action: string;
+      changes?: {
+        [key: string]: unknown;
+      } | null;
+      reason?: string | null;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    SaleHistory: {
+      items: components["schemas"]["SaleHistoryEntry"][];
+      page: number;
+      pageSize: number;
+      total: number;
+    };
+    Task: {
+      /** Format: uuid */
+      id: string;
+      number: number;
+      name: string;
+      milestoneNumber: number;
+      /** @enum {string} */
+      status: "pending" | "in_progress" | "completed";
+      /** @description Pending and the previous task is completed. */
+      eligible: boolean;
+      /** Format: date-time */
+      startedAt?: string | null;
+      /** Format: date-time */
+      completedAt?: string | null;
+      /** Format: date-time */
+      dueDate?: string | null;
+      /** @enum {string|null} */
+      completionPhase?:
+        | "early"
+        | "in_approaching"
+        | "overdue"
+        | "recurring_overdue"
+        | "not_applicable"
+        | null;
+      durationHours?: number | null;
+      notes?: string | null;
+      version: number;
+    };
+    /**
+     * @description A task with its data. The shape of `data` depends on the task number: 1 Task1Data, 2 Task2Data, 3 Task3Data,
+     *     4 and 5 PaymentData, 6 Task6Data, 7 empty, 8 Task8Data, 9 Task9Data, 10 Task10Data, 11 Task11Data,
+     *     12 Task12Data, 13 Task13Data. `requiredDocuments` lists the document slot codes the task needs.
+     */
+    TaskDetail: components["schemas"]["Task"] & {
+      data:
+        | components["schemas"]["Task1Data"]
+        | components["schemas"]["Task2Data"]
+        | components["schemas"]["Task3Data"]
+        | components["schemas"]["PaymentData"]
+        | components["schemas"]["Task6Data"]
+        | components["schemas"]["Task8Data"]
+        | components["schemas"]["Task9Data"]
+        | components["schemas"]["Task10Data"]
+        | components["schemas"]["Task11Data"]
+        | components["schemas"]["Task12Data"]
+        | components["schemas"]["Task13Data"]
+        | Record<string, never>;
+      requiredDocuments: string[];
+    };
+    SaveTaskDataRequest: {
+      /** @description The task's version. */
+      version: number;
+      /** @description Required only when the task is already completed. */
+      reason?: string;
+      /** @description The fields to change, with the keys of the task's data schema. */
+      data: {
+        [key: string]: unknown;
+      };
+    };
+    Warning: {
+      field: string;
+      code: string;
+      message: string;
+    };
+    SaveTaskDataResult: {
+      task: components["schemas"]["TaskDetail"];
+      warnings: components["schemas"]["Warning"][];
+    };
+    /** @description Initial amounts. quotedFinalPrice is calculated. */
+    Task1Data: {
+      initialToyotaAmount?: string | null;
+      initialCommission?: string | null;
+      accessoryAmount?: string | null;
+      releaseProcessingAmount?: string | null;
+      readonly quotedFinalPrice?: string | null;
+    };
+    /** @description Due diligence. The document type and number are saved together. */
+    Task2Data: {
+      /** @enum {string|null} */
+      signerDocumentType?: "DNI" | "CE" | "PAS" | "CDI" | null;
+      signerDocumentNumber?: string | null;
+      signerFirstName?: string | null;
+      signerLastName?: string | null;
+      /** @enum {string|null} */
+      signerNameSource?: "looked_up" | "manual" | null;
+      /** @enum {string|null} */
+      pepStatus?: "no_pep" | "pep" | "related_to_pep" | null;
+      /** @enum {string|null} */
+      ddcRegime?: "general" | "reinforced" | null;
+    };
+    /** @description Unit settlement. finalCommission is calculated and must be greater than zero. */
+    Task3Data: {
+      vehicleSeries?: string | null;
+      vin?: string | null;
+      finalToyotaAmount?: string | null;
+      readonly finalCommission?: string | null;
+    };
+    /**
+     * @description Task 4 (payment to Grupo Pana, expected to equal the quoted final price) and Task 5 (payment to Toyota,
+     *     expected to equal the final Toyota amount). expectedAmount is calculated.
+     */
+    PaymentData: {
+      /** @enum {string|null} */
+      bank?: "bcp" | "bbva" | "scotiabank" | "interbank" | null;
+      /** Format: date */
+      paymentDate?: string | null;
+      transactionNumber?: string | null;
+      depositedAmount?: string | null;
+      readonly expectedAmount?: string | null;
+      mismatchReason?: string | null;
+    };
+    InvoiceData: {
+      /** @description Series, hyphen and correlative, for example F001-000123. */
+      number?: string | null;
+      /** Format: date */
+      date?: string | null;
+      amount?: string | null;
+      readonly expectedAmount?: string | null;
+      mismatchReason?: string | null;
+    };
+    /** @description The four invoices. Expected amounts come from Tasks 1 and 3. */
+    Task6Data: {
+      toyota?: components["schemas"]["InvoiceData"];
+      commission?: components["schemas"]["InvoiceData"];
+      accessories?: components["schemas"]["InvoiceData"];
+      releaseProcessing?: components["schemas"]["InvoiceData"];
+    };
+    Task8Data: {
+      damNumber?: string | null;
+      /** @enum {string|null} */
+      customsOffice?: "callao_maritima" | "chancay" | null;
+      /** @enum {string|null} */
+      controlChannel?: "green" | "orange" | "red" | null;
+    };
+    Task9Data: {
+      personInCharge?: string | null;
+    };
+    Task10Data: {
+      licensePlate?: string | null;
+      /** Format: date */
+      registrationDate?: string | null;
+    };
+    Task11Data: {
+      /** Format: date */
+      transferDate?: string | null;
+    };
+    Task12Data: {
+      serviceOrderNumber?: string | null;
+      /** Format: date */
+      completionDate?: string | null;
+    };
+    /** @description The Surquillo transfer date is optional. */
+    Task13Data: {
+      /** Format: date */
+      surquilloTransferDate?: string | null;
+      /** Format: date */
+      deliveryDate?: string | null;
+    };
+    DeleteSaleRequest: {
+      reason: string;
+      /** @description The customer's document number, typed by the Admin. */
+      confirmation: string;
+    };
+    /** @description The current file of a slot. */
+    DocumentFile: {
+      /** Format: uuid */
+      id: string;
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      checksumSha256: string;
+      /** Format: uuid */
+      uploadedById: string;
+      uploadedBy: string;
+      /** Format: date-time */
+      uploadedAt: string;
+    };
+    DocumentSlot: {
+      slotCode: string;
+      taskNumber: number;
+      label: string;
+      /** @enum {string} */
+      allowedFormat: "pdf" | "excel";
+      /** @description Fixed by the slot; the customer portal shows only these. */
+      customerVisible: boolean;
+      /** @description Needed to complete the task for this sale's customer type. */
+      required: boolean;
+      file?: components["schemas"]["DocumentFile"] | null;
+    };
+    DocumentSlotList: {
+      items: components["schemas"]["DocumentSlot"][];
+    };
+    DocumentDownload: {
+      /** Format: uri */
+      url: string;
+      /** Format: date-time */
+      expiresAt: string;
+      fileName: string;
+      mimeType: string;
+    };
   };
   responses: {
     /** @description The request is malformed. */
@@ -1322,6 +2104,11 @@ export interface components {
     VehicleVersionId: string;
     VehicleColorId: string;
     CustomerId: string;
+    SaleId: string;
+    /** @description The task number, 1 to 13. */
+    TaskNumber: number;
+    /** @description The slot code, such as quotation_pdf. It must belong to the task in the path. */
+    DocumentSlot: string;
     EmployeeId: string;
     /** @description Must be EndosoFlow. A form on another site cannot send it. */
     CsrfHeader: "EndosoFlow";
@@ -2711,6 +3498,703 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+    };
+  };
+  listSales: {
+    parameters: {
+      query?: {
+        q?: string;
+        state?: components["schemas"]["SaleState"];
+        currentTask?: number;
+        milestone?: number;
+        advisorId?: string;
+        customerType?: string;
+        temperature?: components["schemas"]["SaleTemperature"];
+        modelId?: string;
+        versionId?: string;
+        page?: number;
+        pageSize?: number;
+        sort?: "createdAt" | "-createdAt" | "customerName" | "-customerName";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description One page of sales. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleList"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  createSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateSaleRequest"];
+      };
+    };
+    responses: {
+      /** @description The new sale. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  getSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleDetail"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  deleteSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeleteSaleRequest"];
+      };
+    };
+    responses: {
+      /** @description Deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+      /** @description File storage is not configured, so the sale's files could not be removed (STORAGE_UNAVAILABLE). */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  updateSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateSaleRequest"];
+      };
+    };
+    responses: {
+      /** @description The updated sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  getSaleHistory: {
+    parameters: {
+      query?: {
+        page?: number;
+        pageSize?: number;
+      };
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description One page of history. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleHistory"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  reassignSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReassignSaleRequest"];
+      };
+    };
+    responses: {
+      /** @description The reassigned sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  cancelSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CancelSaleRequest"];
+      };
+    };
+    responses: {
+      /** @description The cancelled sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  reopenSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReasonRequest"];
+      };
+    };
+    responses: {
+      /** @description The reopened sale. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaleDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  listSaleTasks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The tasks in order. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["Task"][];
+          };
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  getSaleTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  saveSaleTaskData: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SaveTaskDataRequest"];
+      };
+    };
+    responses: {
+      /** @description The task as saved, with any warnings. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SaveTaskDataResult"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  saveSaleTaskNotes: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          notes: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  startSaleTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The task in progress. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  completeSaleTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The completed task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+      /** @description Document checks are not available (DOCUMENTS_UNAVAILABLE). */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  restartSaleTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReasonRequest"];
+      };
+    };
+    responses: {
+      /** @description The pending task. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  reopenSaleTask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReasonRequest"];
+      };
+    };
+    responses: {
+      /** @description The task in progress. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDetail"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  listSaleDocuments: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The slots. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentSlotList"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  uploadSaleDocument: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+        /** @description The slot code, such as quotation_pdf. It must belong to the task in the path. */
+        slot: components["parameters"]["DocumentSlot"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+          reason?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The file replaced the previous one. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentFile"];
+        };
+      };
+      /** @description The file was stored in an empty slot. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentFile"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+      /** @description The file is larger than 10 MB (DOCUMENT_TOO_LARGE). */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      422: components["responses"]["Unprocessable"];
+      /** @description File storage is not available (STORAGE_UNAVAILABLE). */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  removeSaleDocument: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+        /** @description The task number, 1 to 13. */
+        n: components["parameters"]["TaskNumber"];
+        /** @description The slot code, such as quotation_pdf. It must belong to the task in the path. */
+        slot: components["parameters"]["DocumentSlot"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Removed. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  getDocumentDownloadUrl: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The signed address. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentDownload"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      /** @description File storage is not available (STORAGE_UNAVAILABLE). */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
 }
