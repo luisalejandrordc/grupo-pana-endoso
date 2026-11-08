@@ -1,0 +1,280 @@
+/* The real (non-demo) sales screens: loading and error states, task documents, history paging and the new-sale form. */
+
+.live-loading {
+  padding: 36px 18px;
+  text-align: center;
+  color: #777;
+  font-size: 12px;
+}
+.live-muted {
+  color: #777;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.live-pad {
+  padding: 0 19px;
+}
+
+/* Task forms */
+.live-group {
+  border-top: 1px solid #f2f2f2;
+}
+.live-group-title {
+  margin: 0;
+  padding: 16px 19px 0;
+  font-size: 12px;
+  color: #333;
+}
+.live-form-alert {
+  margin: 14px 19px 0;
+}
+.live-form-alert ul,
+.live-warning ul {
+  margin: 6px 0 0;
+  padding-left: 16px;
+}
+.live-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 12px 19px 0;
+  padding: 10px 13px;
+  border-radius: 8px;
+  border: 1px solid #ecdca8;
+  background: #fff8e1;
+  color: #6b5200;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.live-warning ul {
+  margin: 0;
+}
+.live-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 14px 19px 4px;
+  border-top: 1px solid #f2f2f2;
+}
+.live-notes .field {
+  width: 100%;
+}
+
+/* Documents */
+.live-docs {
+  padding: 14px 19px 6px;
+  border-top: 1px solid #f2f2f2;
+}
+.live-docs-tab .live-docs {
+  padding-left: 0;
+  padding-right: 0;
+}
+.live-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.live-section-title h4 {
+  margin: 0;
+  font-size: 12px;
+  color: #333;
+}
+.live-section-title span {
+  color: #888;
+  font-size: 10px;
+}
+.live-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid #f2f2f2;
+}
+.live-doc-row.has-error .document-icon {
+  background: #fdeaea;
+  color: #c90e16;
+}
+.live-doc-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.live-doc-copy strong {
+  font-size: 11px;
+  color: #222;
+}
+.live-doc-copy span {
+  color: #777;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.live-required {
+  color: #c90e16;
+  font-style: normal;
+  font-weight: 500;
+}
+.live-doc-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.live-doc-actions label.icon-button {
+  cursor: pointer;
+}
+
+/* History */
+.live-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px 0 4px;
+  color: #666;
+  font-size: 11px;
+}
+
+/* Hero without a vehicle photo */
+.live-vehicle-placeholder {
+  width: 86px;
+  height: 58px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #f5f5f5;
+  color: #aaa;
+}
+
+/* New sale */
+.live-new-sale {
+  max-width: 980px;
+}
+.live-new-section {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.live-new-section h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.live-picked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #ebebeb;
+  border-radius: 10px;
+  background: #fafafa;
+}
+.live-picked div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.live-picked span {
+  color: #777;
+  font-size: 10px;
+}
+.live-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.live-picker .field {
+  width: 100%;
+}
+.live-picker-results,
+.live-lookup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.live-picker-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid #ebebeb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+.live-picker-row:hover {
+  border-color: #c90e16;
+  background: #fffafa;
+}
+.live-picker-row strong {
+  font-size: 11px;
+}
+.live-picker-row span {
+  color: #777;
+  font-size: 10px;
+}
+.live-lookup-row {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.live-vehicle-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: start;
+}
+.live-vehicle-fields {
+  display: grid;
+  gap: 12px;
+}
+.live-vehicle-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 160px;
+  border: 1px dashed #ddd;
+  border-radius: 10px;
+  color: #aaa;
+  padding: 10px;
+}
+.live-vehicle-preview img {
+  max-width: 100%;
+  max-height: 150px;
+  object-fit: contain;
+}
+.live-vehicle-preview p {
+  margin: 0;
+  color: #555;
+  font-size: 11px;
+}
+.live-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.live-new-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-bottom: 24px;
+}
+
+@media (max-width: 760px) {
+  .live-vehicle-grid,
+  .live-details-grid {
+    grid-template-columns: 1fr;
+  }
+  .live-lookup-row {
+    grid-template-columns: 1fr;
+  }
+}

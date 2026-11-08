@@ -7,6 +7,9 @@ import { ProfilePage } from "../features/profile/ProfilePage";
 import { ConfirmModal } from "../features/sales/ConfirmModal";
 import { NewSaleWizard } from "../features/sales/NewSaleWizard";
 import { SaleDetail } from "../features/sales/SaleDetail";
+import { LiveNewSale } from "../features/sales/live/LiveNewSale";
+import { LiveSaleDetail } from "../features/sales/live/LiveSaleDetail";
+import { LiveSalesWorkspace } from "../features/sales/live/LiveSalesWorkspace";
 import { SalesWorkspace } from "../features/sales/SalesWorkspace";
 import type { ModalAction } from "../features/sales/types";
 import { useSaleActionModal } from "../features/sales/useSaleActionModal";
@@ -48,11 +51,16 @@ export default function App() {
   const [loginBusy, setLoginBusy] = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [presetCustomer, setPresetCustomer] = useState<Customer | null>(null);
+  // The sale open in the real (non-demo) workspace.
+  const [liveSaleId, setLiveSaleId] = useState<string | null>(null);
 
   const currentUser = auth.user;
 
   function navigate(nextPage: View, saleId?: string) {
-    if (saleId) setActiveSaleId(saleId);
+    if (saleId) {
+      setActiveSaleId(saleId);
+      setLiveSaleId(saleId);
+    }
     setPage(nextPage);
     setShowMobileNav(false);
     setQuery("");
@@ -131,17 +139,25 @@ export default function App() {
         onMenuClick={() => setShowMobileNav(true)}
         onCloseMobile={() => setShowMobileNav(false)}
       >
-        {page === "sales" && (
-          <SalesWorkspace
-            sales={sales}
-            role={currentUser.role}
-            userId={currentUser.id}
-            query={query}
-            onCreate={() => navigate("new-sale")}
-            onOpen={(sale) => navigate("sale-detail", sale.id)}
-            demo={demoMode}
-          />
-        )}
+        {page === "sales" &&
+          (demoMode ? (
+            <SalesWorkspace
+              sales={sales}
+              role={currentUser.role}
+              userId={currentUser.id}
+              query={query}
+              onCreate={() => navigate("new-sale")}
+              onOpen={(sale) => navigate("sale-detail", sale.id)}
+              demo={demoMode}
+            />
+          ) : (
+            <LiveSalesWorkspace
+              role={currentUser.role}
+              query={query}
+              onCreate={() => navigate("new-sale")}
+              onOpen={(saleId) => navigate("sale-detail", saleId)}
+            />
+          ))}
         {page === "sale-detail" &&
           (demoMode ? (
             activeSale ? (
@@ -161,10 +177,19 @@ export default function App() {
                 detail="La venta solicitada no está disponible en tu ámbito de acceso."
               />
             )
+          ) : liveSaleId ? (
+            <LiveSaleDetail
+              key={liveSaleId}
+              saleId={liveSaleId}
+              role={currentUser.role}
+              userId={currentUser.id}
+              onBack={() => navigate("sales")}
+              toast={notify}
+            />
           ) : (
             <ApiGap
-              title="Detalle de venta"
-              detail="Las rutas de detalle de ventas y tareas no aparecen en el OpenAPI implementado adjunto."
+              title="Venta no encontrada"
+              detail="Vuelve a la lista de ventas y abre una operación."
             />
           ))}
         {page === "new-sale" &&
@@ -193,9 +218,12 @@ export default function App() {
               toast={notify}
             />
           ) : (
-            <ApiGap
-              title="Nueva venta"
-              detail="El contrato de ventas aún no está disponible en el OpenAPI implementado. La creación funcionará al integrar POST /sales cuando se publique en el contrato."
+            <LiveNewSale
+              role={currentUser.role}
+              userId={currentUser.id}
+              onCancel={() => navigate("sales")}
+              onCreated={(saleId) => navigate("sale-detail", saleId)}
+              toast={notify}
             />
           ))}
         {page === "customers" && (

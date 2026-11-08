@@ -1,4 +1,4 @@
-import { Icon } from "../../../shared/ui/Icon";
+import { Icon, type IconName } from "../../../shared/ui/Icon";
 
 export function TimelineItem({
   icon,
@@ -8,7 +8,7 @@ export function TimelineItem({
   actor,
   tone,
 }: {
-  icon: "sales" | "check-circle" | "clock";
+  icon: IconName;
   title: string;
   text: string;
   date: string;
