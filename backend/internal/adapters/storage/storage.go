@@ -6,7 +6,9 @@ package storage
 import (
 	"context"
 	"errors"
+	"net/url"
 	"sync"
+	"time"
 )
 
 // Store saves and removes objects and says where the public ones can be read.
@@ -17,6 +19,9 @@ type Store interface {
 	Delete(ctx context.Context, key string) error
 	// PublicURL is the address where a public object can be read.
 	PublicURL(key string) string
+	// SignedURL is a short-lived address where a private object can be downloaded, saved under fileName.
+	// The caller must have checked who may read the object before asking for one.
+	SignedURL(ctx context.Context, key, fileName string, ttl time.Duration) (string, error)
 }
 
 // ErrNotConfigured is returned by the store used where no real storage exists, so a missing store is
@@ -28,6 +33,9 @@ type unconfigured struct{}
 func (unconfigured) Put(context.Context, string, string, []byte) error { return ErrNotConfigured }
 func (unconfigured) Delete(context.Context, string) error              { return ErrNotConfigured }
 func (unconfigured) PublicURL(string) string                           { return "" }
+func (unconfigured) SignedURL(context.Context, string, string, time.Duration) (string, error) {
+	return "", ErrNotConfigured
+}
 
 // Unconfigured returns a store whose writes always fail.
 func Unconfigured() Store { return unconfigured{} }
@@ -78,6 +86,11 @@ func (m *Memory) Delete(_ context.Context, key string) error {
 }
 
 func (m *Memory) PublicURL(key string) string { return m.base + "/" + key }
+
+// SignedURL returns an address that carries the file name and lifetime, so tests can check both.
+func (m *Memory) SignedURL(_ context.Context, key, fileName string, ttl time.Duration) (string, error) {
+	return m.base + "/" + key + "?name=" + url.QueryEscape(fileName) + "&ttl=" + ttl.String(), nil
+}
 
 // Get returns a stored object, for assertions.
 func (m *Memory) Get(key string) (Object, bool) {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Local keeps objects in a folder and serves them through Handler. It is for local development only.
@@ -55,6 +56,15 @@ func (l *Local) Delete(_ context.Context, key string) error {
 }
 
 func (l *Local) PublicURL(key string) string { return l.baseURL + "/" + key }
+
+// SignedURL returns the plain address of the file: the local folder has no signing, so anyone who knows the
+// key can read it. That is acceptable for development only; production uses R2.
+func (l *Local) SignedURL(_ context.Context, key, _ string, _ time.Duration) (string, error) {
+	if _, err := l.path(key); err != nil {
+		return "", err
+	}
+	return l.baseURL + "/" + key, nil
+}
 
 // Handler serves the stored files. Mount it at the path of the base URL, with the prefix stripped.
 func (l *Local) Handler() http.Handler { return http.FileServer(http.Dir(l.dir)) }
