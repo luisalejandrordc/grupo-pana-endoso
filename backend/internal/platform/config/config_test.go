@@ -31,7 +31,7 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.LogLevel != slog.LevelInfo || cfg.ShutdownTimeout != 10*time.Second {
 		t.Fatalf("unexpected defaults: %+v", cfg)
 	}
-	if cfg.AppBaseURL != "http://localhost:5173" || cfg.CookieSecure {
+	if cfg.AppBaseURL != "http://localhost:5173" || cfg.CookieSecure || cfg.TrustProxy {
 		t.Fatalf("unexpected local defaults for links and cookies: %+v", cfg)
 	}
 }
@@ -52,7 +52,7 @@ func TestLoadExplicitAddressWinsOverPort(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if cfg.HTTPAddr != "127.0.0.1:9000" {
-		t.Fatalf("got %q", cfg.HTTPAddr)
+		t.Fatalf("got %q, want 127.0.0.1:9000", cfg.HTTPAddr)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestLoadProductionDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.LogFormat != "json" || !cfg.CookieSecure || cfg.AppBaseURL != "https://app.example.pe" {
+	if cfg.LogFormat != "json" || !cfg.CookieSecure || !cfg.TrustProxy || cfg.AppBaseURL != "https://app.example.pe" {
 		t.Fatalf("unexpected production defaults: %+v", cfg)
 	}
 }
@@ -129,25 +129,93 @@ func TestLoadStorageDefaultsToLocalFolder(t *testing.T) {
 	}
 }
 
+func fullR2() map[string]string {
+	return map[string]string{
+		"R2_ACCOUNT_ID":                  "account",
+		"R2_CATALOG_BUCKET":              "endosoflow-catalog-images",
+		"R2_CATALOG_ACCESS_KEY_ID":       "catalog-access-key-id",
+		"R2_CATALOG_SECRET_ACCESS_KEY":   "catalog-secret-access-key",
+		"R2_CATALOG_PUBLIC_BASE_URL":     "https://img.example.pe/",
+		"R2_DOCUMENTS_BUCKET":            "endosoflow-sale-documents",
+		"R2_DOCUMENTS_ACCESS_KEY_ID":     "documents-access-key-id",
+		"R2_DOCUMENTS_SECRET_ACCESS_KEY": "documents-secret-access-key",
+		"R2_AVATARS_BUCKET":              "endosoflow-employee-avatars",
+		"R2_AVATARS_ACCESS_KEY_ID":       "avatars-access-key-id",
+		"R2_AVATARS_SECRET_ACCESS_KEY":   "avatars-secret-access-key",
+	}
+}
+
 func TestLoadAcceptsAFullR2Setup(t *testing.T) {
-	cfg, err := Load(env(withBase(map[string]string{
-		"R2_ACCOUNT_ID": "acct", "R2_ACCESS_KEY_ID": "key", "R2_SECRET_ACCESS_KEY": "secret",
-		"R2_BUCKET": "endosoflow", "R2_PUBLIC_BASE_URL": "https://img.example.pe/",
-	})))
+	cfg, err := Load(env(withBase(fullR2())))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !cfg.R2Configured() || cfg.R2PublicBaseURL != "https://img.example.pe" {
+	if !cfg.R2Configured() {
 		t.Fatalf("unexpected R2 settings: %+v", cfg)
 	}
 }
 
 func TestLoadRejectsAHalfConfiguredR2WithoutLeakingValues(t *testing.T) {
-	_, err := Load(env(withBase(map[string]string{"R2_ACCOUNT_ID": "acct", "R2_SECRET_ACCESS_KEY": "super-secret-value"})))
-	if err == nil || !strings.Contains(err.Error(), "R2_BUCKET") {
+	_, err := Load(env(withBase(map[string]string{
+		"R2_ACCOUNT_ID":                "account",
+		"R2_CATALOG_SECRET_ACCESS_KEY": "catalog-secret-access-key",
+	})))
+	if err == nil ||
+		!strings.Contains(err.Error(), "R2_CATALOG") ||
+		!strings.Contains(err.Error(), "R2_DOCUMENTS") ||
+		!strings.Contains(err.Error(), "R2_AVATARS") {
+
 		t.Fatalf("a partial R2 setup must be reported: %v", err)
 	}
-	if strings.Contains(err.Error(), "super-secret-value") {
+	if strings.Contains(err.Error(), "catalog-secret-access-key") {
 		t.Fatalf("the error must not echo secrets: %v", err)
+	}
+}
+
+func TestLoadRequiresADifferentPrivateBucketForDocumentsAndAvatars(t *testing.T) {
+	full := fullR2()
+	full["R2_DOCUMENTS_BUCKET"] = " endosoflow-sale-documents "
+	cfg, err := Load(env(withBase(full)))
+	if err != nil || cfg.R2DocumentsBucket != "endosoflow-sale-documents" {
+		t.Fatalf("a separate documents bucket must be accepted and trimmed: %+v, %v", cfg, err)
+	}
+	full["R2_DOCUMENTS_BUCKET"] = "endosoflow-catalog-images"
+	full["R2_AVATARS_BUCKET"] = "endosoflow-catalog-images"
+	cfg, err = Load(env(withBase(full)))
+	if err == nil ||
+		!strings.Contains(err.Error(), "R2_DOCUMENTS_BUCKET") ||
+		!strings.Contains(err.Error(), "R2_AVATARS_BUCKET") {
+		t.Fatalf("the public bucket must be refused for documents and avatars: %v", err)
+	}
+	cfg, err = Load(env(withBase(map[string]string{"R2_DOCUMENTS_BUCKET": "endosoflow-sale-documents"})))
+	if err == nil || !strings.Contains(err.Error(), "R2_DOCUMENTS") {
+		t.Fatalf("a documents bucket without the rest of R2 must be refused: %v", err)
+	}
+	cfg, err = Load(env(withBase(map[string]string{"R2_AVATARS_BUCKET": "endosoflow-employee-avatars"})))
+	if err == nil || !strings.Contains(err.Error(), "R2_AVATARS") {
+		t.Fatalf("an avatars bucket without the rest of R2 must be refused: %v", err)
+	}
+}
+
+func TestBucketMisconfigurationsAreRefused(t *testing.T) {
+	cases := map[string]map[string]string{
+		"avatars bucket equal to the documents bucket": {"R2_DOCUMENTS_BUCKET": "same", "R2_AVATARS_BUCKET": "same"},
+		"half of a documents token":                    {"R2_DOCUMENTS_BUCKET": "docs", "R2_DOCUMENTS_ACCESS_KEY_ID": "only-id", "R2_DOCUMENTS_SECRET_ACCESS_KEY": ""},
+		"a documents token without its bucket":         {"R2_DOCUMENTS_BUCKET": "", "R2_DOCUMENTS_ACCESS_KEY_ID": "id", "R2_DOCUMENTS_SECRET_ACCESS_KEY": "s"},
+	}
+	for name, extra := range cases {
+		t.Run(name, func(t *testing.T) {
+			vars := fullR2()
+			for k, v := range extra {
+				vars[k] = v
+			}
+			_, err := Load(env(withBase(vars)))
+			if err == nil {
+				t.Fatal("the configuration must be refused")
+			}
+			if strings.Contains(err.Error(), "secret") && strings.Contains(err.Error(), "only-id") {
+				t.Fatalf("the error must not echo values: %v", err)
+			}
+		})
 	}
 }
