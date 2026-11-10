@@ -81,8 +81,8 @@ func run() error {
 	switch {
 	case cfg.R2Configured():
 		store = storage.NewR2(storage.R2Config{
-			AccountID: cfg.R2AccountID, AccessKeyID: cfg.R2AccessKeyID, SecretAccessKey: cfg.R2SecretAccessKey,
-			Bucket: cfg.R2Bucket, PublicBaseURL: cfg.R2PublicBaseURL, Endpoint: cfg.R2Endpoint,
+			AccountID: cfg.R2AccountID, AccessKeyID: cfg.R2CatalogAccessKeyID, SecretAccessKey: cfg.R2CatalogSecretAccessKey,
+			Bucket: cfg.R2CatalogBucket, PublicBaseURL: cfg.R2CatalogPublicBaseURL, Endpoint: cfg.R2Endpoint,
 		})
 	case cfg.Env == "local" || cfg.Env == "test":
 		localStore = storage.NewLocal(cfg.LocalMediaDir, cfg.MediaBaseURL)
