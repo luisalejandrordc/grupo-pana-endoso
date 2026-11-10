@@ -1,6 +1,7 @@
 -- +goose Up
 CREATE TABLE sale_registers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sale_number bigint GENERATED ALWAYS AS IDENTITY,
   customer_id uuid NOT NULL REFERENCES customers (id),
   -- Immutable snapshots taken at creation
   customer_legal_name_snapshot text NOT NULL,
@@ -85,6 +86,8 @@ CREATE TABLE sale_registers (
     )
   )
 );
+
+CREATE UNIQUE INDEX ux_sale_registers_number ON sale_registers (sale_number);
 
 -- Identifiers are unique only among active and completed sales; cancelled sales release them.
 CREATE UNIQUE INDEX ux_sale_registers_series ON sale_registers (vehicle_series)
