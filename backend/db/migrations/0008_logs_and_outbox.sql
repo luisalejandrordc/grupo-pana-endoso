@@ -117,6 +117,7 @@ CREATE TABLE notification_logs (
   recipient_email text NOT NULL,
   dedupe_key text NOT NULL UNIQUE,
   status notification_status NOT NULL DEFAULT 'pending',
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
   attempt_count integer NOT NULL DEFAULT 0,
   last_error text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -130,6 +131,10 @@ CREATE TABLE notification_logs (
 CREATE INDEX ix_notification_logs_status ON notification_logs (status, created_at);
 
 CREATE INDEX ix_notification_logs_sale ON notification_logs (sale_id);
+
+CREATE INDEX ix_notification_logs_due ON notification_logs (next_attempt_at)
+WHERE
+  status = 'pending';
 
 -- Per-user rate limiting, existence-lookup log and the monthly Codart counter
 CREATE TABLE lookup_logs (
