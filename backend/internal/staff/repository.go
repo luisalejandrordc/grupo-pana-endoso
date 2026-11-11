@@ -21,14 +21,14 @@ type querier interface {
 
 const employeeColumns = `id, document_type::text, document_number, first_name, last_name, name_source::text,
 	nationality, gender::text, birthdate, hire_date, personal_phone, personal_email,
-	business_phone, business_email, role::text, is_active, activated_at, row_version, created_at, updated_at`
+	business_phone, business_email, role::text, is_active, profile_picture_key IS NOT NULL, activated_at, row_version, created_at, updated_at`
 
 func scanEmployee(row pgx.Row) (*Employee, error) {
 	var e Employee
 	var birthdate, hireDate time.Time
 	err := row.Scan(&e.ID, &e.DocumentType, &e.DocumentNumber, &e.FirstName, &e.LastName, &e.NameSource,
 		&e.Nationality, &e.Gender, &birthdate, &hireDate, &e.PersonalPhone, &e.PersonalEmail,
-		&e.BusinessPhone, &e.BusinessEmail, &e.Role, &e.IsActive, &e.ActivatedAt, &e.Version,
+		&e.BusinessPhone, &e.BusinessEmail, &e.Role, &e.IsActive, &e.HasPhoto, &e.ActivatedAt, &e.Version,
 		&e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
 		return nil, err

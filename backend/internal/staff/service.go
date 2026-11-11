@@ -2,6 +2,7 @@ package staff
 
 import (
 	"context"
+	"endosoflow/internal/adapters/storage"
 	"endosoflow/internal/audit"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/apperr"
@@ -40,6 +41,7 @@ type Deps struct {
 	DB         auth.Database
 	Activation ActivationIssuer
 	Access     AccessManager
+	Avatars    storage.Store
 	Logger     *slog.Logger
 	Now        func() time.Time // nil means time.Now
 }
@@ -49,6 +51,7 @@ type Service struct {
 	db         auth.Database
 	activation ActivationIssuer
 	access     AccessManager
+	avatars    storage.Store
 	logger     *slog.Logger
 	now        func() time.Time
 }
@@ -59,7 +62,11 @@ func NewService(d Deps) *Service {
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{db: d.DB, activation: d.Activation, access: d.Access, logger: d.Logger, now: now}
+	avatars := d.Avatars
+	if avatars == nil {
+		avatars = storage.Unconfigured()
+	}
+	return &Service{db: d.DB, activation: d.Activation, access: d.Access, avatars: avatars, logger: d.Logger, now: now}
 }
 
 func requireAdmin(actor auth.Actor) error {

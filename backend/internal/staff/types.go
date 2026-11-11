@@ -26,6 +26,7 @@ type Employee struct {
 	BusinessEmail  string     `json:"businessEmail"`
 	Role           string     `json:"role"`
 	IsActive       bool       `json:"isActive"`
+	HasPhoto       bool       `json:"hasPhoto"`
 	ActivatedAt    *time.Time `json:"activatedAt"`
 	Version        int        `json:"version"`
 	CreatedAt      time.Time  `json:"createdAt"`
