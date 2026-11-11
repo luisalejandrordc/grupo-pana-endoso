@@ -55,7 +55,7 @@ func NewR2(cfg R2Config) *R2 {
 func (r *R2) PublicURL(key string) string { return r.cfg.PublicBaseURL + "/" + key }
 
 // SignedURL returns a presigned GET address (AWS Signature Version 4 in the query string) that expires after
-// ttl and makes the browser save the object as fileName. R2 allows at most seven days.
+// ttl. With a fileName the browser saves the object under that name; with an empty one it is displayed inline. R2 allows at most seven days.
 func (r *R2) SignedURL(_ context.Context, key, fileName string, ttl time.Duration) (string, error) {
 	if ttl <= 0 || ttl > 7*24*time.Hour {
 		return "", fmt.Errorf("r2 signed url: lifetime %s is not allowed", ttl)
@@ -65,7 +65,13 @@ func (r *R2) SignedURL(_ context.Context, key, fileName string, ttl time.Duratio
 		return "", err
 	}
 	query := u.Query()
-	query.Set("response-content-disposition", contentDisposition(fileName))
+	// A file name makes the browser save the object under that name; no name means the object is shown in the
+	// page (an avatar in an <img>), so it is served inline.
+	disposition := "inline"
+	if fileName != "" {
+		disposition = contentDisposition(fileName)
+	}
+	query.Set("response-content-disposition", disposition)
 	u.RawQuery = query.Encode()
 	return presignV4(u, r.cfg.AccessKeyID, r.cfg.SecretAccessKey, "auto", "s3", r.now(), ttl), nil
 }

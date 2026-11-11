@@ -235,3 +235,25 @@ func TestLocalMemoryAndUnconfiguredSignedURLs(t *testing.T) {
 		t.Fatalf("unconfigured: %v", err)
 	}
 }
+
+// A picture shown in the page is served inline; only a named download is an attachment.
+func TestR2SignedURLWithoutAFileNameIsInline(t *testing.T) {
+	store := NewR2(R2Config{
+		AccountID: "acct", AccessKeyID: "AKID", SecretAccessKey: "secret", Bucket: "avatars",
+		Now: func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC) },
+	})
+	raw, err := store.SignedURL(context.Background(), "employees/e1/p1.png", "", 10*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := u.Query().Get("response-content-disposition"); got != "inline" {
+		t.Fatalf("content disposition = %q, want inline", got)
+	}
+	if u.Query().Get("X-Amz-Expires") != "600" || u.Query().Get("X-Amz-Signature") == "" {
+		t.Fatalf("the address is signed and expires after the given lifetime: %v", u.Query())
+	}
+}
