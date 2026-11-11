@@ -34,12 +34,13 @@ type employeeRecord struct {
 	ActivatedAt    *time.Time
 	IsActive       bool
 	IsSystem       bool
+	HasPhoto       bool
 	Login          LoginState
 }
 
 const employeeColumns = `id, document_type::text, document_number, first_name, last_name, business_email,
 	role::text, password_hash, activated_at, is_active, is_system,
-	failed_login_count, first_failed_login_at, locked_until`
+	failed_login_count, first_failed_login_at, locked_until, profile_picture_key IS NOT NULL`
 
 // scanEmployee returns (nil, nil) when the row does not exist.
 func scanEmployee(row pgx.Row) (*employeeRecord, error) {
@@ -47,7 +48,7 @@ func scanEmployee(row pgx.Row) (*employeeRecord, error) {
 	var role string
 	err := row.Scan(&e.ID, &e.DocumentType, &e.DocumentNumber, &e.FirstName, &e.LastName, &e.BusinessEmail,
 		&role, &e.PasswordHash, &e.ActivatedAt, &e.IsActive, &e.IsSystem,
-		&e.Login.FailedCount, &e.Login.WindowStartedAt, &e.Login.LockedUntil)
+		&e.Login.FailedCount, &e.Login.WindowStartedAt, &e.Login.LockedUntil, &e.HasPhoto)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

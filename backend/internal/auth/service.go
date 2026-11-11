@@ -104,12 +104,13 @@ type Profile struct {
 	LastName       string    `json:"lastName"`
 	BusinessEmail  string    `json:"businessEmail"`
 	Role           Role      `json:"role"`
+	HasPhoto       bool      `json:"hasPhoto"`
 }
 
 func profileOf(e *employeeRecord) Profile {
 	return Profile{
 		ID: e.ID, DocumentType: e.DocumentType, DocumentNumber: e.DocumentNumber,
-		FirstName: e.FirstName, LastName: e.LastName, BusinessEmail: e.BusinessEmail, Role: e.Role,
+		FirstName: e.FirstName, LastName: e.LastName, BusinessEmail: e.BusinessEmail, Role: e.Role, HasPhoto: e.HasPhoto,
 	}
 }
 
