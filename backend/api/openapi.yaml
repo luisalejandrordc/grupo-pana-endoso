@@ -24,7 +24,7 @@ info:
     CATALOG_ENTRY_ALREADY_ACTIVE, CATALOG_ENTRY_IN_USE, CATALOG_INCOMPLETE, LAST_ACTIVE_VERSION,
     LAST_ACTIVE_COLOR, MAIN_IMAGE_REQUIRED, IMAGE_REQUIRED, IMAGE_TOO_LARGE, IMAGE_TYPE_NOT_ALLOWED,
     INVALID_MULTIPART, STORAGE_UNAVAILABLE, DOCUMENTS_UNAVAILABLE, DOCUMENT_REQUIRED, DOCUMENT_SLOT_NOT_FOUND,
-    DOCUMENT_NOT_FOUND, DOCUMENT_TOO_LARGE, DOCUMENT_TYPE_NOT_ALLOWED, REASON_TOO_LONG,
+    DOCUMENT_NOT_FOUND, PHOTO_REQUIRED, PHOTO_TOO_LARGE, PHOTO_TYPE_NOT_ALLOWED, PHOTO_NOT_FOUND, DOCUMENT_TOO_LARGE, DOCUMENT_TYPE_NOT_ALLOWED, REASON_TOO_LONG,
     SALE_NOT_FOUND, SALE_NOT_ACTIVE, SALE_NOT_CANCELLED, SALE_ALREADY_ASSIGNED, SALE_ALREADY_DELIVERED,
     CUSTOMER_INACTIVE, CANCEL_NOT_ALLOWED, REOPEN_NOT_ALLOWED, CONFIRMATION_MISMATCH,
     TASK_NOT_FOUND, TASK_NOT_ELIGIBLE, TASK_ALREADY_IN_PROGRESS, TASK_NOT_IN_PROGRESS, TASK_NOT_COMPLETED, TASK_READ_ONLY,
@@ -210,6 +210,92 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+  /me/photo:
+    put:
+      tags: [Staff]
+      operationId: setMyPhoto
+      summary: Set or replace the signed-in employee's profile picture
+      description: |
+        Sent as multipart/form-data with a single file part called file. The picture must be JPEG, PNG or WebP and at
+        most 2 MB; the type is decided from the file's bytes, not from what the client says. The previous picture is
+        deleted from storage once the change is saved. Changing the picture does not change the employee's `version`.
+        The answer carries a short-lived address, so the screen can show the new picture at once.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+            encoding:
+              file: { contentType: "image/jpeg, image/png, image/webp" }
+      responses:
+        "200":
+          description: The picture was saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PhotoLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413":
+          description: The picture is larger than 2 MB (PHOTO_TOO_LARGE).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503":
+          description: The file store is unavailable (STORAGE_UNAVAILABLE). Nothing was saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Staff]
+      operationId: removeMyPhoto
+      summary: Remove the signed-in employee's profile picture
+      description: Removing a picture that does not exist is not an error.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: The employee has no picture now.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /employees/{id}/photo:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Staff]
+      operationId: getEmployeePhoto
+      summary: Get a short-lived address for an employee's profile picture (any signed-in staff)
+      description: |
+        Any signed-in employee may ask for any employee's picture. The bucket is private: the picture is only
+        reachable through this address, which stops working after `expiresAt` (about ten minutes). Check `hasPhoto` on
+        the employee (or on `/me`) first to avoid asking for a picture that does not exist.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The address of the picture.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PhotoLink" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: The employee does not exist (EMPLOYEE_NOT_FOUND) or has no picture (PHOTO_NOT_FOUND).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: The file store is unavailable (STORAGE_UNAVAILABLE).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
   /employees:
     get:
       tags: [Staff]
@@ -1986,6 +2072,7 @@ components:
           lastName,
           businessEmail,
           role,
+          hasPhoto,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -1995,6 +2082,11 @@ components:
         lastName: { type: string }
         businessEmail: { type: string }
         role: { $ref: "#/components/schemas/Role" }
+        hasPhoto:
+          {
+            type: boolean,
+            description: Whether there is a profile picture to ask for.,
+          }
     SessionResponse:
       type: object
       required: [accessToken, expiresAt, employee]
@@ -2020,6 +2112,7 @@ components:
           businessEmail,
           role,
           isActive,
+          hasPhoto,
           version,
           createdAt,
           updatedAt,
@@ -2041,6 +2134,11 @@ components:
         businessEmail: { type: string }
         role: { $ref: "#/components/schemas/Role" }
         isActive: { type: boolean }
+        hasPhoto:
+          {
+            type: boolean,
+            description: Whether there is a profile picture to ask for.,
+          }
         activatedAt:
           {
             type: string,
@@ -2911,6 +3009,13 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/DocumentSlot" }
+    PhotoLink:
+      type: object
+      required: [url, expiresAt, mimeType]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+        mimeType: { type: string }
     DocumentDownload:
       type: object
       required: [url, expiresAt, fileName, mimeType]
