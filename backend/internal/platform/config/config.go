@@ -12,37 +12,32 @@ import (
 
 // Config holds every setting the API needs. It is built once at startup.
 type Config struct {
-	Env             string // local, test, staging or production
-	HTTPAddr        string // address the server listens on, for example ":8080"
-	DatabaseURL     string
-	LogLevel        slog.Level // debug, info, warn or error
-	LogFormat       string     // "text" (readable) or "json" (for hosting platforms)
-	ShutdownTimeout time.Duration
-	JWTSecret       string // signs access tokens; at least 32 characters
-	AppBaseURL      string // the frontend address used in emailed links
-	CookieSecure    bool   // refresh cookie "Secure" flag; true in staging and production
-	TrustProxy      bool   // read the client IP from X-Forwarded-For; true in staging and production
-	CodartToken     string // bearer token for the Codart identity API; empty turns automatic name lookup off
-	CodartBaseURL   string // Codart address; empty means the production address
-
-	// Cloudflare R2 object storage
-	R2AccountID string
-	R2Endpoint  string // optional override, for tests
-	// R2CatalogBucket is the public bucket for catalog images.
-	R2CatalogBucket          string
-	R2CatalogAccessKeyID     string
-	R2CatalogSecretAccessKey string
-	R2CatalogPublicBaseURL   string
-	// R2DocumentsBucket is the private bucket for sale documents.
+	Env                        string // local, test, staging or production
+	HTTPAddr                   string // address the server listens on, for example ":8080"
+	DatabaseURL                string
+	LogLevel                   slog.Level    // debug, info, warn or error
+	LogFormat                  string        // "text" (readable) or "json" (for hosting platforms)
+	ShutdownTimeout            time.Duration // maximum time to gracefully shut down the HTTP server
+	JWTSecret                  string
+	AppBaseURL                 string // the frontend address used in emailed links
+	CookieSecure               bool   // refresh cookie "Secure" flag
+	TrustProxy                 bool   // read the client IP from X-Forwarded-For
+	CodartToken                string
+	CodartBaseURL              string
+	R2AccountID                string
+	R2Endpoint                 string // optional override, for tests
+	R2CatalogBucket            string
+	R2CatalogAccessKeyID       string
+	R2CatalogSecretAccessKey   string
+	R2CatalogPublicBaseURL     string
 	R2DocumentsBucket          string
 	R2DocumentsAccessKeyID     string
 	R2DocumentsSecretAccessKey string
-	// R2AvatarsBucket is the private bucket for employee profile pictures.
-	R2AvatarsBucket          string
-	R2AvatarsAccessKeyID     string
-	R2AvatarsSecretAccessKey string
-	LocalMediaDir            string
-	MediaBaseURL             string
+	R2AvatarsBucket            string
+	R2AvatarsAccessKeyID       string
+	R2AvatarsSecretAccessKey   string
+	LocalMediaDir              string
+	MediaBaseURL               string
 }
 
 // R2Configured reports whether Cloudflare R2 should be used.
