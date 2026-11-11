@@ -91,3 +91,20 @@ func TestWithoutR2OnlyLocalAndTestKeepFilesOnDisk(t *testing.T) {
 		t.Fatal("production without R2 must refuse to store documents")
 	}
 }
+
+func TestDeletionsAreRoutedToTheirOwnBucket(t *testing.T) {
+	st := newStores(r2Config(), quiet())
+	for reason, want := range map[string]any{
+		"catalog_image_replaced":  st.Catalog,
+		"catalog_image_removed":   st.Catalog,
+		"document_replaced":       st.Documents,
+		"document_removed":        st.Documents,
+		"sale_deleted":            st.Documents,
+		"employee_photo_replaced": st.Avatars,
+		"employee_photo_removed":  st.Avatars,
+	} {
+		if st.forReason(reason) != want {
+			t.Errorf("%s is routed to the wrong bucket", reason)
+		}
+	}
+}
