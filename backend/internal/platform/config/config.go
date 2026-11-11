@@ -27,7 +27,6 @@ type Config struct {
 
 	// Cloudflare R2 object storage
 	R2AccountID string
-	R2Endpoint  string // optional override, for tests
 	// R2CatalogBucket is the public bucket for catalog images.
 	R2CatalogBucket          string
 	R2CatalogAccessKeyID     string
@@ -149,8 +148,6 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.R2AvatarsBucket = strings.TrimSpace(getenv("R2_AVATARS_BUCKET"))
 	cfg.R2AvatarsAccessKeyID = strings.TrimSpace(getenv("R2_AVATARS_ACCESS_KEY_ID"))
 	cfg.R2AvatarsSecretAccessKey = strings.TrimSpace(getenv("R2_AVATARS_SECRET_ACCESS_KEY"))
-
-	cfg.R2Endpoint = strings.TrimRight(strings.TrimSpace(getenv("R2_ENDPOINT")), "/")
 
 	for key, values := range map[string][]string{
 		"CATALOG":   {cfg.R2AccountID, cfg.R2CatalogBucket, cfg.R2CatalogAccessKeyID, cfg.R2CatalogSecretAccessKey, cfg.R2CatalogPublicBaseURL},
