@@ -219,3 +219,97 @@ func TestBucketMisconfigurationsAreRefused(t *testing.T) {
 		})
 	}
 }
+
+func TestMailConfiguration(t *testing.T) {
+	secret := strings.Repeat("s", 32)
+	good := map[string]string{
+		"MAIL_APPS_SCRIPT_URL":         "https://script.google.com/macros/s/ID/exec",
+		"MAIL_APPS_SCRIPT_HMAC_SECRET": secret,
+	}
+
+	cfg, err := Load(env(withBase(good)))
+	if err != nil || cfg.MailAppsScriptURL == "" || cfg.MailDispatchInterval != 15*time.Second {
+		t.Fatalf("a complete mail configuration: %v %+v", err, cfg.MailDispatchInterval)
+	}
+	cfg, err = Load(env(withBase(map[string]string{})))
+	if err != nil || cfg.MailAppsScriptURL != "" {
+		t.Fatalf("mail is optional where emails are only logged: %v", err)
+	}
+
+	url := good["MAIL_APPS_SCRIPT_URL"]
+	staging := map[string]string{
+		"ENV":           "staging",
+		"APP_BASE_URL":  "https://app.example.pe",
+		"COOKIE_SECURE": "true",
+	}
+	with := func(extra map[string]string, base map[string]string) map[string]string {
+		out := map[string]string{}
+		for k, v := range base {
+			out[k] = v
+		}
+		for k, v := range extra {
+			out[k] = v
+		}
+		return out
+	}
+	bad := []struct {
+		name string
+		want string
+		vars map[string]string
+	}{
+		{
+			"the url without the secret",
+			"must be set together",
+			map[string]string{"MAIL_APPS_SCRIPT_URL": url},
+		},
+		{
+			"the secret without the url",
+			"must be set together",
+			map[string]string{"MAIL_APPS_SCRIPT_HMAC_SECRET": secret},
+		},
+		{
+			"a short secret",
+			"at least 32 characters",
+			map[string]string{"MAIL_APPS_SCRIPT_URL": url, "MAIL_APPS_SCRIPT_HMAC_SECRET": "short"},
+		},
+		{
+			"plain http in staging",
+			"must be an https address",
+			with(map[string]string{"MAIL_APPS_SCRIPT_URL": "http://script.google.com/x", "MAIL_APPS_SCRIPT_HMAC_SECRET": secret, "MAIL_ALLOWED_RECIPIENTS": "@x.pe"}, staging),
+		},
+		{
+			"staging without allow-list",
+			"MAIL_ALLOWED_RECIPIENTS is required",
+			with(map[string]string{"MAIL_APPS_SCRIPT_URL": url, "MAIL_APPS_SCRIPT_HMAC_SECRET": secret}, staging),
+		},
+		{
+			"too frequent a dispatcher",
+			"MAIL_DISPATCH_INTERVAL",
+			map[string]string{"MAIL_DISPATCH_INTERVAL": "1s"},
+		},
+	}
+	for _, c := range bad {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := Load(env(withBase(c.vars)))
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("want an error containing %q, got %v", c.want, err)
+			}
+			if strings.Contains(err.Error(), secret) {
+				t.Fatalf("the error must not echo the secret: %v", err)
+			}
+		})
+	}
+
+	// And a complete staging configuration is accepted, so the cases above fail for their own reason only.
+	ok := with(map[string]string{"MAIL_APPS_SCRIPT_URL": url, "MAIL_APPS_SCRIPT_HMAC_SECRET": secret, "MAIL_ALLOWED_RECIPIENTS": "@x.pe"}, staging)
+	if _, err := Load(env(withBase(ok))); err != nil {
+		t.Fatalf("a complete staging configuration: %v", err)
+	}
+}
+
+func TestAllowedRecipientsAreNormalized(t *testing.T) {
+	cfg, err := Load(env(withBase(map[string]string{"MAIL_ALLOWED_RECIPIENTS": " Ana@X.pe, ,@Grupopana.pe "})))
+	if err != nil || len(cfg.MailAllowedRecipients) != 2 || cfg.MailAllowedRecipients[0] != "ana@x.pe" || cfg.MailAllowedRecipients[1] != "@grupopana.pe" {
+		t.Fatalf("%v %v", err, cfg.MailAllowedRecipients)
+	}
+}

@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"endosoflow/internal/adapters/codart"
-	"endosoflow/internal/adapters/mail"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/catalog"
 	"endosoflow/internal/customers"
@@ -47,12 +46,7 @@ func run() error {
 	}
 	defer pool.Close()
 
-	// Until the real email service exists, emails are only written to the log in local and test
-	// environments; elsewhere sending fails loudly instead of silently dropping messages.
-	var sender mail.Sender = mail.Unconfigured()
-	if cfg.Env == "local" || cfg.Env == "test" {
-		sender = mail.NewLogSender(logger)
-	}
+	sender, delivers := newMailer(cfg, logger)
 	authService := auth.NewService(auth.Deps{
 		DB: pool, JWTSecret: cfg.JWTSecret, AppBaseURL: cfg.AppBaseURL, Mail: sender, Logger: logger,
 	})
@@ -60,8 +54,9 @@ func run() error {
 		AppBaseURL: cfg.AppBaseURL, CookieSecure: cfg.CookieSecure, TrustProxy: cfg.TrustProxy,
 	})
 
+	st := newStores(cfg, logger) // the three buckets: catalog (public), documents and avatars (private)
 	staffService := staff.NewService(staff.Deps{
-		DB: pool, Activation: authService, Access: authService, Logger: logger,
+		DB: pool, Activation: authService, Access: authService, Avatars: st.Avatars, Logger: logger,
 	})
 	staffHandler := staff.NewHandler(staffService, authHandler, logger)
 
@@ -77,7 +72,6 @@ func run() error {
 	customersHandler := customers.NewHandler(customersService, authHandler, logger)
 
 	// Object storage: public catalog images and private documents and photos, each in its own bucket.
-	st := newStores(cfg, logger)
 	localStore := st.Local
 	catalogService := catalog.NewService(catalog.Deps{DB: pool, Store: st.Catalog, Logger: logger})
 	catalogHandler := catalog.NewHandler(catalogService, authHandler, logger)
@@ -112,6 +106,11 @@ func run() error {
 		IdleTimeout:       120 * time.Second,
 	}
 
+	// Background work: the notification dispatcher and the retry of failed file deletions.
+	jobsCtx, stopJobs := context.WithCancel(context.Background())
+	defer stopJobs()
+	waitForJobs := startJobs(jobsCtx, cfg, pool, st, mailer{Sender: sender, delivers: delivers}, logger)
+
 	serverErr := make(chan error, 1)
 	go func() {
 		logger.Info("server listening", "addr", cfg.HTTPAddr)
@@ -132,6 +131,8 @@ func run() error {
 			return fmt.Errorf("graceful shutdown: %w", err)
 		}
 		authService.WaitForBackgroundWork()
+		stopJobs()
+		waitForJobs()
 		return nil
 	}
 }
