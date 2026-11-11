@@ -23,7 +23,7 @@ type R2Config struct {
 	SecretAccessKey string
 	Bucket          string
 	PublicBaseURL   string
-	Endpoint        string       // https://<account>.r2.cloudflarestorage.com
+	Endpoint        string       // empty means https://<account>.r2.cloudflarestorage.com
 	HTTPClient      *http.Client // nil means a client with a 30 second timeout
 	Now             func() time.Time
 }
@@ -37,7 +37,9 @@ type R2 struct {
 
 // NewR2 builds the store.
 func NewR2(cfg R2Config) *R2 {
-	cfg.Endpoint = "https://" + cfg.AccountID + ".r2.cloudflarestorage.com"
+	if cfg.Endpoint == "" {
+		cfg.Endpoint = "https://" + cfg.AccountID + ".r2.cloudflarestorage.com"
+	}
 	cfg.Endpoint = strings.TrimRight(cfg.Endpoint, "/")
 	cfg.PublicBaseURL = strings.TrimRight(cfg.PublicBaseURL, "/")
 	if cfg.HTTPClient == nil {
