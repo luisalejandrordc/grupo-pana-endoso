@@ -30,8 +30,8 @@ type BootstrapAdminInput struct {
 	HireDate       time.Time
 }
 
-// BootstrapAdmin creates the first System Admin and returns their activation link. It refuses to run
-// when an active System Admin already exists, so it cannot be used as a back door.
+// BootstrapAdmin creates the first System Admin and returns their activation link. It refuses
+// to run when an active System Admin already exists, so it cannot be used as a back door.
 func BootstrapAdmin(ctx context.Context, svc *Service, in BootstrapAdminInput) (string, error) {
 	docType, docNumber, valid := NormalizeIdentifier(in.DocumentType, in.DocumentNumber)
 	if !valid {

@@ -3,6 +3,7 @@ package staff
 import (
 	"context"
 	"endosoflow/internal/adapters/mail"
+	"endosoflow/internal/adapters/storage"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
@@ -55,11 +56,12 @@ func (c *captureMail) to(address string) []mail.Message {
 }
 
 type testEnv struct {
-	ctx   context.Context
-	pool  *pgxpool.Pool
-	auth  *auth.Service
-	staff *Service
-	mail  *captureMail
+	ctx     context.Context
+	pool    *pgxpool.Pool
+	auth    *auth.Service
+	staff   *Service
+	mail    *captureMail
+	avatars *storage.Memory
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -77,8 +79,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	authService := auth.NewService(auth.Deps{
 		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", Mail: captured, Logger: logger,
 	})
-	staffService := NewService(Deps{DB: pool, Activation: authService, Access: authService, Logger: logger})
-	return &testEnv{ctx: ctx, pool: pool, auth: authService, staff: staffService, mail: captured}
+	avatars := storage.NewMemory("")
+	staffService := NewService(Deps{DB: pool, Activation: authService, Access: authService, Avatars: avatars, Logger: logger})
+	return &testEnv{ctx: ctx, pool: pool, auth: authService, staff: staffService, mail: captured, avatars: avatars}
 }
 
 func actorOf(id uuid.UUID, role auth.Role) auth.Actor { return auth.Actor{ID: id, Role: role} }

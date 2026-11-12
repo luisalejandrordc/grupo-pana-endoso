@@ -4,7 +4,11 @@ import (
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/httpx"
+	"errors"
+	"io"
 	"log/slog"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 
@@ -32,16 +36,24 @@ func (h *Handler) Mount(r chi.Router) {
 		// Admins and Managers may read the advisor picker.
 		r.With(auth.RequireRoles(h.logger, auth.RoleSystemAdmin, auth.RoleSalesManager)).Get("/advisors", h.advisors)
 
+		// Every signed-in staff member manages their own picture and may look at anyone's (FR-019).
+		r.Put("/me/photo", h.setPhoto)
+		r.Delete("/me/photo", h.removePhoto)
+
 		r.Route("/employees", func(r chi.Router) {
-			r.Use(auth.RequireRoles(h.logger, auth.RoleSystemAdmin))
-			r.Get("/", h.list)
-			r.Post("/", h.create)
-			r.Get("/{id}", h.get)
-			r.Patch("/{id}", h.update)
-			r.Delete("/{id}", h.delete)
-			r.Post("/{id}/deactivate", h.deactivate)
-			r.Post("/{id}/reactivate", h.reactivate)
-			r.Post("/{id}/resend-activation", h.resendActivation)
+			r.Get("/{id}/photo", h.photoURL)
+
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequireRoles(h.logger, auth.RoleSystemAdmin))
+				r.Get("/", h.list)
+				r.Post("/", h.create)
+				r.Get("/{id}", h.get)
+				r.Patch("/{id}", h.update)
+				r.Delete("/{id}", h.delete)
+				r.Post("/{id}/deactivate", h.deactivate)
+				r.Post("/{id}/reactivate", h.reactivate)
+				r.Post("/{id}/resend-activation", h.resendActivation)
+			})
 		})
 	})
 }
@@ -210,4 +222,82 @@ func (h *Handler) advisors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": advisors})
+}
+
+// maxPhotoBody allows the largest photo plus the multipart framing.
+const maxPhotoBody = MaxPhotoBytes + 64<<10
+
+// readPhoto reads the single "file" part of a multipart body, streaming it with a hard size limit.
+func readPhoto(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "multipart/form-data" || params["boundary"] == "" {
+		return nil, apperr.BadRequest("INVALID_MULTIPART", "La solicitud debe enviarse como multipart/form-data.")
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxPhotoBody)
+	reader := multipart.NewReader(r.Body, params["boundary"])
+	var data []byte
+	sawFile := false
+	for {
+		part, err := reader.NextPart()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, photoMultipartError(err)
+		}
+		if part.FormName() != "file" || sawFile {
+			return nil, apperr.BadRequest("INVALID_MULTIPART", "Envíe una sola parte llamada file.")
+		}
+		sawFile = true
+		if data, err = io.ReadAll(io.LimitReader(part, MaxPhotoBytes+1)); err != nil {
+			return nil, photoMultipartError(err)
+		}
+		if len(data) > MaxPhotoBytes {
+			return nil, errPhotoTooLarge
+		}
+	}
+	return data, nil // empty when there was no file part: the service says it is required
+}
+
+func photoMultipartError(err error) error {
+	var tooBig *http.MaxBytesError
+	if errors.As(err, &tooBig) {
+		return errPhotoTooLarge
+	}
+	return apperr.BadRequest("INVALID_MULTIPART", "No se pudo leer la solicitud.").WithCause(err)
+}
+
+func (h *Handler) setPhoto(w http.ResponseWriter, r *http.Request) {
+	data, err := readPhoto(w, r)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	link, err := h.svc.SetPhoto(r.Context(), h.actor(r), data)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, link)
+}
+
+func (h *Handler) removePhoto(w http.ResponseWriter, r *http.Request) {
+	if err := h.svc.RemovePhoto(r.Context(), h.actor(r)); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) photoURL(w http.ResponseWriter, r *http.Request) {
+	id, ok := h.employeeID(w, r)
+	if !ok {
+		return
+	}
+	link, err := h.svc.PhotoURL(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, link)
 }
