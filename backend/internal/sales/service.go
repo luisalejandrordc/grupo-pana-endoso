@@ -265,26 +265,58 @@ func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) 
 	if err := requireStaff(actor); err != nil {
 		return nil, err
 	}
+
+	var problems []apperr.FieldError
+
+	missing := func(field, label string, absent bool) {
+		if absent {
+			problems = append(problems, apperr.FieldError{
+				Field:   field,
+				Code:    "REQUIRED",
+				Message: label + " es obligatorio.",
+			})
+		}
+	}
+
+	missing("customerId", "El cliente", in.CustomerID == uuid.Nil)
+	missing("versionId", "La versión", in.VersionID == uuid.Nil)
+	missing("colorId", "El color", in.ColorID == uuid.Nil)
+
 	switch in.Temperature {
 	case "hot", "warm", "cold":
 	default:
-		return nil, validationError("temperature", "INVALID_VALUE", "La temperatura debe ser hot, warm o cold.")
+		problems = append(problems, apperr.FieldError{
+			Field:   "temperature",
+			Code:    "INVALID_VALUE",
+			Message: "La temperatura debe ser hot, warm o cold.",
+		})
 	}
+
 	notes := strings.TrimSpace(in.Notes)
 	if utf8.RuneCountInString(notes) > 2000 {
-		return nil, validationError("notes", "TOO_LONG", "Las notas son demasiado largas (máximo 2000 caracteres).")
+		problems = append(problems, apperr.FieldError{
+			Field:   "notes",
+			Code:    "TOO_LONG",
+			Message: "Las notas son demasiado largas (máximo 2000 caracteres).",
+		})
 	}
-	var advisorID uuid.UUID
+
+	advisorID := actor.ID
 	if actor.Role == auth.RoleSalesAdvisor {
 		if in.AdvisorID != nil && *in.AdvisorID != actor.ID {
 			return nil, validationError("advisorId", "NOT_ALLOWED", "Un asesor solo puede crear ventas para sí mismo.")
 		}
-		advisorID = actor.ID
+	} else if in.AdvisorID == nil || *in.AdvisorID == uuid.Nil {
+		missing("advisorId", "El asesor", true)
 	} else {
-		if in.AdvisorID == nil {
-			return nil, validationError("advisorId", "REQUIRED", "Elige el asesor que llevará la venta.")
-		}
 		advisorID = *in.AdvisorID
+	}
+
+	if len(problems) > 0 {
+		return nil, apperr.Unprocessable(
+			"VALIDATION_FAILED",
+			"Revise los datos ingresados.",
+		).WithFields(problems...)
 	}
 
 	now := s.now()
