@@ -11,6 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func TestSaleCreationReturnsAllMissingFieldErrors(t *testing.T) {
+	f := newFx(t)
+	_, err := f.sales.Create(
+		f.Ctx,
+		f.manager.Actor(),
+		sales.CreateInput{},
+	)
+	got := fieldsOf(err)
+	expected := []string{
+		"customerId",
+		"versionId",
+		"colorId",
+		"temperature",
+		"advisorId",
+	}
+	for _, field := range expected {
+		if _, ok := got[field]; !ok {
+			t.Errorf("missing validation error for %s: %v", field, got)
+		}
+	}
+}
+
 func TestAnAdvisorCreatesASaleForThemselves(t *testing.T) {
 	f := newFx(t)
 	customer := f.Customer(f.advisor.ID, false)
