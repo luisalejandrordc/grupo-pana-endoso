@@ -2,6 +2,7 @@ package tasks_test
 
 import (
 	"endosoflow/internal/tasks"
+	"sync"
 	"testing"
 	"time"
 )
@@ -118,5 +119,48 @@ func TestStartingATaskSetsItsClockAndMilestonesFollow(t *testing.T) {
 	}
 	if d := f.detail(f.advisor, sale, 5); d.DueDate != nil || d.RecommendedDurationHours != nil {
 		t.Fatalf("task 5 has no SLA: %+v", d.Summary)
+	}
+}
+
+func TestTwoSimultaneousCompletionsCompleteTheTaskOnce(t *testing.T) {
+	f := newFx(t)
+	sale := f.newSale(f.advisor)
+	// Complete task 1 so task 2 becomes eligible.
+	f.runThrough(f.advisor, sale, 1)
+	if err := f.start(f.advisor, sale, 2); err != nil {
+		t.Fatal(err)
+	}
+	f.mustSave(f.advisor, sale, 2, f.validData(2))
+	f.FillRequiredDocuments(sale, 2, f.advisor.ID)
+	// Attempt to complete task 2 simultaneously.
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i := range errs {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			errs[i] = f.complete(f.advisor, sale, 2)
+		}(i)
+	}
+	wg.Wait()
+	succeeded := 0
+	refused := 0
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			succeeded++
+		case code(err) == "TASK_NOT_IN_PROGRESS":
+			refused++
+		default:
+			t.Errorf("unexpected completion error: %v", err)
+		}
+	}
+	if succeeded != 1 || refused != 1 {
+		t.Fatalf("succeeded = %d, refused = %d, want one of each", succeeded, refused)
+	}
+	// Only one completion audit event should exist for task 2.
+	taskID := f.taskID(sale, 2)
+	if n := f.auditCount(taskID, "COMPLETED"); n != 1 {
+		t.Errorf("task 2 completion audit events = %d, want 1", n)
 	}
 }
