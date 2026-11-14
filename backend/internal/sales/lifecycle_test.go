@@ -268,7 +268,13 @@ func TestDeletingASaleIsForAdminsAndOnlyBeforeDelivery(t *testing.T) {
 	wantCode(t, f.sales.Delete(f.Ctx, f.advisor.Actor(), s.ID, "Prueba", s.Code), "FORBIDDEN")
 	wantCode(t, f.sales.Delete(f.Ctx, f.other.Actor(), s.ID, "Prueba", s.Code), "SALE_NOT_FOUND")
 	wantCode(t, f.sales.Delete(f.Ctx, f.admin.Actor(), s.ID, " ", s.Code), "REASON_REQUIRED")
-	err := f.sales.Delete(f.Ctx, f.admin.Actor(), s.ID, "Venta de prueba", "EF-0000-00000")
+
+	err := f.sales.Delete(f.Ctx, f.admin.Actor(), s.ID, strings.Repeat("x", 501), s.Code)
+	if fieldsOf(err)["reason"] != "TOO_LONG" {
+		t.Fatalf("expected a maximum reason length of 500: %v", err)
+	}
+
+	err = f.sales.Delete(f.Ctx, f.admin.Actor(), s.ID, "Venta de prueba", "EF-0000-00000")
 	if fieldsOf(err)["confirm"] != "CONFIRMATION_MISMATCH" {
 		t.Fatalf("the typed confirmation must match: %v", err)
 	}

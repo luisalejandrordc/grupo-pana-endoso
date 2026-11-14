@@ -5,7 +5,6 @@ import (
 	"endosoflow/internal/adapters/storage"
 	"endosoflow/internal/audit"
 	"endosoflow/internal/auth"
-	"endosoflow/internal/notifications"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/ids"
@@ -41,6 +40,7 @@ type Deps struct {
 	// keys and the private documents store deletes them after the commit. Without them a sale cannot be deleted.
 	Documents     DocumentFiles
 	DocumentStore storage.Store
+	Notifier      Notifier
 	Logger        *slog.Logger
 	Now           func() time.Time // nil means time.Now
 }
@@ -57,13 +57,14 @@ type Service struct {
 	images    storage.Store
 	documents DocumentFiles
 	docStore  storage.Store
+	notifier  Notifier
 	logger    *slog.Logger
 	now       func() time.Time
 }
 
 // NewService builds the service.
 func NewService(d Deps) *Service {
-	s := &Service{db: d.DB, images: d.Images, documents: d.Documents, docStore: d.DocumentStore, logger: d.Logger, now: d.Now}
+	s := &Service{db: d.DB, images: d.Images, documents: d.Documents, docStore: d.DocumentStore, notifier: d.Notifier, logger: d.Logger, now: d.Now}
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -180,11 +181,16 @@ func (s *Service) permissions(ctx context.Context, q querier, actor auth.Actor, 
 	return p, nil
 }
 
-// everDelivered is true if task 13 was ever completed, even if it was reopened later.
+// everDelivered reports whether the sale ever completed Task 13: now, or at any earlier time (a reopened Task 13
+// has no completion date left, but its completion is in the audit log).
 func everDelivered(ctx context.Context, q querier, saleID uuid.UUID) (bool, error) {
 	var delivered bool
-	err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM audit_logs l JOIN task_instances t ON t.id = l.entity_id
-		WHERE l.sale_id = $1 AND l.entity_type = 'task_instance' AND l.action = 'COMPLETED' AND t.task_number = 13)`, saleID).Scan(&delivered)
+	err := q.QueryRow(ctx, `SELECT
+		EXISTS (SELECT 1 FROM task_instances WHERE sale_id = $1 AND task_number = 13 AND status = 'completed')
+		OR EXISTS (SELECT 1 FROM audit_logs WHERE sale_id = $1 AND entity_type = 'task_instance'
+		           AND action = 'COMPLETED' AND changes_summary ->> 'taskNumber' = '13')
+		OR EXISTS (SELECT 1 FROM audit_logs WHERE sale_id = $1 AND entity_type = 'sale_register' AND action = 'COMPLETED')`,
+		saleID).Scan(&delivered)
 	return delivered, err
 }
 
@@ -260,26 +266,58 @@ func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) 
 	if err := requireStaff(actor); err != nil {
 		return nil, err
 	}
+
+	var problems []apperr.FieldError
+
+	missing := func(field, label string, absent bool) {
+		if absent {
+			problems = append(problems, apperr.FieldError{
+				Field:   field,
+				Code:    "REQUIRED",
+				Message: label + " es obligatorio.",
+			})
+		}
+	}
+
+	missing("customerId", "El cliente", in.CustomerID == uuid.Nil)
+	missing("versionId", "La versión", in.VersionID == uuid.Nil)
+	missing("colorId", "El color", in.ColorID == uuid.Nil)
+
 	switch in.Temperature {
 	case "hot", "warm", "cold":
 	default:
-		return nil, validationError("temperature", "INVALID_VALUE", "La temperatura debe ser hot, warm o cold.")
+		problems = append(problems, apperr.FieldError{
+			Field:   "temperature",
+			Code:    "INVALID_VALUE",
+			Message: "La temperatura debe ser hot, warm o cold.",
+		})
 	}
+
 	notes := strings.TrimSpace(in.Notes)
 	if utf8.RuneCountInString(notes) > 2000 {
-		return nil, validationError("notes", "TOO_LONG", "Las notas son demasiado largas (máximo 2000 caracteres).")
+		problems = append(problems, apperr.FieldError{
+			Field:   "notes",
+			Code:    "TOO_LONG",
+			Message: "Las notas son demasiado largas (máximo 2000 caracteres).",
+		})
 	}
-	var advisorID uuid.UUID
+
+	advisorID := actor.ID
 	if actor.Role == auth.RoleSalesAdvisor {
 		if in.AdvisorID != nil && *in.AdvisorID != actor.ID {
 			return nil, validationError("advisorId", "NOT_ALLOWED", "Un asesor solo puede crear ventas para sí mismo.")
 		}
-		advisorID = actor.ID
+	} else if in.AdvisorID == nil || *in.AdvisorID == uuid.Nil {
+		missing("advisorId", "El asesor", true)
 	} else {
-		if in.AdvisorID == nil {
-			return nil, validationError("advisorId", "REQUIRED", "Elige el asesor que llevará la venta.")
-		}
 		advisorID = *in.AdvisorID
+	}
+
+	if len(problems) > 0 {
+		return nil, apperr.Unprocessable(
+			"VALIDATION_FAILED",
+			"Revise los datos ingresados.",
+		).WithFields(problems...)
 	}
 
 	now := s.now()
@@ -347,24 +385,7 @@ func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) 
 		}, now); err != nil {
 			return err
 		}
-		contact, err := notifications.LoadCustomerContact(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		if err := notifications.Enqueue(ctx, tx, notifications.Notification{
-			Type: notifications.SaleCreated, DedupeKey: "sale_created:" + id.String(),
-			SaleID: &id, CustomerID: &contact.ID, Email: contact.Email,
-		}); err != nil {
-			return err
-		}
-		// An advisor who creates the sale for themselves is not told about it; a manager's assignment is.
-		if advisorID != actor.ID {
-			return notifications.Enqueue(ctx, tx, notifications.Notification{
-				Type: notifications.SaleAssigned, DedupeKey: "sale_assigned:" + id.String() + ":" + advisorID.String(),
-				SaleID: &id, EmployeeID: &advisorID, Email: advisor.Email,
-			})
-		}
-		return nil
+		return s.notifier.SaleCreated(ctx, tx, id, advisorID, actor.ID)
 	})
 	if err != nil {
 		return nil, apperr.FromError(err)
@@ -445,10 +466,6 @@ func (s *Service) Reassign(ctx context.Context, actor auth.Actor, id uuid.UUID, 
 		if next == nil || next.Role != string(auth.RoleSalesAdvisor) || !next.Active {
 			return validationError("advisorId", "INVALID_ADVISOR", "El asesor debe ser un asesor de ventas activo.")
 		}
-		previous, err := loadAdvisor(ctx, tx, sale.AdvisorID)
-		if err != nil {
-			return err
-		}
 		if _, err := tx.Exec(ctx, `UPDATE sale_registers SET assigned_advisor_id = $2, updated_by = $3, updated_at = $4, row_version = row_version + 1
 			WHERE id = $1`, id, advisorID, actor.ID, now); err != nil {
 			return err
@@ -460,27 +477,7 @@ func (s *Service) Reassign(ctx context.Context, actor auth.Actor, id uuid.UUID, 
 		}, now); err != nil {
 			return err
 		}
-		contact, err := notifications.LoadCustomerContact(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		// Each change gets its own key, so reassigning back and forth notifies every time.
-		stamp := ids.New().String()
-		for _, n := range []notifications.Notification{
-			{Type: notifications.CustomerAdvisorChanged, DedupeKey: "advisor_changed:" + id.String() + ":" + stamp, SaleID: &id, CustomerID: &contact.ID, Email: contact.Email},
-			{Type: notifications.SaleAssigned, DedupeKey: "sale_assigned:" + id.String() + ":" + stamp, SaleID: &id, EmployeeID: &advisorID, Email: next.Email},
-		} {
-			if err := notifications.Enqueue(ctx, tx, n); err != nil {
-				return err
-			}
-		}
-		if previous != nil {
-			return notifications.Enqueue(ctx, tx, notifications.Notification{
-				Type: notifications.SaleUnassigned, DedupeKey: "sale_unassigned:" + id.String() + ":" + stamp,
-				SaleID: &id, EmployeeID: &previous.ID, Email: previous.Email,
-			})
-		}
-		return nil
+		return s.notifier.AdvisorChanged(ctx, tx, id, sale.AdvisorID, advisorID)
 	})
 	if err != nil {
 		return nil, apperr.FromError(err)
@@ -610,9 +607,13 @@ func (s *Service) Delete(ctx context.Context, actor auth.Actor, id uuid.UUID, re
 		return errForbidden
 	}
 	reason = strings.TrimSpace(reason)
-	if reason == "" {
+	switch {
+	case reason == "":
 		return errReasonRequired
+	case utf8.RuneCountInString(reason) > 500:
+		return validationError("reason", "TOO_LONG", "El motivo no puede superar los 500 caracteres.")
 	}
+
 	if s.documents == nil || s.docStore == nil {
 		return apperr.New(http.StatusServiceUnavailable, "STORAGE_UNAVAILABLE", "No se puede eliminar la venta: el almacenamiento de archivos no está configurado.")
 	}

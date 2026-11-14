@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"endosoflow/internal/audit"
 	"endosoflow/internal/auth"
-	"endosoflow/internal/notifications"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
 	"log/slog"
@@ -48,6 +47,7 @@ type Deps struct {
 	DB        auth.Database
 	Sales     SaleGate       // required: the sale a task belongs to
 	Documents DocumentSource // nil means documents are unavailable and no task can be completed
+	Notifier  Notifier
 	Logger    *slog.Logger
 	Now       func() time.Time // nil means time.Now
 }
@@ -57,13 +57,14 @@ type Service struct {
 	db        auth.Database
 	sales     SaleGate
 	documents DocumentSource
+	notifier  Notifier
 	logger    *slog.Logger
 	now       func() time.Time
 }
 
 // NewService builds the service.
 func NewService(d Deps) *Service {
-	s := &Service{db: d.DB, sales: d.Sales, documents: d.Documents, logger: d.Logger, now: d.Now}
+	s := &Service{db: d.DB, sales: d.Sales, documents: d.Documents, notifier: d.Notifier, logger: d.Logger, now: d.Now}
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -354,6 +355,7 @@ func (s *Service) Complete(ctx context.Context, actor auth.Actor, saleID uuid.UU
 			return err
 		}
 		row := rows[n-1]
+		taskID := row.ID
 		if row.Status != StatusInProgress {
 			return errNotInProgress
 		}
@@ -409,18 +411,7 @@ func (s *Service) Complete(ctx context.Context, actor auth.Actor, saleID uuid.UU
 				return err
 			}
 		}
-		if kind := notifications.MilestoneTaskType(n); kind != "" {
-			contact, err := notifications.LoadCustomerContact(ctx, tx, saleID)
-			if err != nil {
-				return err
-			}
-			// The same key every time: finishing a task that was reopened never e-mails the customer twice.
-			return notifications.Enqueue(ctx, tx, notifications.Notification{
-				Type: kind, DedupeKey: kind + ":" + saleID.String(),
-				SaleID: &saleID, TaskID: &row.ID, CustomerID: &contact.ID, Email: contact.Email,
-			})
-		}
-		return nil
+		return s.notifier.TaskCompleted(ctx, tx, saleID, taskID, n)
 	})
 	if err != nil {
 		return nil, apperr.FromError(err)

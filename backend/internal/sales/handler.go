@@ -143,6 +143,10 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
+	if f.VersionID, err = queryUUID(r, "versionId"); err != nil {
+		h.fail(w, r, err)
+		return
+	}
 	result, err := h.svc.List(r.Context(), h.actor(r), f)
 	if err != nil {
 		h.fail(w, r, err)

@@ -128,7 +128,7 @@ func TestTheSalesAndTaskFlowOverHTTP(t *testing.T) {
 	}
 
 	// ---- list query validation ----
-	for _, q := range []string{"state=bogus", "customerType=x", "temperature=x", "currentTask=14", "currentTask=0", "milestone=7", "advisorId=nope", "modelId=nope", "page=0", "pageSize=101", "pageSize=abc"} {
+	for _, q := range []string{"state=bogus", "customerType=x", "temperature=x", "currentTask=14", "currentTask=0", "milestone=7", "advisorId=nope", "modelId=nope", "versionId=nope", "page=0", "pageSize=101", "pageSize=abc"} {
 		if rec := call(router, "GET", "/api/v1/sales?"+q, "", manager); rec.Code != http.StatusBadRequest {
 			t.Errorf("?%s: %d, want 400", q, rec.Code)
 		}

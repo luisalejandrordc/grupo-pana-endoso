@@ -45,20 +45,6 @@ type queryRower interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-// CustomerContact is who a customer notification of a sale goes to.
-type CustomerContact struct {
-	ID    uuid.UUID
-	Email string
-}
-
-// LoadCustomerContact returns the customer of a sale and their e-mail. Resolving recipients is the one place
-// where this module reads other modules' tables, because the outbox must know whom to write to.
-func LoadCustomerContact(ctx context.Context, q queryRower, saleID uuid.UUID) (CustomerContact, error) {
-	var c CustomerContact
-	err := q.QueryRow(ctx, `SELECT c.id, c.email FROM sale_registers s JOIN customers c ON c.id = s.customer_id WHERE s.id = $1`, saleID).Scan(&c.ID, &c.Email)
-	return c, err
-}
-
 // Notification is one message to queue. Exactly one of EmployeeID and CustomerID may be set.
 type Notification struct {
 	Type       string
