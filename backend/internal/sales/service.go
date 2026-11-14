@@ -180,11 +180,16 @@ func (s *Service) permissions(ctx context.Context, q querier, actor auth.Actor, 
 	return p, nil
 }
 
-// everDelivered is true if task 13 was ever completed, even if it was reopened later.
+// everDelivered reports whether the sale ever completed Task 13: now, or at any earlier time (a reopened Task 13
+// has no completion date left, but its completion is in the audit log).
 func everDelivered(ctx context.Context, q querier, saleID uuid.UUID) (bool, error) {
 	var delivered bool
-	err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM audit_logs l JOIN task_instances t ON t.id = l.entity_id
-		WHERE l.sale_id = $1 AND l.entity_type = 'task_instance' AND l.action = 'COMPLETED' AND t.task_number = 13)`, saleID).Scan(&delivered)
+	err := q.QueryRow(ctx, `SELECT
+		EXISTS (SELECT 1 FROM task_instances WHERE sale_id = $1 AND task_number = 13 AND status = 'completed')
+		OR EXISTS (SELECT 1 FROM audit_logs WHERE sale_id = $1 AND entity_type = 'task_instance'
+		           AND action = 'COMPLETED' AND changes_summary ->> 'taskNumber' = '13')
+		OR EXISTS (SELECT 1 FROM audit_logs WHERE sale_id = $1 AND entity_type = 'sale_register' AND action = 'COMPLETED')`,
+		saleID).Scan(&delivered)
 	return delivered, err
 }
 
@@ -610,9 +615,13 @@ func (s *Service) Delete(ctx context.Context, actor auth.Actor, id uuid.UUID, re
 		return errForbidden
 	}
 	reason = strings.TrimSpace(reason)
-	if reason == "" {
+	switch {
+	case reason == "":
 		return errReasonRequired
+	case utf8.RuneCountInString(reason) > 500:
+		return validationError("reason", "TOO_LONG", "El motivo no puede superar los 500 caracteres.")
 	}
+
 	if s.documents == nil || s.docStore == nil {
 		return apperr.New(http.StatusServiceUnavailable, "STORAGE_UNAVAILABLE", "No se puede eliminar la venta: el almacenamiento de archivos no está configurado.")
 	}
