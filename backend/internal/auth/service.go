@@ -659,8 +659,15 @@ func (s *Service) ChangePassword(ctx context.Context, employeeID uuid.UUID, curr
 		if err != nil {
 			return err
 		}
-		if emp == nil || !emp.IsActive || emp.PasswordHash == nil {
+		if emp == nil || !emp.IsActive {
 			failure = errAccessTokenInvalid
+			return nil
+		}
+		if emp.PasswordHash == nil {
+			failure = apperr.Unprocessable(
+				"PASSWORD_NOT_SET",
+				"Tu cuenta aún no ha sido activada. Debes utilizar el enlace de activación para configurar tu contraseña.",
+			)
 			return nil
 		}
 		matches, err := VerifyPassword(current, *emp.PasswordHash)
