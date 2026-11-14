@@ -242,7 +242,8 @@ type customerRow struct {
 
 func loadCustomer(ctx context.Context, q querier, id uuid.UUID) (*customerRow, error) {
 	var c customerRow
-	err := q.QueryRow(ctx, `SELECT id, display_name, document_type::text, document_number, customer_type::text, is_active FROM customers WHERE id = $1`, id).
+	err := q.QueryRow(ctx, `SELECT id, display_name, document_type::text, document_number, customer_type::text, is_active
+		FROM customers WHERE id = $1 FOR SHARE`, id).
 		Scan(&c.ID, &c.Name, &c.DocType, &c.DocNumber, &c.CustomerType, &c.Active)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -269,7 +270,7 @@ func loadVehicle(ctx context.Context, q querier, versionID, colorID uuid.UUID) (
 	v := &vehicleRow{}
 	err := q.QueryRow(ctx, `SELECT m.id, m.model_name, v.version_name, v.reference_price::text, (sv.version_id IS NOT NULL)
 		FROM vehicle_versions v JOIN vehicle_models m ON m.id = v.model_id
-		LEFT JOIN v_selectable_versions sv ON sv.version_id = v.id WHERE v.id = $1`, versionID).Scan(&v.ModelID, &v.ModelName, &v.VersionName, &v.Price, &v.Selectable)
+		LEFT JOIN v_selectable_versions sv ON sv.version_id = v.id WHERE v.id = $1 FOR SHARE OF v, m`, versionID).Scan(&v.ModelID, &v.ModelName, &v.VersionName, &v.Price, &v.Selectable)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, nil
 	}
@@ -278,7 +279,7 @@ func loadVehicle(ctx context.Context, q querier, versionID, colorID uuid.UUID) (
 	}
 	v.VersionFound = true
 	err = q.QueryRow(ctx, `SELECT c.model_id, c.color_name, (sc.color_id IS NOT NULL)
-		FROM vehicle_colors c LEFT JOIN v_selectable_colors sc ON sc.color_id = c.id WHERE c.id = $1`, colorID).Scan(&v.ColorModelID, &v.ColorName, &v.ColorOK)
+		FROM vehicle_colors c LEFT JOIN v_selectable_colors sc ON sc.color_id = c.id WHERE c.id = $1 FOR SHARE OF c`, colorID).Scan(&v.ColorModelID, &v.ColorName, &v.ColorOK)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, nil
 	}
