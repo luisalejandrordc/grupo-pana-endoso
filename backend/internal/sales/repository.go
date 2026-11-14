@@ -155,6 +155,9 @@ func listSales(ctx context.Context, q querier, f ListFilter, advisorScope *uuid.
 	if f.ModelID != nil {
 		where = append(where, "s.vehicle_model_id = "+add(*f.ModelID))
 	}
+	if f.VersionID != nil {
+		where = append(where, "s.vehicle_version_id = "+add(*f.VersionID))
+	}
 	if q := strings.TrimSpace(f.Search); q != "" {
 		term := escapeLike(q)
 		a, b, c, d := add(term), add(term), add(term), add(term)

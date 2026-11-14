@@ -139,6 +139,7 @@ type ListFilter struct {
 	CustomerType string
 	Temperature  string
 	ModelID      *uuid.UUID
+	VersionID    *uuid.UUID
 	Page         int
 	PageSize     int
 	Sort         string // -createdAt (default), createdAt, customerName, -customerName, updatedAt, -updatedAt, dueDate

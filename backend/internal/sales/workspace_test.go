@@ -118,6 +118,9 @@ func TestTheWorkspaceFiltersSearchesSortsAndPages(t *testing.T) {
 	if got := mine(sales.ListFilter{ModelID: &f.vehicle.ModelID}); !got[a.ID] || !got[d.ID] {
 		t.Fatalf("model filter: %v", got)
 	}
+	if got := mine(sales.ListFilter{VersionID: &f.vehicle.VersionID}); !got[a.ID] || !got[d.ID] {
+		t.Fatalf("version filter: %v", got)
+	}
 
 	// Search: by customer name, document, the code and the vehicle series that task 3 recorded.
 	series := ""
