@@ -8,6 +8,7 @@ import (
 	"endosoflow/internal/catalog"
 	"endosoflow/internal/customers"
 	"endosoflow/internal/documents"
+	"endosoflow/internal/notifications"
 	"endosoflow/internal/platform/config"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/logging"
@@ -47,6 +48,8 @@ func run() error {
 	defer pool.Close()
 
 	sender, delivers := newMailer(cfg, logger)
+	notificationWriter := notifications.Writer{}
+
 	authService := auth.NewService(auth.Deps{
 		DB: pool, JWTSecret: cfg.JWTSecret, AppBaseURL: cfg.AppBaseURL, Mail: sender, Logger: logger,
 	})
@@ -81,11 +84,11 @@ func run() error {
 	salesGate := sales.Gate{}
 	documentsService := documents.NewService(documents.Deps{DB: pool, Store: st.Documents, Sales: salesGate, Logger: logger})
 	salesService := sales.NewService(sales.Deps{
-		DB: pool, Images: st.Catalog, Documents: documentsService, DocumentStore: st.Documents, Logger: logger,
+		DB: pool, Images: st.Catalog, Documents: documentsService, DocumentStore: st.Documents, Notifier: notificationWriter, Logger: logger,
 	})
 	salesHandler := sales.NewHandler(salesService, authHandler, logger)
 	documentsHandler := documents.NewHandler(documentsService, authHandler, logger)
-	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: salesGate, Documents: documentsService, Logger: logger})
+	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: salesGate, Documents: documentsService, Notifier: notificationWriter, Logger: logger})
 	tasksHandler := tasks.NewHandler(tasksService, authHandler, logger)
 
 	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount,

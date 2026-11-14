@@ -5,7 +5,6 @@ import (
 	"endosoflow/internal/adapters/storage"
 	"endosoflow/internal/audit"
 	"endosoflow/internal/auth"
-	"endosoflow/internal/notifications"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/ids"
@@ -41,6 +40,7 @@ type Deps struct {
 	// keys and the private documents store deletes them after the commit. Without them a sale cannot be deleted.
 	Documents     DocumentFiles
 	DocumentStore storage.Store
+	Notifier      Notifier
 	Logger        *slog.Logger
 	Now           func() time.Time // nil means time.Now
 }
@@ -57,13 +57,14 @@ type Service struct {
 	images    storage.Store
 	documents DocumentFiles
 	docStore  storage.Store
+	notifier  Notifier
 	logger    *slog.Logger
 	now       func() time.Time
 }
 
 // NewService builds the service.
 func NewService(d Deps) *Service {
-	s := &Service{db: d.DB, images: d.Images, documents: d.Documents, docStore: d.DocumentStore, logger: d.Logger, now: d.Now}
+	s := &Service{db: d.DB, images: d.Images, documents: d.Documents, docStore: d.DocumentStore, notifier: d.Notifier, logger: d.Logger, now: d.Now}
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -384,24 +385,7 @@ func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) 
 		}, now); err != nil {
 			return err
 		}
-		contact, err := notifications.LoadCustomerContact(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		if err := notifications.Enqueue(ctx, tx, notifications.Notification{
-			Type: notifications.SaleCreated, DedupeKey: "sale_created:" + id.String(),
-			SaleID: &id, CustomerID: &contact.ID, Email: contact.Email,
-		}); err != nil {
-			return err
-		}
-		// An advisor who creates the sale for themselves is not told about it; a manager's assignment is.
-		if advisorID != actor.ID {
-			return notifications.Enqueue(ctx, tx, notifications.Notification{
-				Type: notifications.SaleAssigned, DedupeKey: "sale_assigned:" + id.String() + ":" + advisorID.String(),
-				SaleID: &id, EmployeeID: &advisorID, Email: advisor.Email,
-			})
-		}
-		return nil
+		return s.notifier.SaleCreated(ctx, tx, id, advisorID, actor.ID)
 	})
 	if err != nil {
 		return nil, apperr.FromError(err)
@@ -482,10 +466,6 @@ func (s *Service) Reassign(ctx context.Context, actor auth.Actor, id uuid.UUID, 
 		if next == nil || next.Role != string(auth.RoleSalesAdvisor) || !next.Active {
 			return validationError("advisorId", "INVALID_ADVISOR", "El asesor debe ser un asesor de ventas activo.")
 		}
-		previous, err := loadAdvisor(ctx, tx, sale.AdvisorID)
-		if err != nil {
-			return err
-		}
 		if _, err := tx.Exec(ctx, `UPDATE sale_registers SET assigned_advisor_id = $2, updated_by = $3, updated_at = $4, row_version = row_version + 1
 			WHERE id = $1`, id, advisorID, actor.ID, now); err != nil {
 			return err
@@ -497,27 +477,7 @@ func (s *Service) Reassign(ctx context.Context, actor auth.Actor, id uuid.UUID, 
 		}, now); err != nil {
 			return err
 		}
-		contact, err := notifications.LoadCustomerContact(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		// Each change gets its own key, so reassigning back and forth notifies every time.
-		stamp := ids.New().String()
-		for _, n := range []notifications.Notification{
-			{Type: notifications.CustomerAdvisorChanged, DedupeKey: "advisor_changed:" + id.String() + ":" + stamp, SaleID: &id, CustomerID: &contact.ID, Email: contact.Email},
-			{Type: notifications.SaleAssigned, DedupeKey: "sale_assigned:" + id.String() + ":" + stamp, SaleID: &id, EmployeeID: &advisorID, Email: next.Email},
-		} {
-			if err := notifications.Enqueue(ctx, tx, n); err != nil {
-				return err
-			}
-		}
-		if previous != nil {
-			return notifications.Enqueue(ctx, tx, notifications.Notification{
-				Type: notifications.SaleUnassigned, DedupeKey: "sale_unassigned:" + id.String() + ":" + stamp,
-				SaleID: &id, EmployeeID: &previous.ID, Email: previous.Email,
-			})
-		}
-		return nil
+		return s.notifier.AdvisorChanged(ctx, tx, id, sale.AdvisorID, advisorID)
 	})
 	if err != nil {
 		return nil, apperr.FromError(err)

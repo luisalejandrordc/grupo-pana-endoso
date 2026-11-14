@@ -55,3 +55,14 @@ type SaleGate interface {
 type DocumentSource interface {
 	TaskSlots(ctx context.Context, q Querier, taskInstanceID uuid.UUID, taskNumber int, customerType string) ([]DocumentSlot, error)
 }
+
+// Notifier receives task events that produce customer notifications.
+type Notifier interface {
+	TaskCompleted(
+		ctx context.Context,
+		q Querier,
+		saleID uuid.UUID,
+		taskID uuid.UUID,
+		taskNumber int,
+	) error
+}

@@ -5,6 +5,7 @@ import (
 	"endosoflow/internal/adapters/storage"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/documents"
+	"endosoflow/internal/notifications"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/sales"
 	"endosoflow/internal/tasks"
@@ -58,8 +59,8 @@ func newFx(t *testing.T) *fx {
 	docs := documents.NewService(documents.Deps{DB: env.Pool, Store: store, Sales: sales.Gate{}, Logger: env.Logger, Now: clk.Now})
 	f := &fx{
 		Env: env, clock: clk,
-		sales: sales.NewService(sales.Deps{DB: env.Pool, Images: store, Documents: docs, DocumentStore: store, Logger: env.Logger}),
-		tasks: tasks.NewService(tasks.Deps{DB: env.Pool, Sales: sales.Gate{}, Documents: docs, Logger: env.Logger, Now: clk.Now}),
+		sales: sales.NewService(sales.Deps{DB: env.Pool, Images: store, Documents: docs, DocumentStore: store, Notifier: notifications.Writer{}, Logger: env.Logger}),
+		tasks: tasks.NewService(tasks.Deps{DB: env.Pool, Sales: sales.Gate{}, Documents: docs, Notifier: notifications.Writer{}, Logger: env.Logger, Now: clk.Now}),
 	}
 	f.admin = env.Employee(auth.RoleSystemAdmin, false)
 	f.manager = env.Employee(auth.RoleSalesManager, false)
