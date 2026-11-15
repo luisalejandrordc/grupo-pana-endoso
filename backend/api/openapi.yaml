@@ -1422,20 +1422,11 @@ paths:
         deleted, even if that task was reopened.
       security:
         - bearerAuth: []
-      parameters:
-        - {
-            name: reason,
-            in: query,
-            required: true,
-            schema: { type: string, minLength: 1 },
-          }
-        - {
-            name: confirm,
-            in: query,
-            required: true,
-            schema: { type: string },
-            description: "The sale code, typed by the person.",
-          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeleteSaleRequest" }
       responses:
         "204": { description: Deleted. }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -2219,11 +2210,12 @@ components:
         activationLinkIssued: { type: boolean }
     Advisor:
       type: object
-      required: [id, firstName, lastName]
+      required: [id, firstName, lastName, hasPhoto]
       properties:
         id: { type: string, format: uuid }
         firstName: { type: string }
         lastName: { type: string }
+        hasPhoto: { type: boolean }
     AdvisorList:
       type: object
       required: [items]
@@ -2726,12 +2718,13 @@ components:
           { type: string, nullable: true, description: Set by task 10. }
     SaleAdvisor:
       type: object
-      required: [id, name, email, phone]
+      required: [id, name, email, phone, hasPhoto]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
         email: { type: string }
         phone: { type: string }
+        hasPhoto: { type: boolean }
     SaleMilestone:
       type: object
       description: One of six derived stages; never stored.
@@ -2835,6 +2828,7 @@ components:
           vehicleColor,
           advisorId,
           advisorName,
+          advisorHasPhoto,
           temperature,
           state,
           createdAt,
@@ -2852,6 +2846,7 @@ components:
         imageUrl: { type: string, format: uri, nullable: true }
         advisorId: { type: string, format: uuid }
         advisorName: { type: string }
+        advisorHasPhoto: { type: boolean }
         temperature: { $ref: "#/components/schemas/SaleTemperature" }
         state: { $ref: "#/components/schemas/SaleState" }
         currentTask:
@@ -3009,6 +3004,16 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/DocumentSlot" }
+    DeleteSaleRequest:
+      type: object
+      required: [reason, confirm]
+      properties:
+        reason: { type: string, minLength: 1 }
+        confirm:
+          {
+            type: string,
+            description: "The sale code, typed by the person as confirmation.",
+          }
     PhotoLink:
       type: object
       required: [url, expiresAt, mimeType]
