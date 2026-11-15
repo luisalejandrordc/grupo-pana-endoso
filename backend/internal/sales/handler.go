@@ -285,8 +285,13 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	q := r.URL.Query()
-	if err := h.svc.Delete(r.Context(), h.actor(r), id, q.Get("reason"), q.Get("confirm")); err != nil {
+	// The reason is free text, so it travels in the body: a URL ends up in proxy and server logs.
+	var body DeleteInput
+	if err := httpx.DecodeJSON(w, r, &body); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if err := h.svc.Delete(r.Context(), h.actor(r), id, body.Reason, body.Confirm); err != nil {
 		h.fail(w, r, err)
 		return
 	}

@@ -37,10 +37,11 @@ type Vehicle struct {
 
 // Advisor is the employee in charge of the sale.
 type Advisor struct {
-	ID    uuid.UUID `json:"id"`
-	Name  string    `json:"name"`
-	Email string    `json:"email"`
-	Phone string    `json:"phone"`
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	Phone    string    `json:"phone"`
+	HasPhoto bool      `json:"hasPhoto"`
 }
 
 // Milestone is one of the six derived stages.
@@ -114,6 +115,7 @@ type ListItem struct {
 	ImageURL         *string      `json:"imageUrl"`
 	AdvisorID        uuid.UUID    `json:"advisorId"`
 	AdvisorName      string       `json:"advisorName"`
+	AdvisorHasPhoto  bool         `json:"advisorHasPhoto"`
 	Temperature      string       `json:"temperature"`
 	State            string       `json:"state"`
 	CurrentTask      *CurrentTask `json:"currentTask"`
@@ -175,4 +177,11 @@ type History struct {
 	Page     int            `json:"page"`
 	PageSize int            `json:"pageSize"`
 	Total    int            `json:"total"`
+}
+
+// DeleteInput is the body of a permanent deletion: why,
+// and the sale's code typed by the person as confirmation.
+type DeleteInput struct {
+	Reason  string `json:"reason"`
+	Confirm string `json:"confirm"`
 }

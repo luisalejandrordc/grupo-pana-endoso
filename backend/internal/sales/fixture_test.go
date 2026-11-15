@@ -57,10 +57,11 @@ func newFx(t *testing.T) *fx {
 	clk := &clock{t: time.Now()}
 	store := storage.NewMemory("https://img.test")
 	docs := documents.NewService(documents.Deps{DB: env.Pool, Store: store, Sales: sales.Gate{}, Logger: env.Logger, Now: clk.Now})
+	ntsWr := notifications.Writer{}
 	f := &fx{
 		Env: env, clock: clk, store: store, docs: docs,
-		sales: sales.NewService(sales.Deps{DB: env.Pool, Images: store, Documents: docs, DocumentStore: store, Notifier: notifications.Writer{}, Logger: env.Logger, Now: clk.Now}),
-		tasks: tasks.NewService(tasks.Deps{DB: env.Pool, Sales: sales.Gate{}, Documents: docs, Notifier: notifications.Writer{}, Logger: env.Logger, Now: clk.Now}),
+		sales: sales.NewService(sales.Deps{DB: env.Pool, Images: store, Documents: docs, DocumentStore: store, Notifier: ntsWr, Logger: env.Logger, Now: clk.Now}),
+		tasks: tasks.NewService(tasks.Deps{DB: env.Pool, Sales: sales.Gate{}, Documents: docs, Notifier: ntsWr, Logger: env.Logger, Now: clk.Now}),
 	}
 	f.admin = env.Employee(auth.RoleSystemAdmin, false)
 	f.manager = env.Employee(auth.RoleSalesManager, false)
