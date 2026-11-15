@@ -181,8 +181,7 @@ func (s *Service) permissions(ctx context.Context, q querier, actor auth.Actor, 
 	return p, nil
 }
 
-// everDelivered reports whether the sale ever completed Task 13: now, or at any earlier time (a reopened Task 13
-// has no completion date left, but its completion is in the audit log).
+// everDelivered is true if task 13 was ever completed, even if it was reopened later.
 func everDelivered(ctx context.Context, q querier, saleID uuid.UUID) (bool, error) {
 	var delivered bool
 	err := q.QueryRow(ctx, `SELECT

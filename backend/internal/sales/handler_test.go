@@ -58,7 +58,7 @@ func TestEverySalesRouteNeedsSignInAndAStaffRole(t *testing.T) {
 		{"POST", "/api/v1/sales"},
 		{"GET", base},
 		{"PATCH", base},
-		{"DELETE", base + "?reason=x&confirm=x"},
+		{"DELETE", base},
 		{"GET", base + "/history"},
 		{"POST", base + "/cancel"},
 		{"POST", base + "/reopen"},
@@ -128,7 +128,10 @@ func TestTheSalesAndTaskFlowOverHTTP(t *testing.T) {
 	}
 
 	// ---- list query validation ----
-	for _, q := range []string{"state=bogus", "customerType=x", "temperature=x", "currentTask=14", "currentTask=0", "milestone=7", "advisorId=nope", "modelId=nope", "versionId=nope", "page=0", "pageSize=101", "pageSize=abc"} {
+	for _, q := range []string{
+		"state=bogus", "customerType=x", "temperature=x", "currentTask=14", "currentTask=0",
+		"milestone=7", "advisorId=nope", "modelId=nope", "versionId=nope", "page=0", "pageSize=101", "pageSize=abc",
+	} {
 		if rec := call(router, "GET", "/api/v1/sales?"+q, "", manager); rec.Code != http.StatusBadRequest {
 			t.Errorf("?%s: %d, want 400", q, rec.Code)
 		}
@@ -252,13 +255,13 @@ func TestTheSalesAndTaskFlowOverHTTP(t *testing.T) {
 		t.Fatalf("reopen sale: %d %s", rec.Code, rec.Body.String())
 	}
 	code := sale["code"].(string)
-	if rec := call(router, "DELETE", base+"?reason=Prueba&confirm="+code, "", manager); rec.Code != http.StatusForbidden {
+	if rec := call(router, "DELETE", base, `{"reason":"Prueba","confirm":"`+code+`"}`, manager); rec.Code != http.StatusForbidden {
 		t.Fatalf("a manager cannot delete: %d", rec.Code)
 	}
-	if rec := call(router, "DELETE", base+"?reason=Prueba&confirm=EF-0", "", admin); rec.Code != http.StatusUnprocessableEntity {
+	if rec := call(router, "DELETE", base, `{"reason":"Prueba","confirm":"EF-0"}`, admin); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("wrong confirmation: %d", rec.Code)
 	}
-	if rec := call(router, "DELETE", base+"?reason=Prueba&confirm="+code, "", admin); rec.Code != http.StatusNoContent {
+	if rec := call(router, "DELETE", base, `{"reason":"Prueba","confirm":"`+code+`"}`, admin); rec.Code != http.StatusNoContent {
 		t.Fatalf("delete: %d %s", rec.Code, rec.Body.String())
 	}
 	if rec := call(router, "GET", base, "", admin); rec.Code != http.StatusNotFound {

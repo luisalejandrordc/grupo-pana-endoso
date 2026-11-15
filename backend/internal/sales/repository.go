@@ -36,7 +36,7 @@ const saleSelect = `SELECT s.id, s.sale_number, s.created_at, s.updated_at, s.co
 		s.customer_id, s.customer_legal_name_snapshot, s.customer_doc_type_snapshot::text, s.customer_doc_number_snapshot, s.customer_type_snapshot::text,
 		s.vehicle_model_id, s.vehicle_version_id, s.vehicle_color_id, s.vehicle_model_name_snapshot, s.vehicle_version_name_snapshot,
 		s.vehicle_color_name_snapshot, s.vehicle_reference_price_snapshot::text, s.vehicle_series, s.vin, s.license_plate,
-		s.assigned_advisor_id, a.first_name || ' ' || a.last_name, a.business_email, a.business_phone,
+		s.assigned_advisor_id, a.first_name || ' ' || a.last_name, a.business_email, a.business_phone, a.profile_picture_key IS NOT NULL,
 		s.cancelled_at, s.cancellation_category::text, s.cancellation_text, s.cancelled_at_task_number, coalesce(cb.first_name || ' ' || cb.last_name, ''),
 		f.quoted_final_price::text,
 		(SELECT i.storage_key FROM catalog_images i WHERE i.vehicle_color_id = s.vehicle_color_id AND i.viewpoint = 'main_view')
@@ -55,7 +55,7 @@ func loadSaleRow(ctx context.Context, q querier, id uuid.UUID) (*saleRow, error)
 		&r.Customer.ID, &r.Customer.Name, &r.Customer.DocumentType, &r.Customer.DocumentNumber, &r.Customer.CustomerType,
 		&r.Vehicle.ModelID, &r.Vehicle.VersionID, &r.Vehicle.ColorID, &r.Vehicle.Model, &r.Vehicle.Version,
 		&r.Vehicle.Color, &r.Vehicle.ReferencePrice, &r.Vehicle.Series, &r.Vehicle.VIN, &r.Vehicle.LicensePlate,
-		&r.advisorID, &r.Advisor.Name, &r.Advisor.Email, &r.Advisor.Phone,
+		&r.advisorID, &r.Advisor.Name, &r.Advisor.Email, &r.Advisor.Phone, &r.Advisor.HasPhoto,
 		&cancelledAt, &category, &text, &r.cancelledAtNum, &cancelledBy,
 		&r.QuotedFinalPrice, &r.imageKey)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -199,7 +199,7 @@ func listSales(ctx context.Context, q querier, f ListFilter, advisorScope *uuid.
 	limit, offset := add(f.PageSize), add((f.Page-1)*f.PageSize)
 	rows, err := q.Query(ctx, `SELECT s.id, s.sale_number, s.created_at, s.updated_at, s.customer_legal_name_snapshot, s.customer_doc_type_snapshot::text || ' ' || s.customer_doc_number_snapshot,
 			s.customer_type_snapshot::text, s.vehicle_model_name_snapshot, s.vehicle_version_name_snapshot, s.vehicle_color_name_snapshot,
-			s.assigned_advisor_id, a.first_name || ' ' || a.last_name, s.sale_temperature::text, s.overall_state::text,
+			s.assigned_advisor_id, a.first_name || ' ' || a.last_name, a.profile_picture_key IS NOT NULL, s.sale_temperature::text, s.overall_state::text,
 			ct.task_number, td.name_es, ct.status, ct.due_date, td.milestone_number,
 			(SELECT i.storage_key FROM catalog_images i WHERE i.vehicle_color_id = s.vehicle_color_id AND i.viewpoint = 'main_view')
 		`+from+` WHERE `+clause+` ORDER BY `+order+`, `+tiebreak+` LIMIT `+limit+` OFFSET `+offset, args...)
@@ -211,7 +211,7 @@ func listSales(ctx context.Context, q querier, f ListFilter, advisorScope *uuid.
 	for rows.Next() {
 		var r listRow
 		if err := rows.Scan(&r.ID, &r.number, &r.CreatedAt, &r.UpdatedAt, &r.CustomerName, &r.CustomerDocument, &r.CustomerType,
-			&r.VehicleModel, &r.VehicleVersion, &r.VehicleColor, &r.AdvisorID, &r.AdvisorName, &r.Temperature, &r.State,
+			&r.VehicleModel, &r.VehicleVersion, &r.VehicleColor, &r.AdvisorID, &r.AdvisorName, &r.AdvisorHasPhoto, &r.Temperature, &r.State,
 			&r.taskNum, &r.taskName, &r.taskStat, &r.taskDue, &r.taskMile, &r.imageKey); err != nil {
 			return nil, 0, err
 		}
