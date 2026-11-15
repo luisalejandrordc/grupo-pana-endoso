@@ -38,6 +38,7 @@ type Advisor struct {
 	ID        uuid.UUID `json:"id"`
 	FirstName string    `json:"firstName"`
 	LastName  string    `json:"lastName"`
+	HasPhoto  bool      `json:"hasPhoto"`
 }
 
 // CreateInput is the body of a create request.

@@ -280,3 +280,24 @@ func TestPhotoUploadRejectsBadRequests(t *testing.T) {
 		t.Fatalf("nothing may be stored: %v", e.avatars.Keys())
 	}
 }
+
+func TestTheAdvisorPickerSaysWhoHasAPicture(t *testing.T) {
+	e := newTestEnv(t)
+	with, actor := e.employee(t, "sales_advisor")
+	without, _ := e.employee(t, "sales_advisor")
+	t.Cleanup(func() { e.cleanup(with.ID); e.cleanup(without.ID) })
+	if _, err := e.staff.SetPhoto(e.ctx, actor, pngPhoto(t, 7)); err != nil {
+		t.Fatal(err)
+	}
+	advisors, err := e.staff.Advisors(e.ctx, actorOf(with.ID, auth.RoleSalesManager))
+	if err != nil {
+		t.Fatal(err)
+	}
+	flags := map[uuid.UUID]bool{}
+	for _, a := range advisors {
+		flags[a.ID] = a.HasPhoto
+	}
+	if !flags[with.ID] || flags[without.ID] {
+		t.Fatalf("with=%v without=%v", flags[with.ID], flags[without.ID])
+	}
+}

@@ -180,7 +180,7 @@ func listEmployees(ctx context.Context, q querier, f ListFilter) ([]Employee, in
 }
 
 func listAdvisors(ctx context.Context, q querier) ([]Advisor, error) {
-	rows, err := q.Query(ctx, `SELECT id, first_name, last_name FROM employees
+	rows, err := q.Query(ctx, `SELECT id, first_name, last_name, profile_picture_key IS NOT NULL FROM employees
 		WHERE role = 'sales_advisor' AND is_active AND NOT is_system ORDER BY last_name, first_name`)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func listAdvisors(ctx context.Context, q querier) ([]Advisor, error) {
 	advisors := []Advisor{}
 	for rows.Next() {
 		var a Advisor
-		if err := rows.Scan(&a.ID, &a.FirstName, &a.LastName); err != nil {
+		if err := rows.Scan(&a.ID, &a.FirstName, &a.LastName, &a.HasPhoto); err != nil {
 			return nil, err
 		}
 		advisors = append(advisors, a)
