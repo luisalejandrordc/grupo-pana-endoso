@@ -1,15 +1,4 @@
 /* Modal, toast, utility */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(4px);
-  z-index: 90;
-  animation: fade-in 0.12s ease-out;
-}
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -18,125 +7,15 @@
     opacity: 1;
   }
 }
-.modal {
-  width: min(100%, 530px);
-  max-height: min(86vh, 800px);
-  overflow: auto;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 22px 80px #1919193d;
-  border: 1px solid #ebebeb;
-}
-.modal-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 21px 23px 17px;
-  border-bottom: 1px solid #f0f0f0;
-}
-.modal-heading h2 {
-  margin: 0;
-  font:
-    800 16px "Manrope",
-    sans-serif;
-  color: #191919;
-  letter-spacing: -0.3px;
-}
-.modal-heading p {
-  margin: 7px 0 0;
-  color: #939393;
-  font-size: 10px;
-  line-height: 1.6;
-}
-.modal-content {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  padding: 20px 23px 23px;
-}
-.modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 9px;
-  padding: 14px 23px;
-  border-top: 1px solid #f0f0f0;
-  background: #fcfcfc;
-}
-.confirm-detail {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 13px;
-  border: 1px solid #ededed;
-  background: #fcfcfc;
-  border-radius: 8px;
-}
-.confirm-detail-icon {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: #eaf2fa;
-  color: #5c89b0;
-  border-radius: 9px;
-}
 .confirm-detail-icon.green {
   background: #f0f0f0;
   color: #c90e16;
-}
-.confirm-detail > div {
-  min-width: 0;
-}
-.confirm-detail strong {
-  color: #535353;
-  font-size: 10px;
-}
-.confirm-detail p {
-  color: #949494;
-  font-size: 9px;
-  line-height: 1.65;
-  margin: 5px 0 0;
-}
-.modal-warning {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #a66d41;
-  background: #fff6e9;
-  border: 1px solid #f4e5c9;
-  padding: 10px;
-  border-radius: 6px;
-  font-size: 9px;
 }
 .create-employee-form {
   display: block;
 }
 .create-employee-form .form-grid-two {
   gap: 14px;
-}
-.create-employee-form .field input,
-.create-employee-form .field select {
-  height: 38px;
-  font-size: 10px;
-}
-.toast {
-  position: fixed;
-  z-index: 100;
-  right: 24px;
-  bottom: 23px;
-  display: flex;
-  align-items: flex-start;
-  gap: 11px;
-  width: min(390px, calc(100vw - 32px));
-  padding: 14px;
-  border-radius: 9px;
-  border: 1px solid #e8e8e8;
-  background: #fff;
-  box-shadow: 0 12px 45px #1919191b;
-  animation: toast-in 0.2s ease-out;
 }
 @keyframes toast-in {
   from {
@@ -148,70 +27,6 @@
     opacity: 1;
   }
 }
-.toast-icon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  border-radius: 9px;
-  background: #f1f1f1;
-  color: #c90e16;
-}
-.toast-error .toast-icon {
-  background: #fff0ef;
-  color: #bb5c55;
-}
-.toast-info .toast-icon {
-  background: #edf4fa;
-  color: #6b8eb0;
-}
-.toast > div {
-  flex: 1;
-  min-width: 0;
-  padding-top: 1px;
-}
-.toast strong {
-  color: #191919;
-  font-size: 11px;
-}
-.toast p {
-  color: #8d8d8d;
-  font-size: 9px;
-  line-height: 1.55;
-  margin: 5px 0 0;
-}
-.toast .icon-button {
-  width: 23px;
-  height: 23px;
-}
-.loading-screen {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #fafafa;
-  color: #929292;
-  font-size: 11px;
-}
-.loading-pulse {
-  margin-top: 28px;
-  height: 3px;
-  width: 180px;
-  background: #eaeaea;
-  border-radius: 5px;
-  overflow: hidden;
-  position: relative;
-}
-.loading-pulse::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  width: 35%;
-  background: #c90e16;
-  animation: loading 1.2s ease-in-out infinite alternate;
-}
 @keyframes loading {
   from {
     transform: translateX(0);
@@ -219,11 +34,4 @@
   to {
     transform: translateX(190%);
   }
-}
-.loading-screen p {
-  margin-top: 16px;
-}
-
-.modal.modal-wide {
-  width: min(880px, calc(100vw - 32px));
 }
