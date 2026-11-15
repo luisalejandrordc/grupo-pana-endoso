@@ -14,6 +14,7 @@ build/
 
 # Local media and documents
 backend/var/
+backend/media/
 
 # Logs
 *.log

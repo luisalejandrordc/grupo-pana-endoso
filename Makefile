@@ -10,7 +10,7 @@ TEST_DB := $(firstword $(subst ?, ,$(notdir $(TEST_DATABASE_URL))))
 MIGRATIONS  := backend/db/migrations
 VERIFY_SQL  := backend/db/verify/constraints.sql
 
-.PHONY: help db-create db-drop db-reset migrate-up migrate-status db-verify tidy fmt build vet test run bootstrap-admin
+.PHONY: help db-create db-drop db-reset migrate-up migrate-status db-verify tidy fmt build vet test run bootstrap-admin seed
 
 help:
 	@echo "db-create       create the dev and test databases"
@@ -26,6 +26,7 @@ help:
 	@echo "test            run the Go tests (run make db-verify once first)"
 	@echo "run             start the API on http://localhost:8080"
 	@echo "bootstrap-admin create the first System Admin (see README)"
+	@echo "seed            populate the database with initial data"
 
 db-create:
 	-createdb $(DEV_DB)
@@ -73,3 +74,6 @@ run:
 # Example: make bootstrap-admin ARGS="-doc-number 10000001 -first-name Maju -last-name Admin -gender F -phone 999111222 -email maju@admin.com -birthdate 2004-10-05 -hire-date 2026-01-01"
 bootstrap-admin:
 	cd backend && set -a && . ./.env && set +a && go run ./cmd/bootstrap-admin $(ARGS)
+
+seed:
+	cd backend && ENV=local DATABASE_URL="${DATABASE_URL}" go run ./cmd/seed
