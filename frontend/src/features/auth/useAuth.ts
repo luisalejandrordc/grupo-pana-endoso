@@ -1,21 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../shared/api/client";
-import { demoMode } from "../../shared/config";
-import { demoEmployees, demoProfile } from "../../shared/demo/data";
-import {
-  type DocumentType,
-  type EmployeeProfile,
-  type Role,
-} from "../../shared/types";
+import { type DocumentType, type EmployeeProfile } from "../../shared/types";
 
 export function useAuth() {
   const [user, setUser] = useState<EmployeeProfile | null>(null);
-  const [authLoading, setAuthLoading] = useState(!demoMode);
+  const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     api.setUnauthorizedHandler(() => setUser(null));
-    if (demoMode) return;
     let alive = true;
     api
       .refreshSession()
@@ -38,10 +31,6 @@ export function useAuth() {
     rememberMe: boolean;
   }) {
     setAuthError("");
-    if (demoMode) {
-      setUser({ ...demoProfile });
-      return;
-    }
     try {
       const session = await api.login(input);
       setUser(session.employee);
@@ -55,42 +44,24 @@ export function useAuth() {
     }
   }
 
-  function signInDemo() {
-    setUser({ ...demoProfile });
-    setAuthError("");
-  }
-
-  function changeDemoRole(role: Role) {
-    if (!demoMode || !user) return;
-    const employee =
-      role === "system_admin"
-        ? demoEmployees[3]
-        : role === "sales_advisor"
-          ? demoEmployees[1]
-          : demoEmployees[0];
-    setUser({ ...employee });
-  }
-
   async function signOut() {
-    if (!demoMode) {
-      try {
-        await api.logout();
-      } catch {
-        /* A local sign out must still complete. */
-      }
+    try {
+      await api.logout();
+    } catch {
+      /* A local sign out must still complete. */
     }
     api.setToken(null);
     setUser(null);
   }
 
-  return {
-    user,
-    setUser,
-    authLoading,
-    authError,
-    signIn,
-    signInDemo,
-    changeDemoRole,
-    signOut,
-  };
+  /** Re-reads the signed-in employee, for after something about them changed (their picture). */
+  const reload = useCallback(async () => {
+    try {
+      setUser(await api.me());
+    } catch {
+      /* The next request will say if the session is gone. */
+    }
+  }, []);
+
+  return { user, authLoading, authError, signIn, signOut, reload };
 }
