@@ -1,4 +1,4 @@
-# EndosoFlow — Employee Portal (Phase 1)
+# EndosoFlow — Employee Portal
 
 Provisional employee-side frontend for the EndosoFlow / Grupo Pana workflow. Built with React 18, Vite, and TypeScript. The UI is Spanish, desktop-first, and responsive for tablet and mobile.
 
