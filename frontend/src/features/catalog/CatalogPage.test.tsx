@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Role } from "../../shared/types";
 import type { ApiColor, ApiImage, ApiModel, ApiVersion } from "./api";
-import { LiveCatalogPage } from "./LiveCatalogPage";
+import { CatalogPage } from "./CatalogPage";
 
 // ---- a stateful fake of the catalog API, so these tests cover the screens without a backend ----
 
@@ -317,7 +317,7 @@ function renderPage(role: Role = "sales_manager", query = "") {
   });
   const wrap = (q: string) => (
     <QueryClientProvider client={client}>
-      <LiveCatalogPage query={q} role={role} toast={toast} />
+      <CatalogPage query={q} role={role} toast={toast} />
     </QueryClientProvider>
   );
   const view = render(wrap(query));
