@@ -3,7 +3,7 @@
 .tabs {
   display: flex;
   gap: var(--space-1);
-  overflow-x: auto;
+  /* overflow-x: auto; */
   border-bottom: 1px solid var(--line-strong);
 }
 
