@@ -164,6 +164,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  padding: 6px 0;
 }
 
 .route-dot {
@@ -171,6 +172,7 @@
   place-items: center;
   width: 30px;
   height: 30px;
+  padding: 0;
   border: 2px solid var(--line-strong);
   border-radius: 50%;
   background: var(--surface);

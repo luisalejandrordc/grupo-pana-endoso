@@ -242,14 +242,14 @@ export function HistoryTab({ sale }: { sale: ApiSale }) {
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
             >
-              Anterior
+              &lt;
             </button>
             <button
               className="button button-secondary button-sm"
               disabled={page >= pages}
               onClick={() => setPage(page + 1)}
             >
-              Siguiente
+              &gt;
             </button>
           </span>
         </footer>
