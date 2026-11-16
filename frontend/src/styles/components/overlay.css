@@ -1,0 +1,129 @@
+/* Dialogs and menus. */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgb(20 22 28 / 50%);
+  animation: fade-in var(--dur-2) var(--ease);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  animation: modal-in 0.25s var(--ease);
+}
+
+.modal-wide {
+  width: min(880px, 100%);
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+}
+
+.modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-1);
+}
+
+.modal-heading h2 {
+  font-size: var(--text-xl);
+}
+
+.modal-heading p {
+  margin-top: 6px;
+  color: var(--ink-3);
+}
+
+.modal-content {
+  display: grid;
+  gap: 14px;
+  padding: var(--space-3) var(--space-6) var(--space-2);
+  overflow-y: auto;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: var(--space-4) var(--space-6) var(--space-5);
+}
+
+/* On a phone a dialog is a sheet that rises from the bottom. */
+@media (max-width: 640px) {
+  .modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .modal,
+  .modal-wide {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .modal-heading,
+  .modal-content,
+  .modal-footer {
+    padding-inline: var(--space-4);
+  }
+}
+
+/* ---- menu ---- */
+
+.menu {
+  position: relative;
+}
+
+.menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: var(--z-menu);
+  display: grid;
+  min-width: 230px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  animation: fade-in var(--dur-1) var(--ease);
+}
+
+.menu-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+}
+
+.menu-list button:hover,
+.menu-list button:focus-visible {
+  background: var(--surface-2);
+}
+
+.menu-list .is-danger {
+  color: var(--brand-strong);
+}

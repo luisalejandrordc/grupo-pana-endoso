@@ -1,0 +1,288 @@
+/* Tables, the entity cells they share, and pagination. */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.toolbar-count {
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  transition: opacity 0.15s;
+}
+
+.table-scroll.is-refreshing {
+  opacity: 0.6;
+}
+
+.table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: 10px var(--space-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 13px var(--space-4);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table tr.is-link {
+  cursor: pointer;
+}
+
+.table tr.is-link:hover td {
+  background: var(--surface-2);
+}
+
+.table tr.is-link:focus-visible {
+  outline-offset: -2px;
+}
+
+/* A row that needs attention carries a red edge. */
+.table tr.is-overdue td:first-child {
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.table .cell-actions {
+  width: 1%;
+  text-align: right;
+}
+
+.cell-title {
+  display: block;
+  font-weight: 600;
+}
+
+a.cell-title {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+a.cell-title:hover {
+  color: var(--brand-strong);
+  text-decoration: underline;
+}
+
+button.cell-title {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+button.cell-title:hover {
+  color: var(--brand-strong);
+  text-decoration: underline;
+}
+
+.cell-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
+.cell-late {
+  color: var(--brand-strong);
+  font-weight: 550;
+}
+
+.entity-cell,
+.vehicle-cell,
+.person-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.person-cell {
+  gap: var(--space-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.contact-cell {
+  display: grid;
+  gap: 4px;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+
+.contact-cell span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.contact-cell svg {
+  flex: none;
+  color: var(--ink-4);
+}
+
+.vehicle-cell img,
+.vehicle-fallback {
+  flex: none;
+  width: 64px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  object-fit: cover;
+}
+
+.vehicle-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+}
+
+/* ---- pagination ---- */
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
+.pager strong {
+  color: var(--ink-2);
+}
+
+.pager-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pager-buttons {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.pager-buttons button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.pager-buttons button:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--ink-3);
+}
+
+.pager-buttons button:disabled {
+  opacity: 0.4;
+}
+
+.flip-icon {
+  transform: rotate(180deg);
+}
+
+/* ---- on a phone, each row becomes a card: first cell on the left, .cell-aside on the right ---- */
+
+@media (max-width: 720px) {
+  .table-cards {
+    min-width: 0;
+  }
+
+  .table-cards thead {
+    display: none;
+  }
+
+  .table-cards,
+  .table-cards tbody {
+    display: block;
+  }
+
+  .table-cards tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px var(--space-3);
+    padding: 14px var(--space-4);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .table-cards tr:last-child {
+    border-bottom: 0;
+  }
+
+  .table-cards td {
+    display: block;
+    grid-column: 1 / -1;
+    padding: 0;
+    border: 0;
+  }
+
+  .table-cards td.cell-primary {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .table-cards td.cell-aside {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .table-cards .cell-actions {
+    width: auto;
+    text-align: left;
+  }
+
+  .table-cards tr.is-link:hover td {
+    background: transparent;
+  }
+
+  .table-cards tr.is-overdue {
+    box-shadow: inset 3px 0 0 var(--brand);
+  }
+
+  .table-cards tr.is-overdue td:first-child {
+    box-shadow: none;
+  }
+}
