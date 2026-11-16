@@ -7,8 +7,11 @@ import {
 } from "react-router-dom";
 import { formatDate, formatMoneyText } from "../../shared/lib/format";
 import { Avatar } from "../../shared/ui/Avatar";
+import { ErrorState } from "../../shared/ui/EmptyState";
 import { Icon } from "../../shared/ui/Icon";
 import { Menu, type MenuItem } from "../../shared/ui/Menu";
+import { BackLink } from "../../shared/ui/PageHeader";
+import { Tabs } from "../../shared/ui/Tabs";
 import type { Toast } from "../../shared/ui/toast";
 import { salesApi, type ApiSale } from "./api";
 import {
@@ -48,17 +51,16 @@ export function SaleDetailPage({ toast }: { toast: (toast: Toast) => void }) {
     );
   if (sale.isError)
     return (
-      <div className="empty empty-page" role="alert">
-        <Icon name="alert" size={24} />
-        <strong>No se encontró la venta</strong>
-        <p>
-          {errorText(sale.error)} Puede que no exista o que no tengas acceso a
-          ella.
-        </p>
-        <Link className="button button-primary" to="/sales">
-          Volver a ventas
-        </Link>
-      </div>
+      <ErrorState
+        page
+        title="No se encontró la venta"
+        message={`${errorText(sale.error)} Puede que no exista o que no tengas acceso a ella.`}
+        actions={
+          <Link className="button button-primary" to="/sales">
+            Volver a ventas
+          </Link>
+        }
+      />
     );
   return (
     <Loaded
@@ -79,7 +81,7 @@ function Loaded({
   toast: (toast: Toast) => void;
 }) {
   const navigate = useNavigate();
-  const [search, setSearch] = useSearchParams();
+  const [search] = useSearchParams();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [leaving, setLeaving] = useState<null | (() => void)>(null);
   const dirty = useRef(false);
@@ -176,11 +178,7 @@ function Loaded({
 
   return (
     <div className="stack">
-      <nav className="crumbs" aria-label="Ruta de navegación">
-        <Link to="/sales">
-          <Icon name="arrow-left" size={15} /> Ventas
-        </Link>
-      </nav>
+      <BackLink to="/sales">Ventas</BackLink>
 
       <header className="sale-head">
         <div className="sale-head-main">
@@ -192,9 +190,13 @@ function Loaded({
           <h1>{sale.customer.name}</h1>
           <p className="sale-head-meta">
             <span>
+              <Icon name="car" size={15} />
               {sale.vehicle.model} {sale.vehicle.version} · {sale.vehicle.color}
             </span>
-            <span>Registrada el {formatDate(sale.createdAt)}</span>
+            <span>
+              <Icon name="calendar" size={15} />
+              Registrada el {formatDate(sale.createdAt)}
+            </span>
           </p>
         </div>
         <div className="sale-head-actions">
@@ -254,23 +256,12 @@ function Loaded({
 
       <div className="detail-layout">
         <div className="detail-main">
-          <div
-            className="tabs"
-            role="tablist"
-            aria-label="Secciones de la venta"
-          >
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                role="tab"
-                aria-selected={tab === item.id}
-                className={tab === item.id ? "is-active" : ""}
-                onClick={() => openTab(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            label="Secciones de la venta"
+            items={tabs}
+            value={tab}
+            onChange={openTab}
+          />
           {tab === "tasks" && (
             <TaskPanel
               sale={sale}

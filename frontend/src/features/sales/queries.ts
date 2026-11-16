@@ -31,9 +31,9 @@ export function useSaleList(params: SaleListParams) {
   });
 }
 
-/** Totals for the summary cards: one tiny request per filter. */
+/** How many sales match a filter, from a one-row request. Used for the counts on the state tabs. */
 export function useSaleTotal(
-  filter: Pick<SaleListParams, "state" | "temperature">,
+  filter: Omit<SaleListParams, "page" | "pageSize" | "sort">,
 ) {
   const params: SaleListParams = { ...filter, page: 1, pageSize: 1 };
   return useQuery({

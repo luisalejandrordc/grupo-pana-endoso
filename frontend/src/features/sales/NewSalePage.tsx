@@ -12,7 +12,9 @@ import { useDebounced } from "../../shared/lib/useDebounced";
 import { formatMoneyText } from "../../shared/lib/format";
 import type { Role } from "../../shared/types";
 import { Field } from "../../shared/ui/Field";
+import { Callout } from "../../shared/ui/Callout";
 import { Icon } from "../../shared/ui/Icon";
+import { BackLink, PageHeader } from "../../shared/ui/PageHeader";
 import type { Toast } from "../../shared/ui/toast";
 import { salesApi, type CreateSaleBody, type Temperature } from "./api";
 import { errorText, fieldErrors, temperatureLabels } from "./labels";
@@ -27,6 +29,28 @@ interface Picked {
 }
 
 const lookupTypes: CustomerDocumentType[] = ["DNI", "CE", "PAS", "CDI", "RUC"];
+
+function StepHeading({
+  step,
+  done,
+  children,
+}: {
+  step: number;
+  done: boolean;
+  children: string;
+}) {
+  return (
+    <div className="new-section-head">
+      <span
+        className={`step-number${done ? " is-done" : ""}`}
+        aria-hidden="true"
+      >
+        {done ? <Icon name="check" size={15} strokeWidth={2.6} /> : step}
+      </span>
+      <h2>{children}</h2>
+    </div>
+  );
+}
 
 /** Registers a sale: the customer, the vehicle (from what the catalog offers today) and a few details. */
 export function NewSalePage({
@@ -61,12 +85,14 @@ export function NewSalePage({
   const model = catalog.data?.find((item) => item.id === modelId);
   const version = model?.versions.find((item) => item.id === versionId);
   const color = model?.colors.find((item) => item.id === colorId);
+  const advisor = advisors.data?.find((item) => item.id === advisorId);
 
   const ready =
     customer !== null &&
     version !== undefined &&
     color !== undefined &&
     (!management || advisorId !== "");
+  const blocked = customer ? !customer.isActive : false;
 
   async function submit() {
     if (!customer || !version || !color) return;
@@ -93,228 +119,251 @@ export function NewSalePage({
     }
   }
 
+  const summary: [string, string | null][] = [
+    ["Cliente", customer?.displayName ?? null],
+    ["Vehículo", model && version ? `${model.name} ${version.name}` : null],
+    ["Color", color?.name ?? null],
+    [
+      "Precio de lista",
+      version ? formatMoneyText(version.referencePrice) : null,
+    ],
+    ["Prioridad", temperatureLabels[temperature]],
+    [
+      "Asesor",
+      management
+        ? advisor
+          ? `${advisor.firstName} ${advisor.lastName}`
+          : null
+        : "Tú",
+    ],
+  ];
+
   return (
-    <div className="stack new-sale">
-      <div className="crumbs">
-        <button className="text-button" onClick={onCancel}>
-          <Icon name="arrow-left" size={16} /> Volver a ventas
-        </button>
-      </div>
-      <div className="page-head">
-        <div>
-          <h1>Registrar una venta</h1>
-          <p>
-            Elige al cliente y la unidad. Los datos del cliente y del vehículo
-            quedan guardados tal como están hoy.
-          </p>
-        </div>
-      </div>
+    <div className="stack">
+      <BackLink to="/sales">Volver a ventas</BackLink>
+      <PageHeader
+        title="Registrar una venta"
+        description="Elige al cliente y la unidad. Los datos del cliente y del vehículo quedan guardados tal como están hoy."
+      />
 
-      <section className="panel new-section">
-        <h2>1. Cliente</h2>
-        {customer ? (
-          <div className="picked">
-            <div>
-              <strong>{customer.displayName}</strong>
-              <span>
-                {customerTypeLabels[
-                  customer.customerType as keyof typeof customerTypeLabels
-                ] ?? customer.customerType}
-                {customer.detail ? ` · ${customer.detail}` : ""}
-              </span>
-              {!customer.isActive && (
-                <small className="field-error">
-                  Este cliente está inactivo y no puede recibir nuevas ventas.
-                </small>
-              )}
-            </div>
-            <button
-              className="button button-secondary button-sm"
-              onClick={() => setCustomer(null)}
-            >
-              Cambiar
-            </button>
-          </div>
-        ) : (
-          <CustomerPicker
-            onPick={setCustomer}
-            onNew={() => setNewCustomer(true)}
-          />
-        )}
-        {errors.customerId && (
-          <small className="field-error">{errors.customerId}</small>
-        )}
-      </section>
-
-      <section className="panel new-section">
-        <h2>2. Vehículo</h2>
-        {catalog.isPending && (
-          <div className="muted">Cargando el catálogo…</div>
-        )}
-        {catalog.isError && (
-          <div className="callout callout-error" role="alert">
-            <Icon name="alert" size={16} /> {errorText(catalog.error)}
-          </div>
-        )}
-        {catalog.data && catalog.data.length === 0 && (
-          <p className="muted">
-            No hay modelos disponibles. Un administrador debe activar al menos
-            un modelo con versión y color.
-          </p>
-        )}
-        {catalog.data && catalog.data.length > 0 && (
-          <div className="vehicle-grid">
-            <div className="vehicle-fields">
-              <Field label="Modelo">
-                <select
-                  value={modelId}
-                  onChange={(event) => {
-                    setModelId(event.target.value);
-                    setVersionId("");
-                    setColorId("");
-                  }}
-                >
-                  <option value="">Selecciona un modelo</option>
-                  {catalog.data.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Versión" error={errors.versionId}>
-                <select
-                  value={versionId}
-                  disabled={!model}
-                  onChange={(event) => setVersionId(event.target.value)}
-                >
-                  <option value="">Selecciona una versión</option>
-                  {model?.versions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} · {formatMoneyText(item.referencePrice)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Color" error={errors.colorId}>
-                <select
-                  value={colorId}
-                  disabled={!model}
-                  onChange={(event) => setColorId(event.target.value)}
-                >
-                  <option value="">Selecciona un color</option>
-                  {model?.colors.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div className="vehicle-preview">
-              {color ? (
-                <img
-                  src={color.mainImageUrl}
-                  alt={`${model?.name} ${color.name}`}
-                />
-              ) : (
-                <div className="vehicle-preview-empty">
-                  <Icon name="car" size={32} />
-                  <span>Elige un color para ver la unidad</span>
+      <div className="new-sale">
+        <div className="new-sale-main">
+          <section className="panel new-section">
+            <StepHeading step={1} done={customer !== null}>
+              Cliente
+            </StepHeading>
+            {customer ? (
+              <div className="picked">
+                <div>
+                  <strong>{customer.displayName}</strong>
+                  <span>
+                    {customerTypeLabels[
+                      customer.customerType as keyof typeof customerTypeLabels
+                    ] ?? customer.customerType}
+                    {customer.detail ? ` · ${customer.detail}` : ""}
+                  </span>
+                  {!customer.isActive && (
+                    <small className="field-error">
+                      Este cliente está inactivo y no puede recibir nuevas
+                      ventas.
+                    </small>
+                  )}
                 </div>
+                <button
+                  className="button button-secondary button-sm"
+                  onClick={() => setCustomer(null)}
+                >
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <CustomerPicker
+                onPick={setCustomer}
+                onNew={() => setNewCustomer(true)}
+              />
+            )}
+            {errors.customerId && (
+              <small className="field-error">{errors.customerId}</small>
+            )}
+          </section>
+
+          <section className="panel new-section">
+            <StepHeading
+              step={2}
+              done={version !== undefined && color !== undefined}
+            >
+              Vehículo
+            </StepHeading>
+            {catalog.isPending && (
+              <div className="muted">Cargando el catálogo…</div>
+            )}
+            {catalog.isError && (
+              <Callout tone="error">{errorText(catalog.error)}</Callout>
+            )}
+            {catalog.data && catalog.data.length === 0 && (
+              <p className="muted">
+                No hay modelos disponibles. Un administrador debe activar al
+                menos un modelo con versión y color.
+              </p>
+            )}
+            {catalog.data && catalog.data.length > 0 && (
+              <div className="vehicle-grid">
+                <div className="vehicle-fields">
+                  <Field label="Modelo">
+                    <select
+                      value={modelId}
+                      onChange={(event) => {
+                        setModelId(event.target.value);
+                        setVersionId("");
+                        setColorId("");
+                      }}
+                    >
+                      <option value="">Selecciona un modelo</option>
+                      {catalog.data.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Versión" error={errors.versionId}>
+                    <select
+                      value={versionId}
+                      disabled={!model}
+                      onChange={(event) => setVersionId(event.target.value)}
+                    >
+                      <option value="">Selecciona una versión</option>
+                      {model?.versions.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} · {formatMoneyText(item.referencePrice)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Color" error={errors.colorId}>
+                    <select
+                      value={colorId}
+                      disabled={!model}
+                      onChange={(event) => setColorId(event.target.value)}
+                    >
+                      <option value="">Selecciona un color</option>
+                      {model?.colors.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+                <div className="vehicle-preview">
+                  {color ? (
+                    <img
+                      src={color.mainImageUrl}
+                      alt={`${model?.name} ${color.name}`}
+                    />
+                  ) : (
+                    <div className="vehicle-preview-empty">
+                      <Icon name="car" size={32} />
+                      <span>Elige un color para ver la unidad</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="panel new-section">
+            <StepHeading step={3} done={!management || advisorId !== ""}>
+              Detalles
+            </StepHeading>
+            <div className="form-grid">
+              <Field label="Prioridad de la venta" error={errors.temperature}>
+                <select
+                  value={temperature}
+                  onChange={(event) =>
+                    setTemperature(event.target.value as Temperature)
+                  }
+                >
+                  {(Object.keys(temperatureLabels) as Temperature[]).map(
+                    (value) => (
+                      <option key={value} value={value}>
+                        {temperatureLabels[value]}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </Field>
+              {management ? (
+                <Field label="Asesor responsable" error={errors.advisorId}>
+                  <select
+                    value={advisorId}
+                    onChange={(event) => setAdvisorId(event.target.value)}
+                    disabled={advisors.isPending}
+                  >
+                    <option value="">
+                      {advisors.isPending
+                        ? "Cargando asesores…"
+                        : "Selecciona un asesor"}
+                    </option>
+                    {(advisors.data ?? []).map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.firstName} {item.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : (
+                <Field
+                  label="Asesor responsable"
+                  hint="Las ventas que registras quedan asignadas a ti."
+                >
+                  <div className="readonly-value">Tú</div>
+                </Field>
               )}
-              {version && (
-                <p>
-                  Precio de referencia:{" "}
-                  <strong>{formatMoneyText(version.referencePrice)}</strong>
-                </p>
-              )}
+              <Field label="Notas internas (opcional)" className="span-2">
+                <textarea
+                  rows={3}
+                  value={notes}
+                  maxLength={2000}
+                  onChange={(event) => setNotes(event.target.value)}
+                />
+              </Field>
             </div>
-          </div>
-        )}
-      </section>
+          </section>
+        </div>
 
-      <section className="panel new-section">
-        <h2>3. Detalles</h2>
-        <div className="form-grid">
-          <Field label="Prioridad de la venta" error={errors.temperature}>
-            <select
-              value={temperature}
-              onChange={(event) =>
-                setTemperature(event.target.value as Temperature)
-              }
-            >
-              {(Object.keys(temperatureLabels) as Temperature[]).map(
-                (value) => (
-                  <option key={value} value={value}>
-                    {temperatureLabels[value]}
-                  </option>
-                ),
-              )}
-            </select>
-          </Field>
-          {management ? (
-            <Field label="Asesor responsable" error={errors.advisorId}>
-              <select
-                value={advisorId}
-                onChange={(event) => setAdvisorId(event.target.value)}
-                disabled={advisors.isPending}
+        <aside className="new-sale-aside" aria-label="Resumen de la venta">
+          <section className="panel summary-card">
+            <h2>Resumen</h2>
+            <dl className="summary-list">
+              {summary.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd className={value ? "" : "is-empty"}>
+                    {value ?? "Pendiente"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {error && <Callout tone="error">{error}</Callout>}
+            <div className="summary-actions">
+              <button
+                className="button button-primary"
+                onClick={submit}
+                disabled={!ready || create.isPending || blocked}
               >
-                <option value="">
-                  {advisors.isPending
-                    ? "Cargando asesores…"
-                    : "Selecciona un asesor"}
-                </option>
-                {(advisors.data ?? []).map((advisor) => (
-                  <option key={advisor.id} value={advisor.id}>
-                    {advisor.firstName} {advisor.lastName}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          ) : (
-            <Field
-              label="Asesor responsable"
-              hint="Las ventas que registras quedan asignadas a ti."
-            >
-              <div className="readonly-value">Tú</div>
-            </Field>
-          )}
-          <Field label="Notas internas (opcional)" className="span-2">
-            <textarea
-              rows={3}
-              value={notes}
-              maxLength={2000}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-          </Field>
-        </div>
-      </section>
-
-      {error && (
-        <div className="callout callout-error" role="alert">
-          <Icon name="alert" size={16} /> {error}
-        </div>
-      )}
-      <div className="new-footer">
-        <button
-          className="button button-secondary"
-          onClick={onCancel}
-          disabled={create.isPending}
-        >
-          Cancelar
-        </button>
-        <button
-          className="button button-primary"
-          onClick={submit}
-          disabled={
-            !ready ||
-            create.isPending ||
-            (customer ? !customer.isActive : false)
-          }
-        >
-          {create.isPending ? "Registrando…" : "Registrar venta"}{" "}
-        </button>
+                {create.isPending ? "Registrando…" : "Registrar venta"}
+              </button>
+              <button
+                className="button button-secondary"
+                onClick={onCancel}
+                disabled={create.isPending}
+              >
+                Cancelar
+              </button>
+            </div>
+          </section>
+        </aside>
       </div>
 
       {newCustomer && (

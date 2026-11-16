@@ -1,16 +1,6 @@
+import { Badge } from "../../shared/ui/Badge";
 import type { SaleStateValue, TaskStatusValue, Temperature } from "./api";
 import { stateLabels, temperatureLabels } from "./labels";
-
-/** A small status marker: a colored dot and a word, never color alone. */
-export function Badge({
-  tone,
-  children,
-}: {
-  tone: "neutral" | "done" | "doing" | "late" | "warn" | "brand";
-  children: React.ReactNode;
-}) {
-  return <span className={`badge badge-${tone}`}>{children}</span>;
-}
 
 export function StateBadge({ state }: { state: SaleStateValue }) {
   const tone =

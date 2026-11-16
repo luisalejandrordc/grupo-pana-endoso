@@ -96,10 +96,16 @@ function TaskBody({
   const warnings = task.warnings.map((warning) => warning.message);
 
   // A new version or status from the server replaces whatever was typed: it is now what the server holds.
-  useEffect(() => {
+  // (State adjusted while rendering, which React prefers to an effect that would render twice.)
+  const [seen, setSeen] = useState({
+    version: task.version,
+    status: task.status,
+  });
+  if (seen.version !== task.version || seen.status !== task.status) {
+    setSeen({ version: task.version, status: task.status });
     setDraft(saved);
     setEditing(false);
-  }, [task.version, task.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   const start = useSaleMutation(() => tasksApi.start(sale.id, number));
   const complete = useSaleMutation(() => tasksApi.complete(sale.id, number));
