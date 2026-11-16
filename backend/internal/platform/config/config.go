@@ -132,20 +132,24 @@ func Load(getenv func(string) string) (Config, error) {
 	if cfg.AppBaseURL == "" {
 		if cfg.Env == "local" {
 			cfg.AppBaseURL = "http://localhost:5173"
-		} else if u, err := url.Parse(cfg.AppBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
-			problems = append(problems,
-				"APP_BASE_URL must be a site address such as https://endosoflow-app.onrender.com, without a path (emailed links use it)")
+		} else {
+			problems = append(problems, "APP_BASE_URL is required (emailed links use it)")
 		}
+	} else if u, err := url.Parse(cfg.AppBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
+		problems = append(problems,
+			"APP_BASE_URL must be a site address without a path like https://app.endosoflow.com")
 	}
 
 	cfg.PortalBaseURL = strings.TrimRight(strings.TrimSpace(getenv("PORTAL_BASE_URL")), "/")
 	if cfg.PortalBaseURL == "" {
 		if cfg.Env == "local" {
-			cfg.AppBaseURL = "http://localhost:5174"
+			cfg.PortalBaseURL = "http://localhost:5174"
 		} else if u, err := url.Parse(cfg.PortalBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
-			problems = append(problems,
-				"PORTAL_BASE_URL must be a site address such as https://endosoflow-portal.onrender.com, without a path (emailed links use it)")
+			problems = append(problems, "PORTAL_BASE_URL is required (emailed links use it)")
 		}
+	} else if u, err := url.Parse(cfg.PortalBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
+		problems = append(problems,
+			"PORTAL_BASE_URL must be a site address without a path like https://portal.endosoflow.com")
 	}
 
 	cfg.CookieSecure = cfg.Env == "staging" || cfg.Env == "production"
