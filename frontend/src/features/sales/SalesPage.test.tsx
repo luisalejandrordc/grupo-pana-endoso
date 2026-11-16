@@ -5,7 +5,8 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Role } from "../../shared/types";
 import type { SaleListItem } from "./api";
-import { completedTasks, SalesPage } from "./SalesPage";
+import { completedTasks } from "./progress";
+import { SalesPage } from "./SalesPage";
 
 const sale = (over: Partial<SaleListItem> = {}): SaleListItem => ({
   id: "0198aaaa-0000-7000-8000-000000000001",

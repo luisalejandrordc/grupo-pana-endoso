@@ -99,7 +99,7 @@ export function ModelDetailModal({
   if (query.isError || !model)
     return (
       <Modal title="Modelo" wide onClose={onClose}>
-        <div className="list-error" role="alert">
+        <div className="empty is-error" role="alert">
           <h3>No se pudo cargar el modelo</h3>
           <p>{messageOf(query.error)}</p>
           <button
@@ -157,9 +157,7 @@ export function ModelDetailModal({
             >
               <span>
                 <strong>{version.name}</strong>
-                {!version.isActive && (
-                  <span className="portal-pill"> Archivada</span>
-                )}
+                {!version.isActive && <span className="chip"> Archivada</span>}
               </span>
               <strong>{formatPrice(version.referencePrice)}</strong>
               {canManage ? (
@@ -233,9 +231,7 @@ export function ModelDetailModal({
                 <div className="color-card-body">
                   <strong>
                     {color.name}
-                    {!color.isActive && (
-                      <span className="portal-pill">Archivado</span>
-                    )}
+                    {!color.isActive && <span className="chip">Archivado</span>}
                   </strong>
                   <span>
                     {color.images.length} de {viewpoints.length} imágenes
@@ -567,7 +563,7 @@ function InfoSection({
         <p>{model.description || "Sin descripción."}</p>
         <div className="detail-chips">
           {model.categories.map((c) => (
-            <span key={c} className="type-tag">
+            <span key={c} className="chip">
               {categoryLabels[c]}
             </span>
           ))}

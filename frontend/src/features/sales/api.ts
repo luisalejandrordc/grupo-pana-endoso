@@ -1,6 +1,6 @@
 import { api } from "../../shared/api/client";
 import { queryString } from "../../shared/api/query";
-import type { Schemas } from "../../shared/api/schema";
+import type { Operations, Schemas } from "../../shared/api/schema";
 
 /** A sale as the detail returns it: people, vehicle, milestones, the 13 task summaries and what the caller may do. */
 export type ApiSale = Schemas["Sale"];
@@ -25,19 +25,10 @@ export type SaleStateValue = Schemas["SaleState"];
 export type Temperature = Schemas["SaleTemperature"];
 export type TaskStatusValue = Schemas["TaskStatus"];
 
-export interface SaleListParams {
-  q?: string;
-  state?: string;
-  currentTask?: number;
-  milestone?: number;
-  advisorId?: string;
-  customerType?: string;
-  temperature?: string;
-  modelId?: string;
-  page?: number;
-  pageSize?: number;
-  sort?: "createdAt" | "-createdAt" | "customerName" | "-customerName";
-}
+/** The query of GET /sales, straight from the generated contract so a new filter or sort appears here by itself. */
+export type SaleListParams = NonNullable<
+  Operations["listSales"]["parameters"]["query"]
+>;
 
 const json = (method: string, body?: unknown) => ({
   method,

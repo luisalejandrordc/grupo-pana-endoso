@@ -27,3 +27,23 @@ export const searchPlaceholders: Record<string, string> = {
   "/customers": "Buscar por nombre o documento",
   "/catalog": "Buscar modelo o versión",
 };
+
+const sectionTitles: Record<string, string> = {
+  "/sales": "Ventas",
+  "/customers": "Clientes",
+  "/catalog": "Catálogo",
+  "/staff": "Colaboradores",
+  "/profile": "Mi perfil",
+};
+
+/** The name of the browser tab for an address. */
+export function titleFor(pathname: string): string | undefined {
+  if (pathname === "/sales/new") return "Nueva venta";
+  return sectionTitles["/" + pathname.split("/")[1]];
+}
+
+/** The search belongs to lists, not to a sale or a form. */
+export function searchPlaceholderFor(pathname: string): string | undefined {
+  if (pathname.startsWith("/sales/")) return undefined;
+  return searchPlaceholders["/" + pathname.split("/")[1]];
+}

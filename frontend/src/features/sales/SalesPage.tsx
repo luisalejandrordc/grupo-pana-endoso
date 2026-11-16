@@ -1,37 +1,48 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { formatDate } from "../../shared/lib/format";
 import { useDebounced } from "../../shared/lib/useDebounced";
 import type { Role } from "../../shared/types";
 import { Avatar } from "../../shared/ui/Avatar";
+import { EmptyState, ErrorState } from "../../shared/ui/EmptyState";
 import { Icon } from "../../shared/ui/Icon";
-import type { SaleListItem, SaleListParams } from "./api";
+import { PageHeader } from "../../shared/ui/PageHeader";
+import { Pagination } from "../../shared/ui/Pagination";
+import { Tabs, type TabItem } from "../../shared/ui/Tabs";
+import type { SaleListItem, SaleListParams, Temperature } from "./api";
 import { errorText, stateLabels, temperatureLabels } from "./labels";
 import { Progress, StateBadge, TaskBadge, TempBadge } from "./pills";
-import { useAdvisors, useSaleList } from "./queries";
+import { completedTasks } from "./progress";
+import { useAdvisors, useSaleList, useSaleTotal } from "./queries";
 
 const PAGE_SIZE = 12;
 
-const states = [
-  { value: "active", label: "En curso" },
-  { value: "completed", label: "Completadas" },
-  { value: "cancelled", label: "Canceladas" },
-  { value: "all", label: "Todas" },
-] as const;
+type StateTab = "active" | "completed" | "cancelled" | "all";
+type Sort = NonNullable<SaleListParams["sort"]>;
 
-const sorts = [
+const sorts: { value: Sort; label: string }[] = [
   { value: "-createdAt", label: "Más recientes" },
   { value: "-updatedAt", label: "Con actividad reciente" },
   { value: "dueDate", label: "Vence primero" },
   { value: "customerName", label: "Cliente (A–Z)" },
-] as const;
+];
 
-/** How many of the 13 tasks are done, which the list only knows through the current task. */
-export function completedTasks(sale: SaleListItem): number | null {
-  if (sale.state === "completed") return 13;
-  if (sale.state === "cancelled") return null;
-  return sale.currentTask ? sale.currentTask.number - 1 : 0;
-}
+const tabLabels: Record<StateTab, string> = {
+  active: "En curso",
+  completed: "Completadas",
+  cancelled: "Canceladas",
+  all: "Todas",
+};
+
+const isState = (value: string | null): value is StateTab =>
+  value === "active" ||
+  value === "completed" ||
+  value === "cancelled" ||
+  value === "all";
+const isTemperature = (value: string | null): value is Temperature =>
+  value === "hot" || value === "warm" || value === "cold";
+const isSort = (value: string | null): value is Sort =>
+  sorts.some((item) => item.value === value);
 
 function dueText(sale: SaleListItem) {
   const task = sale.currentTask;
@@ -43,10 +54,15 @@ export function SalesPage({ role, query }: { role: Role; query: string }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const management = role !== "sales_advisor";
-  const state = params.get("state") ?? "active";
-  const temperature = params.get("temperature") ?? "all";
+  const rawState = params.get("state");
+  const state: StateTab = isState(rawState) ? rawState : "active";
+  const rawTemperature = params.get("temperature");
+  const temperature = isTemperature(rawTemperature)
+    ? rawTemperature
+    : undefined;
   const advisor = params.get("advisor") ?? "all";
-  const sort = params.get("sort") ?? "-createdAt";
+  const rawSort = params.get("sort");
+  const sort: Sort = isSort(rawSort) ? rawSort : "-createdAt";
   const page = Number(params.get("page") ?? "1") || 1;
   const search = useDebounced(query.trim());
   const advisors = useAdvisors(management);
@@ -67,69 +83,84 @@ export function SalesPage({ role, query }: { role: Role; query: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  const advisorId = advisor === "all" ? undefined : advisor;
   const request: SaleListParams = {
     q: search || undefined,
     state: state === "all" ? undefined : state,
-    temperature: temperature === "all" ? undefined : temperature,
-    advisorId: advisor === "all" ? undefined : advisor,
-    sort: sort as SaleListParams["sort"],
+    temperature,
+    advisorId,
+    sort,
     page,
     pageSize: PAGE_SIZE,
   };
   const list = useSaleList(request);
+
+  // The tab counts follow the other filters, so each number is what that tab would show.
+  const shared = { q: search || undefined, temperature, advisorId };
+  const active = useSaleTotal({ ...shared, state: "active" });
+  const completed = useSaleTotal({ ...shared, state: "completed" });
+  const cancelled = useSaleTotal({ ...shared, state: "cancelled" });
+  const counts: Record<StateTab, number | undefined> = {
+    active: active.data,
+    completed: completed.data,
+    cancelled: cancelled.data,
+    all:
+      active.data !== undefined &&
+      completed.data !== undefined &&
+      cancelled.data !== undefined
+        ? active.data + completed.data + cancelled.data
+        : undefined,
+  };
+  const tabs: TabItem<StateTab>[] = (
+    ["active", "completed", "cancelled", "all"] as const
+  ).map((id) => ({
+    id,
+    label: tabLabels[id],
+    count: counts[id],
+  }));
+
   const items = list.data?.items ?? [];
   const total = list.data?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const filtered =
     state !== "active" ||
-    temperature !== "all" ||
-    advisor !== "all" ||
+    temperature !== undefined ||
+    advisorId !== undefined ||
     search !== "";
+  const showState = state === "all";
 
   return (
     <div className="stack">
-      <header className="page-head">
-        <div>
-          <h1>Ventas</h1>
-          <p>
-            {role === "sales_advisor"
-              ? "Tus operaciones, con la tarea que toca atender en cada una."
-              : "Todas las operaciones del equipo y la tarea que toca atender en cada una."}
-          </p>
-        </div>
-        <button
-          className="button button-primary"
-          onClick={() => navigate("/sales/new")}
-        >
-          <Icon name="plus" size={17} /> Nueva venta
-        </button>
-      </header>
+      <PageHeader
+        title="Ventas"
+        description={
+          role === "sales_advisor"
+            ? "Tus operaciones, con la tarea que toca atender en cada una."
+            : "Todas las operaciones del equipo y la tarea que toca atender en cada una."
+        }
+        actions={
+          <button
+            className="button button-primary"
+            onClick={() => navigate("/sales/new")}
+          >
+            <Icon name="plus" size={17} /> Nueva venta
+          </button>
+        }
+      />
 
       <section className="panel">
-        <div className="toolbar">
-          <div
-            className="segmented"
-            role="tablist"
-            aria-label="Estado de la venta"
-          >
-            {states.map((item) => (
-              <button
-                key={item.value}
-                role="tab"
-                aria-selected={state === item.value}
-                className={state === item.value ? "is-active" : ""}
-                onClick={() =>
-                  change({ state: item.value === "active" ? null : item.value })
-                }
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="toolbar-filters">
+        <div className="toolbar sales-toolbar">
+          <Tabs
+            variant="segmented"
+            label="Estado de la venta"
+            items={tabs}
+            value={state}
+            onChange={(id) => change({ state: id === "active" ? null : id })}
+          />
+          <div className="filter-bar">
             <select
               aria-label="Prioridad"
-              value={temperature}
+              className="filter-select"
+              value={temperature ?? "all"}
               onChange={(event) => change({ temperature: event.target.value })}
             >
               <option value="all">Toda prioridad</option>
@@ -142,6 +173,7 @@ export function SalesPage({ role, query }: { role: Role; query: string }) {
             {management && (
               <select
                 aria-label="Asesor"
+                className="filter-select"
                 value={advisor}
                 onChange={(event) => change({ advisor: event.target.value })}
               >
@@ -155,6 +187,7 @@ export function SalesPage({ role, query }: { role: Role; query: string }) {
             )}
             <select
               aria-label="Orden"
+              className="filter-select"
               value={sort}
               onChange={(event) => change({ sort: event.target.value })}
             >
@@ -168,17 +201,11 @@ export function SalesPage({ role, query }: { role: Role; query: string }) {
         </div>
 
         {list.isError ? (
-          <div className="empty" role="alert">
-            <Icon name="alert" size={22} />
-            <strong>No se pudieron cargar las ventas</strong>
-            <p>{errorText(list.error)}</p>
-            <button
-              className="button button-secondary"
-              onClick={() => list.refetch()}
-            >
-              Reintentar
-            </button>
-          </div>
+          <ErrorState
+            title="No se pudieron cargar las ventas"
+            message={errorText(list.error)}
+            onRetry={() => list.refetch()}
+          />
         ) : list.isPending ? (
           <div
             className="skeleton-rows"
@@ -190,39 +217,39 @@ export function SalesPage({ role, query }: { role: Role; query: string }) {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <div className="empty">
-            <Icon name="sales" size={22} />
-            <strong>
-              {filtered ? "Ninguna venta coincide" : "Aún no hay ventas"}
-            </strong>
-            <p>
-              {filtered
+          <EmptyState
+            icon="sales"
+            title={filtered ? "Ninguna venta coincide" : "Aún no hay ventas"}
+            description={
+              filtered
                 ? "Prueba con otros filtros o borra la búsqueda."
-                : "Cuando registres la primera venta aparecerá aquí."}
-            </p>
-            {filtered ? (
-              <button
-                className="button button-secondary"
-                onClick={() =>
-                  setParams(new URLSearchParams(), { replace: true })
-                }
-              >
-                Quitar filtros
-              </button>
-            ) : (
-              <button
-                className="button button-primary"
-                onClick={() => navigate("/sales/new")}
-              >
-                <Icon name="plus" size={17} /> Registrar una venta
-              </button>
-            )}
-          </div>
+                : "Cuando registres la primera venta aparecerá aquí."
+            }
+            actions={
+              filtered ? (
+                <button
+                  className="button button-secondary"
+                  onClick={() =>
+                    setParams(new URLSearchParams(), { replace: true })
+                  }
+                >
+                  Quitar filtros
+                </button>
+              ) : (
+                <button
+                  className="button button-primary"
+                  onClick={() => navigate("/sales/new")}
+                >
+                  <Icon name="plus" size={17} /> Registrar una venta
+                </button>
+              )
+            }
+          />
         ) : (
           <div
             className={`table-scroll ${list.isFetching ? "is-refreshing" : ""}`}
           >
-            <table className="table sales-table">
+            <table className="table table-cards">
               <thead>
                 <tr>
                   <th>Venta</th>
@@ -230,135 +257,132 @@ export function SalesPage({ role, query }: { role: Role; query: string }) {
                   {management && <th>Asesor</th>}
                   <th>Avance</th>
                   <th>Tarea actual</th>
-                  <th>Estado</th>
+                  {showState && <th>Estado</th>}
                 </tr>
               </thead>
               <tbody>
-                {items.map((sale) => {
-                  const done = completedTasks(sale);
-                  const due = dueText(sale);
-                  return (
-                    <tr
-                      key={sale.id}
-                      className="is-link"
-                      tabIndex={0}
-                      onClick={() => navigate(`/sales/${sale.id}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter")
-                          navigate(`/sales/${sale.id}`);
-                      }}
-                    >
-                      <td className="cell-sale">
-                        <strong className="cell-title">
-                          {sale.customerName}
-                        </strong>
-                        <span className="cell-sub">
-                          <span className="code">{sale.code}</span>
-                          {sale.temperature === "hot" && (
-                            <TempBadge temperature="hot" />
-                          )}
-                        </span>
-                      </td>
-                      <td className="cell-vehicle">
-                        <span className="vehicle-cell">
-                          {sale.imageUrl ? (
-                            <img src={sale.imageUrl} alt="" loading="lazy" />
-                          ) : (
-                            <span className="vehicle-fallback">
-                              <Icon name="car" size={18} />
-                            </span>
-                          )}
-                          <span>
-                            <strong className="cell-title">
-                              {sale.vehicleModel}
-                            </strong>
-                            <span className="cell-sub">
-                              {sale.vehicleVersion} · {sale.vehicleColor}
-                            </span>
-                          </span>
-                        </span>
-                      </td>
-                      {management && (
-                        <td className="cell-advisor">
-                          <span className="person-cell">
-                            <Avatar
-                              id={sale.advisorId}
-                              name={sale.advisorName}
-                              hasPhoto={sale.advisorHasPhoto}
-                              size={28}
-                            />
-                            {sale.advisorName}
-                          </span>
-                        </td>
-                      )}
-                      <td className="cell-progress">
-                        {done === null ? (
-                          <span className="muted">—</span>
-                        ) : (
-                          <Progress done={done} />
-                        )}
-                      </td>
-                      <td className="cell-task">
-                        {sale.currentTask ? (
-                          <span className="task-cell">
-                            <strong className="cell-title">
-                              {sale.currentTask.number}. {sale.currentTask.name}
-                            </strong>
-                            <span className="cell-sub">
-                              <TaskBadge
-                                status={sale.currentTask.status}
-                                overdue={sale.currentTask.isOverdue}
-                              />
-                              {due && <span>{due}</span>}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="muted">
-                            {sale.state === "completed" ? "Entregada" : "—"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="cell-state">
-                        <StateBadge state={sale.state} />
-                      </td>
-                    </tr>
-                  );
-                })}
+                {items.map((sale) => (
+                  <SaleRow
+                    key={sale.id}
+                    sale={sale}
+                    management={management}
+                    showState={showState}
+                    onOpen={() => navigate(`/sales/${sale.id}`)}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
         )}
 
-        {total > PAGE_SIZE && (
-          <footer className="pager">
-            <span>
-              {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)}{" "}
-              de {total} ventas
-              {state !== "all" &&
-                ` ${stateLabels[state as keyof typeof stateLabels]?.toLowerCase() ?? ""}`}
-            </span>
-            <span className="pager-buttons">
-              <button
-                className="button button-secondary button-sm"
-                disabled={page <= 1}
-                onClick={() => change({ page: String(page - 1) })}
-              >
-                Anterior
-              </button>
-              <span>
-                Página {page} de {pages}
-              </span>
-              <button
-                className="button button-secondary button-sm"
-                disabled={page >= pages}
-                onClick={() => change({ page: String(page + 1) })}
-              >
-                Siguiente
-              </button>
-            </span>
-          </footer>
-        )}
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          noun={
+            state === "all"
+              ? "ventas"
+              : `ventas ${stateLabels[state].toLowerCase()}`
+          }
+          onPageChange={(next) => change({ page: String(next) })}
+        />
       </section>
     </div>
+  );
+}
+
+function SaleRow({
+  sale,
+  management,
+  showState,
+  onOpen,
+}: {
+  sale: SaleListItem;
+  management: boolean;
+  showState: boolean;
+  onOpen: () => void;
+}) {
+  const done = completedTasks(sale);
+  const due = dueText(sale);
+  const task = sale.currentTask;
+  const overdue = Boolean(task?.isOverdue && task.status === "in_progress");
+  return (
+    // The customer's name is the real link (keyboard, middle click); the rest of the row is a bigger target.
+    <tr className={`is-link${overdue ? " is-overdue" : ""}`} onClick={onOpen}>
+      <td className="cell-primary">
+        <Link
+          className="cell-title"
+          to={`/sales/${sale.id}`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {sale.customerName}
+        </Link>
+        <span className="cell-sub">
+          <span className="code">{sale.code}</span>
+          {sale.temperature === "hot" && <TempBadge temperature="hot" />}
+        </span>
+      </td>
+      <td>
+        <span className="vehicle-cell">
+          {sale.imageUrl ? (
+            <img src={sale.imageUrl} alt="" loading="lazy" />
+          ) : (
+            <span className="vehicle-fallback">
+              <Icon name="car" size={18} />
+            </span>
+          )}
+          <span>
+            <strong className="cell-title">{sale.vehicleModel}</strong>
+            <span className="cell-sub">
+              {sale.vehicleVersion} · {sale.vehicleColor}
+            </span>
+          </span>
+        </span>
+      </td>
+      {management && (
+        <td>
+          <span className="person-cell">
+            <Avatar
+              id={sale.advisorId}
+              name={sale.advisorName}
+              hasPhoto={sale.advisorHasPhoto}
+              size={28}
+            />
+            {sale.advisorName}
+          </span>
+        </td>
+      )}
+      <td>
+        {done === null ? (
+          <span className="muted">—</span>
+        ) : (
+          <Progress done={done} />
+        )}
+      </td>
+      <td>
+        {task ? (
+          <>
+            <strong className="cell-title">
+              {task.number}. {task.name}
+            </strong>
+            <span className="cell-sub">
+              {(overdue || task.status !== "in_progress") && (
+                <TaskBadge status={task.status} overdue={overdue} />
+              )}
+              {due && <span className={overdue ? "cell-late" : ""}>{due}</span>}
+            </span>
+          </>
+        ) : (
+          <span className="muted">
+            {sale.state === "completed" ? "Entregada" : "—"}
+          </span>
+        )}
+      </td>
+      {showState && (
+        <td className="cell-aside">
+          <StateBadge state={sale.state} />
+        </td>
+      )}
+    </tr>
   );
 }

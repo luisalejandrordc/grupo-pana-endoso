@@ -5,7 +5,9 @@ import { useForgetPhoto } from "../../shared/photos/usePhoto";
 import { Avatar } from "../../shared/ui/Avatar";
 import { type EmployeeProfile } from "../../shared/types";
 import { Field } from "../../shared/ui/Field";
+import { Badge } from "../../shared/ui/Badge";
 import { Icon } from "../../shared/ui/Icon";
+import { PageHeader } from "../../shared/ui/PageHeader";
 import { type Toast } from "../../shared/ui/toast";
 
 const MAX_PHOTO = 2 * 1024 * 1024;
@@ -117,19 +119,17 @@ export function ProfilePage({
   }
   return (
     <div className="stack profile-page">
-      <header className="page-head">
-        <div>
-          <h1>Mi perfil</h1>
-          <p>Tus datos corporativos, tu foto y tu acceso.</p>
-        </div>
-      </header>
+      <PageHeader
+        title="Mi perfil"
+        description="Tus datos corporativos, tu foto y tu acceso."
+      />
       <section className="panel profile-card">
         <div className="profile-identity">
           <Avatar id={user.id} name={name} hasPhoto={user.hasPhoto} size={96} />
           <div className="profile-name">
             <h2>{name}</h2>
             <p>{user.businessEmail}</p>
-            <span className="badge badge-neutral">{roleLabel[user.role]}</span>
+            <Badge tone="ink">{roleLabel[user.role]}</Badge>
           </div>
           <div className="profile-photo-actions">
             <input
@@ -180,7 +180,7 @@ export function ProfilePage({
           </div>
         </dl>
       </section>
-      <section className="workspace-card password-card">
+      <section className="panel password-card">
         <div className="password-card-intro">
           <div className="password-icon">
             <Icon name="lock" size={21} />
@@ -203,7 +203,6 @@ export function ProfilePage({
               autoComplete="current-password"
             />
           </Field>
-          <div className="password-change-divider" />
           <Field label="Nueva contraseña" hint="Mínimo 10 caracteres.">
             <input
               type="password"
@@ -277,9 +276,9 @@ export function ProfileData({
   value: string;
 }) {
   return (
-    <div className="profile-data-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
