@@ -873,7 +873,7 @@ describe("model detail", () => {
 describe("color images", () => {
   async function openImages(
     user: ReturnType<typeof userEvent.setup>,
-    role: Role = "sales_manager",
+    _role: Role = "sales_manager",
   ) {
     const dialog = await openDetail(user);
     await user.click(

@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useDebounced } from "../../shared/lib/useDebounced";
 import type { Role } from "../../shared/types";
+import { Badge } from "../../shared/ui/Badge";
+import { EmptyState, ErrorState } from "../../shared/ui/EmptyState";
 import { Icon } from "../../shared/ui/Icon";
+import { PageHeader } from "../../shared/ui/PageHeader";
+import { Pagination } from "../../shared/ui/Pagination";
 import type { Toast } from "../../shared/ui/toast";
 import type { ApiModelSummary } from "./api";
 import { CreateModelModal } from "./CreateModelModal";
@@ -43,36 +47,32 @@ export function CatalogPage({
     sort: "name",
   });
   const total = list.data?.total ?? 0;
-  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const filtering = Boolean(
     search || category || (canManage && status !== "active"),
   );
 
   return (
     <div className="stack">
-      <header className="page-head">
-        <div>
-          <h1>Catálogo de vehículos</h1>
-          <p>
-            Explora los modelos, versiones y colores disponibles para nuevas
-            operaciones.
-          </p>
-        </div>
-        {canManage && (
-          <button
-            className="button button-primary"
-            onClick={() => setCreating(true)}
-          >
-            <Icon name="plus" size={17} /> Nuevo modelo
-          </button>
-        )}
-      </header>
+      <PageHeader
+        title="Catálogo de vehículos"
+        description="Explora los modelos, versiones y colores disponibles para nuevas operaciones."
+        actions={
+          canManage && (
+            <button
+              className="button button-primary"
+              onClick={() => setCreating(true)}
+            >
+              <Icon name="plus" size={17} /> Nuevo modelo
+            </button>
+          )
+        }
+      />
 
-      <div className="catalog-toolbar">
-        <div className="catalog-filter">
-          <Icon name="filter" size={16} />
+      <div className="panel toolbar">
+        <div className="filter-bar">
           <select
             aria-label="Categoría"
+            className="filter-select"
             value={category}
             onChange={(event) => setCategory(event.target.value)}
           >
@@ -83,12 +83,10 @@ export function CatalogPage({
               </option>
             ))}
           </select>
-        </div>
-        {canManage && (
-          <div className="catalog-filter">
-            <Icon name="layers" size={16} />
+          {canManage && (
             <select
               aria-label="Estado"
+              className="filter-select"
               value={status}
               onChange={(event) =>
                 setStatus(event.target.value as typeof status)
@@ -98,46 +96,34 @@ export function CatalogPage({
               <option value="archived">Archivados</option>
               <option value="all">Todos</option>
             </select>
-          </div>
-        )}
-        <span className="catalog-count">
+          )}
+        </div>
+        <span className="toolbar-count">
           {list.data ? `${total} modelos` : "Cargando…"}
         </span>
       </div>
 
       {list.isError ? (
-        <div className="list-error" role="alert">
-          <h3>No se pudo cargar el catálogo</h3>
-          <p>
-            {list.error instanceof Error
-              ? list.error.message
-              : "Inténtalo nuevamente."}
-          </p>
-          <button
-            className="button button-secondary"
-            onClick={() => list.refetch()}
-          >
-            <Icon name="refresh" size={15} /> Reintentar
-          </button>
+        <div className="panel">
+          <ErrorState
+            title="No se pudo cargar el catálogo"
+            message={
+              list.error instanceof Error
+                ? list.error.message
+                : "Inténtalo nuevamente."
+            }
+            onRetry={() => list.refetch()}
+          />
         </div>
       ) : (
-        <div className="vehicle-catalog-grid" aria-busy={list.isFetching}>
+        <div className="catalog-grid" aria-busy={list.isFetching}>
           {list.isPending &&
             Array.from({ length: 6 }, (_, i) => (
-              <article
-                key={i}
-                className="catalog-vehicle-card"
-                aria-hidden="true"
-              >
-                <div className="catalog-vehicle-image">
-                  <div className="catalog-image-placeholder" />
-                </div>
-                <div className="catalog-vehicle-body">
+              <article key={i} className="model-card" aria-hidden="true">
+                <div className="model-card-image" />
+                <div className="model-card-body">
                   <span className="skeleton-line" />
-                  <span
-                    className="skeleton-line"
-                    style={{ marginTop: 10, width: "60%" }}
-                  />
+                  <span className="skeleton-line" style={{ width: "60%" }} />
                 </div>
               </article>
             ))}
@@ -152,39 +138,29 @@ export function CatalogPage({
       )}
 
       {list.data && total === 0 && (
-        <div className="empty-state">
-          <h3>{filtering ? "Sin resultados" : "El catálogo está vacío"}</h3>
-          <p>
-            {filtering
-              ? "No hay modelos que coincidan con la búsqueda o los filtros."
-              : canManage
-                ? "Crea el primer modelo con el botón «Nuevo modelo»."
-                : "Aún no hay modelos disponibles. Consulta con un gerente."}
-          </p>
+        <div className="panel">
+          <EmptyState
+            icon="car"
+            title={filtering ? "Sin resultados" : "El catálogo está vacío"}
+            description={
+              filtering
+                ? "No hay modelos que coincidan con la búsqueda o los filtros."
+                : canManage
+                  ? "Crea el primer modelo con el botón «Nuevo modelo»."
+                  : "Aún no hay modelos disponibles. Consulta con un gerente."
+            }
+          />
         </div>
       )}
 
       {total > PAGE_SIZE && (
-        <div className="table-footer">
-          <span>
-            Página {page} de {lastPage}
-          </span>
-          <div className="pagination">
-            <button
-              aria-label="Página anterior"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <Icon name="chevron-right" size={13} className="flip-icon" />
-            </button>
-            <button
-              aria-label="Página siguiente"
-              disabled={page >= lastPage}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <Icon name="chevron-right" size={13} />
-            </button>
-          </div>
+        <div className="panel">
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onPageChange={(next) => setPage(() => next)}
+          />
         </div>
       )}
 
@@ -219,33 +195,31 @@ function ModelCard({
 }) {
   const [first, ...rest] = model.categories;
   return (
-    <article className="catalog-vehicle-card">
-      <div className="catalog-vehicle-image">
+    <article className={`model-card${model.isActive ? "" : " is-archived"}`}>
+      <div className="model-card-image">
         {model.mainImageUrl ? (
           <img src={model.mainImageUrl} alt={model.name} loading="lazy" />
         ) : (
-          <div className="catalog-image-placeholder">
+          <div className="model-card-placeholder">
             <Icon name="car" size={30} />
           </div>
         )}
-        <div className="catalog-card-categories">
-          {first && (
-            <span className="category-badge">{categoryLabels[first]}</span>
-          )}
-          {rest.length > 0 && (
-            <span className="category-badge">+{rest.length}</span>
-          )}
+        <div className="model-card-tags">
+          {first && <span className="chip">{categoryLabels[first]}</span>}
+          {rest.length > 0 && <span className="chip">+{rest.length}</span>}
         </div>
-        <span className={`catalog-status ${model.isActive ? "" : "archived"}`}>
-          {model.isActive ? "Activo" : "Archivado"}
-        </span>
+        {!model.isActive && (
+          <span className="model-card-status">
+            <Badge tone="neutral" plain>
+              Archivado
+            </Badge>
+          </span>
+        )}
       </div>
-      <div className="catalog-vehicle-body">
-        <div className="catalog-vehicle-heading">
-          <h3>{model.name}</h3>
-        </div>
+      <div className="model-card-body">
+        <h3>{model.name}</h3>
         <p>{model.description || "Sin descripción."}</p>
-        <div className="catalog-vehicle-meta">
+        <div className="model-card-meta">
           <span>
             <Icon name="layers" size={14} />
             {model.activeVersionCount}{" "}
@@ -257,21 +231,23 @@ function ModelCard({
             {model.activeColorCount === 1 ? "color" : "colores"}
           </span>
         </div>
-        {model.minPrice && (
-          <div className="catalog-version-list">
-            <div>
-              <span>Desde</span>
-              <strong>{formatPrice(model.minPrice)}</strong>
-            </div>
+        <div className="model-card-foot">
+          <div className="model-card-price">
+            {model.minPrice && (
+              <>
+                <small>Desde</small>
+                <strong>{formatPrice(model.minPrice)}</strong>
+              </>
+            )}
           </div>
-        )}
-        <button
-          className="catalog-footer-link"
-          onClick={onOpen}
-          aria-label={`Ver detalle de ${model.name}`}
-        >
-          Ver detalle de modelo <Icon name="arrow-right" size={15} />
-        </button>
+          <button
+            className="model-card-open"
+            onClick={onOpen}
+            aria-label={`Ver detalle de ${model.name}`}
+          >
+            Ver detalle <Icon name="arrow-right" size={15} />
+          </button>
+        </div>
       </div>
     </article>
   );
