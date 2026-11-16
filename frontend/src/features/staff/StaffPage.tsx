@@ -1,12 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../../shared/api/client";
-import {
-  demoEmployees,
-  roleLabel,
-  roleShortLabel,
-} from "../../shared/demo/data";
-import { formatDate, initials } from "../../shared/lib/format";
-import { roleOptions } from "../../shared/lib/roles";
+import { formatDate } from "../../shared/lib/format";
+import { Avatar } from "../../shared/ui/Avatar";
+import { roleLabel, roleOptions, roleShortLabel } from "../../shared/lib/roles";
 import {
   type DocumentType,
   type Employee,
@@ -15,20 +11,17 @@ import {
 } from "../../shared/types";
 import { Field } from "../../shared/ui/Field";
 import { Icon } from "../../shared/ui/Icon";
-import { MetricCard } from "../../shared/ui/MetricCard";
 import { Modal } from "../../shared/ui/Modal";
 import { type Toast } from "../../shared/ui/toast";
 
 export function StaffPage({
   user,
-  demo,
   toast,
 }: {
   user: EmployeeProfile;
-  demo: boolean;
   toast: (toast: Toast) => void;
 }) {
-  const [employees, setEmployees] = useState<Employee[]>(demoEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -52,7 +45,7 @@ export function StaffPage({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (demo || user.role !== "system_admin") return;
+    if (user.role !== "system_admin") return;
     let alive = true;
     setLoading(true);
     api
@@ -80,7 +73,7 @@ export function StaffPage({
     return () => {
       alive = false;
     };
-  }, [demo, user.role, status, roleFilter, query]);
+  }, [user.role, status, roleFilter, query]);
 
   const filtered = employees.filter(
     (employee) =>
@@ -96,33 +89,15 @@ export function StaffPage({
     event.preventDefault();
     setSaving(true);
     try {
-      if (demo) {
-        const next: Employee = {
-          ...form,
-          id: `demo-employee-${Date.now()}`,
-          isActive: true,
-          activatedAt: null,
-          version: 1,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        setEmployees((old) => [next, ...old]);
-        toast({
-          title: "Empleado agregado",
-          message: "Registro simulado creado. No se envió un correo real.",
-          tone: "success",
-        });
-      } else {
-        const result = await api.createEmployee(form);
-        setEmployees((old) => [result.employee, ...old]);
-        toast({
-          title: "Empleado creado",
-          message: result.activationLinkIssued
-            ? "Se emitió el enlace de activación."
-            : "No se pudo emitir el enlace; puedes reenviarlo más adelante.",
-          tone: "success",
-        });
-      }
+      const result = await api.createEmployee(form);
+      setEmployees((old) => [result.employee, ...old]);
+      toast({
+        title: "Empleado creado",
+        message: result.activationLinkIssued
+          ? "Se emitió el enlace de activación."
+          : "No se pudo emitir el enlace; puedes reenviarlo más adelante.",
+        tone: "success",
+      });
       setShowCreate(false);
       setForm({
         documentType: "DNI",
@@ -152,7 +127,7 @@ export function StaffPage({
 
   if (user.role !== "system_admin")
     return (
-      <div className="page-stack">
+      <div className="stack">
         <div className="permission-state">
           <div className="permission-icon">
             <Icon name="lock" size={24} />
@@ -167,11 +142,10 @@ export function StaffPage({
     );
 
   return (
-    <div className="page-stack">
-      <div className="welcome-row">
+    <div className="stack">
+      <header className="page-head">
         <div>
-          <span className="section-kicker">ADMINISTRACIÓN DE ACCESOS</span>
-          <h2>Equipo de trabajo</h2>
+          <h1>Equipo de trabajo</h1>
           <p>Gestiona las cuentas de colaboradores y sus permisos de acceso.</p>
         </div>
         <button
@@ -180,42 +154,7 @@ export function StaffPage({
         >
           <Icon name="plus" size={17} /> Nuevo empleado
         </button>
-      </div>
-      <div className="metrics-grid compact-metrics">
-        <MetricCard
-          label="Colaboradores"
-          value={employees.length}
-          detail="cuentas registradas"
-          icon="users"
-          tone="metric-green"
-        />
-        <MetricCard
-          label="Cuentas activas"
-          value={employees.filter((employee) => employee.isActive).length}
-          detail="con acceso habilitado"
-          icon="check-circle"
-          tone="metric-blue"
-        />
-        <MetricCard
-          label="Pendientes de activar"
-          value={employees.filter((employee) => !employee.activatedAt).length}
-          detail="sin contraseña definida"
-          icon="clock"
-          tone="metric-amber"
-        />
-        <MetricCard
-          label="Administradores"
-          value={
-            employees.filter(
-              (employee) =>
-                employee.role === "system_admin" && employee.isActive,
-            ).length
-          }
-          detail="con privilegios de sistema"
-          icon="shield"
-          tone="metric-purple"
-        />
-      </div>
+      </header>
       <section className="workspace-card">
         <div className="card-heading">
           <div>
@@ -284,7 +223,12 @@ export function StaffPage({
                   <td>
                     <div className="sale-customer-cell">
                       <div className="table-avatar">
-                        {initials(`${employee.firstName} ${employee.lastName}`)}
+                        <Avatar
+                          id={employee.id}
+                          name={`${employee.firstName} ${employee.lastName}`}
+                          hasPhoto={employee.hasPhoto}
+                          size={36}
+                        />
                       </div>
                       <div>
                         <strong>
@@ -352,7 +296,6 @@ export function StaffPage({
         </div>
         <div className="table-footer">
           <span>Mostrando {filtered.length} colaboradores</span>
-          <span>{demo ? "Datos de muestra" : "API conectada"}</span>
         </div>
       </section>
       {showCreate && (

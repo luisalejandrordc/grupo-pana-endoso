@@ -1,124 +1,74 @@
-import { initials, roleName } from "../../shared/lib/format";
-import { type EmployeeProfile } from "../../shared/types";
+import { NavLink, useNavigate } from "react-router-dom";
+import { roleLabel } from "../../shared/lib/roles";
+import type { EmployeeProfile } from "../../shared/types";
+import { Avatar } from "../../shared/ui/Avatar";
 import { Icon } from "../../shared/ui/Icon";
-import { type View } from "../navigation";
+import { navItems } from "../navigation";
 
 export function Sidebar({
-  page,
   user,
-  onNavigate,
-  onSignOut,
-  mobileOpen,
+  open,
   onClose,
+  onSignOut,
 }: {
-  page: View;
   user: EmployeeProfile;
-  onNavigate: (page: View) => void;
-  onSignOut: () => void;
-  mobileOpen: boolean;
+  open: boolean;
   onClose: () => void;
+  onSignOut: () => void;
 }) {
-  const mainItems: {
-    id: View;
-    label: string;
-    icon: "sales" | "users" | "car" | "user";
-    badge?: string;
-  }[] = [
-    { id: "sales", label: "Ventas", icon: "sales" },
-    { id: "customers", label: "Clientes", icon: "users" },
-    { id: "catalog", label: "Catálogo de vehículos", icon: "car" },
-  ];
+  const navigate = useNavigate();
+  const name = `${user.firstName} ${user.lastName}`;
   return (
     <>
-      <div
-        className={`mobile-nav-scrim ${mobileOpen ? "visible" : ""}`}
-        onClick={onClose}
-      />
-      <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
+      {open && <div className="scrim" onClick={onClose} aria-hidden />}
+      <aside className={`sidebar ${open ? "is-open" : ""}`}>
         <div className="sidebar-brand">
-          {/* <Brand /> */}
-          <img
-            src="endosoflow-logo-landscape.png"
-            className="logo-landscape"
-            alt="EndosoFlow Logo"
-          />
-          <img
-            src="endosoflow-logo-square.png"
-            className="logo-square"
-            alt="EndosoFlow Logo"
-          />
-        </div>
-        <div className="sidebar-workspace">
-          <div className="workspace-avatar">GP</div>
-          <div>
-            <strong>Grupo Pana</strong>
-            <span>Operaciones comerciales</span>
-          </div>
-          <Icon name="chevron-down" size={15} />
-        </div>
-        <div className="nav-section-label">ESPACIO DE TRABAJO</div>
-        <nav className="side-nav" aria-label="Navegación principal">
-          {mainItems.map((item) => (
-            <button
-              key={item.id}
-              className={`nav-item ${page === item.id || (item.id === "sales" && ["sale-detail", "new-sale"].includes(page)) ? "active" : ""}`}
-              onClick={() => onNavigate(item.id)}
-            >
-              <Icon name={item.icon} />
-              <span>{item.label}</span>
-              {item.id === "sales" && <span className="nav-counter">6</span>}
-            </button>
-          ))}
-          {user.role === "system_admin" && (
-            <button
-              className={`nav-item ${page === "staff" ? "active" : ""}`}
-              onClick={() => onNavigate("staff")}
-            >
-              <Icon name="shield" />
-              <span>Empleados</span>
-            </button>
-          )}
-        </nav>
-        <div className="sidebar-spacer" />
-        <div className="sidebar-tip">
-          <div className="tip-icon">
-            <Icon name="sparkles" size={18} />
-          </div>
-          <strong>Un paso a la vez</strong>
-          <p>
-            Completa la tarea actual para habilitar la siguiente etapa de la
-            venta.
-          </p>
-          <button onClick={() => onNavigate("sales")}>
-            Ver mis ventas <Icon name="arrow-right" size={14} />
-          </button>
-        </div>
-        <div className="sidebar-bottom">
+          <img src="/endosoflow-logo-landscape.png" alt="EndosoFlow" />
           <button
-            className={`nav-item ${page === "profile" ? "active" : ""}`}
-            onClick={() => onNavigate("profile")}
+            className="icon-button sidebar-close"
+            onClick={onClose}
+            aria-label="Cerrar menú"
           >
-            <Icon name="user" />
-            <span>Mi perfil</span>
+            <Icon name="x" size={18} />
           </button>
-          <div className="sidebar-user">
-            <div className="avatar avatar-green">
-              {initials(`${user.firstName} ${user.lastName}`)}
-            </div>
-            <div className="user-meta">
-              <strong>
-                {user.firstName} {user.lastName.split(" ")[0]}
-              </strong>
-              <span>{roleName(user.role)}</span>
-            </div>
-            <button
-              className="icon-button subtle"
-              aria-label="Cerrar sesión"
-              onClick={onSignOut}
-            >
-              <Icon name="logout" size={17} />
-            </button>
-          </div>
+        </div>
+        <nav className="sidebar-nav" aria-label="Navegación principal">
+          {navItems
+            .filter((item) => !item.roles || item.roles.includes(user.role))
+            .map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? "is-active" : ""}`
+                }
+              >
+                <Icon name={item.icon} size={18} />
+                {item.label}
+              </NavLink>
+            ))}
+        </nav>
+        <div className="sidebar-foot">
+          <button
+            className="user-chip"
+            onClick={() => navigate("/profile")}
+            title="Mi perfil"
+          >
+            <Avatar
+              id={user.id}
+              name={name}
+              hasPhoto={user.hasPhoto}
+              size={36}
+            />
+            <span>
+              <strong>{name}</strong>
+              <small>{roleLabel[user.role]}</small>
+            </span>
+          </button>
+          <button className="nav-link nav-link-quiet" onClick={onSignOut}>
+            <Icon name="logout" size={18} />
+            Cerrar sesión
+          </button>
         </div>
       </aside>
     </>

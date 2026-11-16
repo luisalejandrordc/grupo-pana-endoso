@@ -35,6 +35,12 @@ export class ApiError extends Error {
 
 type RequestOptions = RequestInit & { skipRefresh?: boolean };
 
+export interface PhotoLink {
+  url: string;
+  expiresAt: string;
+  mimeType: string;
+}
+
 export interface CreateEmployeeInput {
   documentType: DocumentType;
   documentNumber: string;
@@ -166,6 +172,22 @@ export class ApiClient {
 
   me() {
     return this.request<EmployeeProfile>("/me");
+  }
+
+  /** A short-lived address for an employee's picture (404 PHOTO_NOT_FOUND when there is none). */
+  employeePhoto(id: string) {
+    return this.request<PhotoLink>(`/employees/${id}/photo`);
+  }
+
+  /** Sets or replaces the signed-in employee's picture. */
+  setMyPhoto(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    return this.request<PhotoLink>("/me/photo", { method: "PUT", body: form });
+  }
+
+  removeMyPhoto() {
+    return this.request<void>("/me/photo", { method: "DELETE" });
   }
 
   forgotPassword(input: {

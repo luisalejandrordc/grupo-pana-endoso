@@ -1,139 +1,20 @@
 @media (max-width: 1250px) {
-  .sidebar {
-    width: 225px;
-    flex-basis: 225px;
-  }
-  .topbar {
-    padding: 0 23px;
-  }
-  .page-content {
-    padding: 23px;
-  }
-  .app-footer {
-    padding-left: 23px;
-    padding-right: 23px;
-  }
-  .sale-hero-vehicle {
-    min-width: 190px;
-  }
-  .sale-hero-vehicle img {
-    width: 70px;
-    height: 52px;
-  }
-  .sale-hero-actions {
-    gap: 12px;
-  }
-  .milestone-grid {
-    gap: 8px;
-  }
   .milestone {
     gap: 6px;
-  }
-  .milestone-label strong {
-    font-size: 8px;
-  }
-  .vehicle-picker-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .catalog-vehicle-image {
     height: 145px;
   }
 }
 @media (max-width: 1050px) {
-  .sidebar {
-    width: 72px;
-    flex-basis: 72px;
-    padding: 20px 8px 12px;
-  }
-  .sidebar-brand {
-    padding: 0 8px 25px;
-  }
-  .sidebar-brand .logo-landscape {
-    display: none;
-  }
-  .sidebar-brand .logo-square {
-    display: block;
-    width: 40px;
-  }
-  .sidebar-brand .brand-wordmark,
-  .sidebar-workspace > div:nth-child(2),
-  .sidebar-workspace > svg,
-  .nav-section-label,
-  .nav-item span,
-  .sidebar-tip,
-  .user-meta,
-  .sidebar-user .icon-button {
-    display: none;
-  }
-  .sidebar-brand .brand-mark {
-    width: 38px;
-    height: 38px;
-  }
-  .sidebar-workspace {
-    padding: 6px;
-    margin: 0 0 23px;
-    justify-content: center;
-    border: 0;
-    background: transparent;
-  }
-  .workspace-avatar {
-    width: 37px;
-    height: 37px;
-  }
-  .nav-item {
-    justify-content: center;
-    padding: 0;
-    min-height: 42px;
-  }
-  .nav-item > svg {
-    width: 19px;
-    height: 19px;
-  }
-  .sidebar-bottom .nav-item {
-    margin-bottom: 10px;
-  }
-  .sidebar-user {
-    justify-content: center;
-    padding: 11px 0 0;
-  }
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .detail-summary-grid {
-    grid-template-columns: minmax(0, 1.5fr) minmax(210px, 0.85fr);
-    gap: 17px;
-    padding: 19px;
-  }
-  .tasks-tab-layout {
-    grid-template-columns: minmax(230px, 0.65fr) minmax(0, 1.35fr);
-    padding: 18px;
-    gap: 15px;
-  }
-  .sale-hero-card {
-    align-items: flex-start;
-  }
-  .sale-hero-main {
-    flex-basis: 55%;
-  }
-  .sale-hero-vehicle {
-    border-left: 0;
-    padding-left: 0;
-  }
-  .sale-hero-actions {
-    border-left: 1px solid #f0f0f0;
   }
   .vehicle-catalog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .profile-details-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 @media (max-width: 760px) {
-  .logo-image {
-    padding-bottom: 24px;
-    margin-top: 12px;
-  }
   .login-layout {
     grid-template-columns: 1fr;
   }
@@ -161,139 +42,18 @@
   .login-help {
     margin-top: auto;
   }
-  .app-layout {
-    display: block;
-  }
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    transform: translateX(-100%);
-    width: 245px;
-    padding: 23px 13px 15px;
-    transition: transform 0.2s;
-    box-shadow: 8px 0 30px #19191912;
-  }
-  .sidebar.mobile-open {
-    transform: translateX(0);
-  }
-  .sidebar-brand {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 300px;
-  }
-  .sidebar-brand .logo-landscape {
-    display: block;
-    width: 85%;
-    padding-bottom: 0;
-  }
-  .sidebar-brand .logo-square {
-    display: none;
-  }
-  .sidebar-brand .brand-wordmark,
-  .sidebar-workspace > div:nth-child(2),
-  .sidebar-workspace > svg,
-  .nav-section-label,
-  .nav-item span,
-  .sidebar-tip,
-  .user-meta,
-  .sidebar-user .icon-button {
-    display: flex;
-  }
-  .sidebar-brand .brand-wordmark {
-    display: flex;
-  }
-  .sidebar-workspace > div:nth-child(2) {
-    display: flex;
-  }
-  .sidebar-workspace > svg {
-    display: block;
-  }
-  .nav-section-label {
-    display: block;
-  }
-  .nav-item {
-    justify-content: flex-start;
-    padding: 0 12px;
-  }
-  .nav-item span {
-    display: inline;
-  }
-  .sidebar-tip {
-    display: block;
-  }
-  .user-meta {
-    display: flex;
-  }
-  .sidebar-user .icon-button {
-    display: inline-grid;
-  }
-  .sidebar-brand {
-    padding: 0 11px 26px;
-  }
-  .sidebar-brand .brand-mark {
-    width: 35px;
-    height: 35px;
-  }
-  .sidebar-workspace {
-    padding: 10px;
-    margin: 0 4px 26px;
-    border: 1px solid #ededed;
-    background: #fcfcfc;
-    justify-content: flex-start;
-  }
-  .sidebar-bottom .nav-item {
-    margin-bottom: 8px;
-  }
-  .topbar {
-    padding: 0 16px;
-    min-height: 69px;
-    gap: 10px;
-  }
-  .topbar-title {
-    min-width: 0;
-  }
-  .topbar-breadcrumb {
-    display: none;
-  }
-  .topbar-title h1 {
-    font-size: 16px;
-  }
-  .topbar-actions {
-    gap: 7px;
-  }
-  .global-search {
-    display: none;
-  }
   .role-preview {
     margin-right: 1px;
   }
   .role-preview select {
     max-width: 77px;
   }
-  .topbar-avatar {
-    width: 31px;
-    height: 31px;
-  }
-  .page-content {
-    padding: 20px 14px 26px;
-  }
-  .app-footer {
-    padding: 0 14px 15px;
-    font-size: 8px;
-  }
   .welcome-row {
     align-items: flex-start;
     flex-direction: column;
     gap: 15px;
   }
-  .welcome-row > .button {
-    align-self: flex-start;
-  }
-  .welcome-row h2,
-  .wizard-heading h2 {
+  .welcome-row h2 {
     font-size: 22px;
   }
   .metrics-grid {
@@ -310,23 +70,19 @@
     border-radius: 8px;
   }
   .metric-copy > span {
-    font-size: 9px;
+    font-size: 13px;
   }
   .metric-copy > strong {
     font-size: 22px;
   }
   .metric-copy > small {
-    font-size: 8px;
+    font-size: 13px;
   }
   .metric-trend {
     display: none;
   }
   .card-heading {
     padding: 18px 15px 14px;
-  }
-  .table-heading-actions {
-    flex-wrap: wrap;
-    justify-content: flex-end;
   }
   .filter-row {
     padding: 12px 15px;
@@ -335,9 +91,6 @@
   .filter-control {
     min-width: calc(50% - 5px);
     flex: 1;
-  }
-  .sort-button {
-    margin-left: 0;
   }
   .data-table th:first-child,
   .data-table td:first-child {
@@ -351,202 +104,10 @@
     padding: 0 15px;
   }
   .welcome-row .section-kicker {
-    font-size: 9px;
+    font-size: 13px;
   }
-  .sale-hero-card {
-    padding: 16px;
-    gap: 15px;
-  }
-  .sale-hero-main {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-  .sale-hero-copy h2 {
-    font-size: 16px;
-  }
-  .sale-hero-vehicle {
-    flex: 1 1 100%;
-    padding: 13px 0 0;
-    border-top: 1px solid #f0f0f0;
-  }
-  .sale-hero-vehicle img {
-    width: 82px;
-    height: 55px;
-  }
-  .sale-hero-actions {
-    flex: 1 1 100%;
-    padding: 12px 0 0;
-    border-left: 0;
-    border-top: 1px solid #f0f0f0;
-    justify-content: space-between;
-  }
-  .price-block strong {
-    font-size: 15px;
-  }
-  .progress-card {
-    padding: 17px 15px;
-  }
-  .milestone-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    row-gap: 15px;
-  }
-  .milestone-label strong {
-    font-size: 8px;
-  }
-  .sale-detail-content .detail-tabs {
-    padding: 0 15px;
-    gap: 17px;
-  }
-  .detail-tabs button {
-    padding-top: 15px;
-    padding-bottom: 13px;
-    font-size: 9px;
-  }
-  .detail-summary-grid {
-    grid-template-columns: 1fr;
-    padding: 15px;
-  }
-  .summary-side-column {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-  .summary-vehicle-image {
-    height: 85px;
-  }
-  .side-info-card {
-    padding: 12px;
-  }
-  .contact-line strong {
-    font-size: 8px;
-  }
-  .tasks-tab-layout {
-    grid-template-columns: 1fr;
-    padding: 15px;
-  }
-  .task-accordion-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .task-accordion-row {
-    border-right: 1px solid #f0f0f0;
-  }
-  .task-detail-heading {
-    padding: 15px;
-  }
-  .task-form-grid {
-    padding: 14px;
-    gap: 12px;
-  }
-  .task-panel-footer {
-    padding: 12px 14px;
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .task-panel-footer > div {
-    width: 100%;
-    justify-content: flex-end;
-  }
-  .documents-tab,
-  .notes-tab,
-  .history-tab {
-    padding: 15px;
-  }
-  .document-groups {
-    grid-template-columns: 1fr;
-  }
-  .wizard-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 13px;
-  }
-  .wizard-progress {
-    padding: 0;
-    gap: 6px;
-  }
-  .wizard-progress-line {
-    display: none;
-  }
-  .wizard-step {
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 6px;
-    background: transparent;
-  }
-  .wizard-step > div {
-    align-items: center;
-  }
-  .wizard-node {
-    width: 30px;
-    height: 30px;
-  }
-  .wizard-step strong {
-    font-size: 8px;
-  }
-  .wizard-step small {
-    font-size: 7px;
-  }
-  .wizard-panel {
-    padding: 20px 15px;
-  }
-  .wizard-panel-title {
-    align-items: flex-start;
-  }
-  .wizard-panel-title h3 {
-    font-size: 14px;
-  }
-  .customer-choice-list {
-    grid-template-columns: 1fr;
-  }
-  .vehicle-picker-grid {
-    gap: 9px;
-  }
-  .vehicle-choice-image {
-    height: 91px;
-  }
-  .vehicle-choice-info {
-    padding: 9px;
-  }
-  .vehicle-choice-info > small {
-    display: none;
-  }
-  .vehicle-choice-info > strong {
-    font-size: 9px;
-  }
-  .vehicle-options-row,
   .form-grid-two {
     gap: 13px;
-  }
-  .temperature-choices {
-    grid-template-columns: 1fr;
-  }
-  .temperature-choices button {
-    padding: 11px;
-  }
-  .temperature-choices button small {
-    max-width: 85%;
-  }
-  .review-info-row {
-    gap: 12px;
-  }
-  .review-vehicle img {
-    width: 68px;
-    height: 48px;
-  }
-  .review-vehicle > strong {
-    font-size: 11px;
-  }
-  .wizard-footer {
-    padding: 13px 15px;
-  }
-  .wizard-footer-right {
-    gap: 9px;
-  }
-  .wizard-footer-right > span {
-    display: none;
   }
   .catalog-toolbar {
     flex-wrap: wrap;
@@ -563,30 +124,6 @@
   }
   .catalog-vehicle-image {
     height: 180px;
-  }
-  .profile-identity-main {
-    padding: 0 15px 16px;
-    gap: 11px;
-    flex-wrap: wrap;
-  }
-  .profile-large-avatar {
-    width: 55px;
-    height: 55px;
-    border-radius: 15px;
-    font-size: 15px;
-  }
-  .profile-name-block {
-    padding-top: 24px;
-  }
-  .profile-name-block h3 {
-    font-size: 14px;
-  }
-  .profile-identity-main > .button {
-    margin-top: 0;
-  }
-  .profile-details-grid {
-    padding: 16px 15px;
-    gap: 15px;
   }
   .password-card {
     padding: 18px 15px;
@@ -630,50 +167,17 @@
   .compact-metrics .metric-card {
     min-height: 96px;
   }
-  .modal-backdrop {
-    padding: 12px;
-  }
-  .modal-heading {
-    padding: 17px 16px 14px;
-  }
-  .modal-content {
-    padding: 16px;
-  }
-  .modal-footer {
-    padding: 12px 16px;
-  }
   .create-employee-form .form-grid-two {
     grid-template-columns: 1fr;
   }
-  .toast {
-    bottom: 12px;
-    right: 12px;
-  }
-  .notification-popover {
-    right: -40px;
-  }
 }
 @media (max-width: 420px) {
-  .topbar-title h1 {
-    max-width: 116px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
   .role-preview span {
-    font-size: 7px;
+    font-size: 13px;
   }
   .role-preview select {
     max-width: 66px;
-    font-size: 9px;
-  }
-  .notification-button {
-    width: 29px;
-    height: 29px;
-  }
-  .topbar-avatar {
-    width: 28px;
-    height: 28px;
+    font-size: 13px;
   }
   .metrics-grid {
     grid-template-columns: 1fr 1fr;
@@ -689,75 +193,8 @@
   .metric-copy > strong {
     font-size: 24px;
   }
-  .table-heading-actions .button {
-    display: none;
-  }
-  .summary-side-column {
-    grid-template-columns: 1fr;
-  }
-  .summary-vehicle-image {
-    height: 120px;
-  }
-  .task-accordion-list {
-    grid-template-columns: 1fr;
-  }
-  .task-accordion-row {
-    border-right: 0;
-  }
-  .task-form-grid {
-    grid-template-columns: 1fr;
-  }
-  .task-form-grid .span-2 {
-    grid-column: auto;
-  }
-  .task-upload-area {
-    flex-wrap: wrap;
-  }
-  .task-upload-area label {
-    margin-left: 43px;
-  }
-  .vehicle-choice-image {
-    height: 78px;
-  }
-  .vehicle-choice-info {
-    gap: 5px;
-  }
-  .vehicle-choice-price {
-    font-size: 8px;
-  }
-  .wizard-panel-title > p {
-    line-height: 1.6;
-  }
-  .review-info-row {
-    grid-template-columns: 1fr;
-  }
-  .review-vehicle > strong {
-    display: none;
-  }
-  .profile-details-grid {
-    grid-template-columns: 1fr;
-  }
-  .profile-name-block {
-    flex: 1;
-  }
-  .profile-badges {
-    gap: 5px;
-  }
-  .profile-identity-main > .button {
-    width: 100%;
-  }
-}
-.mobile-menu-button {
-  display: none;
-}
-.mobile-nav-scrim {
-  display: none;
 }
 @media (max-width: 760px) {
-  .mobile-menu-button {
-    display: inline-grid;
-    flex-shrink: 0;
-  }
   .mobile-nav-scrim.visible {
     display: block;
     position: fixed;

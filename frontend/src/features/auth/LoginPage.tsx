@@ -1,13 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../../shared/api/client";
-import { demoMode } from "../../shared/config";
 import { type DocumentType } from "../../shared/types";
 import { Field } from "../../shared/ui/Field";
 import { Icon } from "../../shared/ui/Icon";
 
 export function LoginPage({
   onLogin,
-  onDemoLogin,
   busy,
   error,
 }: {
@@ -17,7 +15,6 @@ export function LoginPage({
     password: string;
     rememberMe: boolean;
   }) => Promise<void>;
-  onDemoLogin: () => void;
   busy: boolean;
   error: string;
 }) {
@@ -52,19 +49,13 @@ export function LoginPage({
     setNotice("");
     setLocalError("");
     try {
-      if (demoMode) {
-        setNotice(
-          "Si el identificador corresponde a una cuenta activa, recibirás un enlace en tu correo corporativo.",
-        );
-      } else {
-        await api.forgotPassword({
-          documentType,
-          documentNumber: documentNumber.trim(),
-        });
-        setNotice(
-          "Si el identificador corresponde a una cuenta activa, recibirás un enlace en tu correo corporativo.",
-        );
-      }
+      await api.forgotPassword({
+        documentType,
+        documentNumber: documentNumber.trim(),
+      });
+      setNotice(
+        "Si el identificador corresponde a una cuenta activa, recibirás un enlace en tu correo corporativo.",
+      );
     } catch (err) {
       setLocalError(
         err instanceof Error
@@ -284,25 +275,6 @@ export function LoginPage({
                 {busy ? "Verificando acceso…" : "Iniciar sesión"}{" "}
                 <Icon name="arrow-right" size={17} />
               </button>
-              {demoMode && (
-                <>
-                  <div className="login-divider">
-                    <span /> <small>O PARA UNA PRESENTACIÓN</small> <span />
-                  </div>
-                  <button
-                    type="button"
-                    className="button button-demo button-wide"
-                    onClick={onDemoLogin}
-                  >
-                    <Icon name="sparkles" size={18} /> Entrar en modo
-                    demostración
-                  </button>
-                  <p className="demo-note">
-                    Accede con datos de muestra. No necesitas credenciales ni
-                    conexión con el backend.
-                  </p>
-                </>
-              )}
             </form>
           )}
           <div className="login-security">

@@ -1,23 +1,83 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { api } from "../../shared/api/client";
-import { roleLabel } from "../../shared/demo/data";
-import { initials } from "../../shared/lib/format";
+import { roleLabel } from "../../shared/lib/roles";
+import { useForgetPhoto } from "../../shared/photos/usePhoto";
+import { Avatar } from "../../shared/ui/Avatar";
 import { type EmployeeProfile } from "../../shared/types";
 import { Field } from "../../shared/ui/Field";
 import { Icon } from "../../shared/ui/Icon";
 import { type Toast } from "../../shared/ui/toast";
 
+const MAX_PHOTO = 2 * 1024 * 1024;
+
 export function ProfilePage({
   user,
-  demo,
   onSignOut,
+  onPhotoChanged,
   toast,
 }: {
   user: EmployeeProfile;
-  demo: boolean;
   onSignOut: () => void;
+  /** Called after the picture was set or removed, so the rest of the app shows the new one. */
+  onPhotoChanged: () => void;
   toast: (toast: Toast) => void;
 }) {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const forget = useForgetPhoto();
+  const name = `${user.firstName} ${user.lastName}`;
+
+  async function choosePhoto(file: File | undefined) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+      return toast({
+        title: "Formato no admitido",
+        message: "Usa una imagen JPEG, PNG o WebP.",
+        tone: "error",
+      });
+    if (file.size > MAX_PHOTO)
+      return toast({
+        title: "La foto es muy pesada",
+        message: "El máximo es 2 MB.",
+        tone: "error",
+      });
+    setPhotoBusy(true);
+    try {
+      await api.setMyPhoto(file);
+      await forget(user.id);
+      onPhotoChanged();
+      toast({ title: "Foto actualizada", tone: "success" });
+    } catch (error) {
+      toast({
+        title: "No se pudo guardar la foto",
+        message:
+          error instanceof Error ? error.message : "Inténtalo nuevamente.",
+        tone: "error",
+      });
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function removePhoto() {
+    setPhotoBusy(true);
+    try {
+      await api.removeMyPhoto();
+      await forget(user.id);
+      onPhotoChanged();
+      toast({ title: "Foto eliminada", tone: "success" });
+    } catch (error) {
+      toast({
+        title: "No se pudo quitar la foto",
+        message:
+          error instanceof Error ? error.message : "Inténtalo nuevamente.",
+        tone: "error",
+      });
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,21 +94,13 @@ export function ProfilePage({
       return toast({ title: "Las contraseñas no coinciden", tone: "error" });
     setSaving(true);
     try {
-      if (demo)
-        toast({
-          title: "Contraseña actualizada (demo)",
-          message: "No se modificó ninguna credencial real.",
-          tone: "success",
-        });
-      else {
-        await api.changePassword({ currentPassword, newPassword });
-        toast({
-          title: "Contraseña actualizada",
-          message: "La sesión finalizará por seguridad.",
-          tone: "success",
-        });
-        onSignOut();
-      }
+      await api.changePassword({ currentPassword, newPassword });
+      toast({
+        title: "Contraseña actualizada",
+        message: "La sesión finalizará por seguridad.",
+        tone: "success",
+      });
+      onSignOut();
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -64,63 +116,69 @@ export function ProfilePage({
     }
   }
   return (
-    <div className="page-stack profile-page">
-      <div className="welcome-row">
+    <div className="stack profile-page">
+      <header className="page-head">
         <div>
-          <span className="section-kicker">CUENTA Y SEGURIDAD</span>
-          <h2>Mi perfil</h2>
-          <p>Consulta tus datos corporativos y administra tu acceso.</p>
+          <h1>Mi perfil</h1>
+          <p>Tus datos corporativos, tu foto y tu acceso.</p>
         </div>
-      </div>
-      <section className="workspace-card profile-identity-card">
-        <div className="profile-cover">
-          <div className="profile-pattern pattern-left" />
-          <div className="profile-pattern pattern-right" />
-          <span className="profile-cover-label">
-            <Icon name="shield-check" size={15} /> CUENTA CORPORATIVA
-          </span>
-        </div>
-        <div className="profile-identity-main">
-          <div className="profile-large-avatar">
-            {initials(`${user.firstName} ${user.lastName}`)}
-          </div>
-          <div className="profile-name-block">
-            <h3>
-              {user.firstName} {user.lastName}
-            </h3>
+      </header>
+      <section className="panel profile-card">
+        <div className="profile-identity">
+          <Avatar id={user.id} name={name} hasPhoto={user.hasPhoto} size={96} />
+          <div className="profile-name">
+            <h2>{name}</h2>
             <p>{user.businessEmail}</p>
-            <div className="profile-badges">
-              <span className={`role-badge role-${user.role}`}>
-                {roleLabel[user.role]}
-              </span>
-              <span className="status-pill status-active">
-                <i /> Cuenta activa
-              </span>
-            </div>
+            <span className="badge badge-neutral">{roleLabel[user.role]}</span>
           </div>
-          <button
-            className="button button-secondary button-sm"
-            onClick={() =>
-              toast({
-                title: "Edición de perfil",
-                message:
-                  "La API actual permite consultar datos y cambiar contraseña; la edición de datos se habilitará más adelante.",
-                tone: "info",
-              })
-            }
-          >
-            <Icon name="edit" size={15} /> Editar perfil
-          </button>
+          <div className="profile-photo-actions">
+            <input
+              ref={fileInput}
+              type="file"
+              hidden
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                void choosePhoto(file);
+              }}
+            />
+            <button
+              className="button button-secondary"
+              disabled={photoBusy}
+              onClick={() => fileInput.current?.click()}
+            >
+              <Icon name="upload" size={16} />{" "}
+              {user.hasPhoto ? "Cambiar foto" : "Subir foto"}
+            </button>
+            {user.hasPhoto && (
+              <button
+                className="button button-ghost"
+                disabled={photoBusy}
+                onClick={removePhoto}
+              >
+                Quitar foto
+              </button>
+            )}
+            <small>JPEG, PNG o WebP · máximo 2 MB</small>
+          </div>
         </div>
-        <div className="profile-details-grid">
-          <ProfileData
-            label="Documento de identidad"
-            value={`${user.documentType} ${user.documentNumber}`}
-          />
-          <ProfileData label="Correo corporativo" value={user.businessEmail} />
-          <ProfileData label="Rol del sistema" value={roleLabel[user.role]} />
-          <ProfileData label="Identificador de cuenta" value={user.id} />
-        </div>
+        <dl className="profile-data">
+          <div>
+            <dt>Documento de identidad</dt>
+            <dd>
+              {user.documentType} {user.documentNumber}
+            </dd>
+          </div>
+          <div>
+            <dt>Correo corporativo</dt>
+            <dd>{user.businessEmail}</dd>
+          </div>
+          <div>
+            <dt>Rol del sistema</dt>
+            <dd>{roleLabel[user.role]}</dd>
+          </div>
+        </dl>
       </section>
       <section className="workspace-card password-card">
         <div className="password-card-intro">

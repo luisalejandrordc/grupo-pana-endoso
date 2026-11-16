@@ -1,10 +1,9 @@
 @import "./tokens-and-base.css";
 @import "./brand-and-login.css";
 @import "./shell-and-workspace.css";
-@import "./sale-detail.css";
-@import "./new-sale-wizard.css";
 @import "./customers-and-catalog.css";
 @import "./staff-and-profile.css";
 @import "./overlays-and-utilities.css";
 @import "./responsive.css";
 @import "./brand-overrides.css";
+@import "./system.css";

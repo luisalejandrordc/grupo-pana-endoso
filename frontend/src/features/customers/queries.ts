@@ -26,15 +26,6 @@ export function useCustomerList(params: CustomerListParams) {
 }
 
 /** Totals for the summary cards: one tiny request per status. */
-export function useCustomerTotal(status: "all" | "active" | "inactive") {
-  const params: CustomerListParams = { status, page: 1, pageSize: 1 };
-  return useQuery({
-    queryKey: customerKeys.list(params),
-    queryFn: () => customersApi.list(params),
-    select: (result) => result.total,
-  });
-}
-
 export function useCreateCustomer() {
   const client = useQueryClient();
   return useMutation({

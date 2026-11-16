@@ -1,65 +1,51 @@
-import { type ReactNode } from "react";
-import { demoMode } from "../../shared/config";
-import { type EmployeeProfile, type Role } from "../../shared/types";
-import { type View } from "../navigation";
+import { useEffect, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
+import type { EmployeeProfile } from "../../shared/types";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell({
   children,
-  page,
   user,
   query,
   setQuery,
-  onNavigate,
   onSignOut,
-  onRoleChange,
-  mobileOpen,
-  onMenuClick,
-  onCloseMobile,
 }: {
   children: ReactNode;
-  page: View;
   user: EmployeeProfile;
   query: string;
   setQuery: (value: string) => void;
-  onNavigate: (page: View) => void;
   onSignOut: () => void;
-  onRoleChange: (role: Role) => void;
-  mobileOpen: boolean;
-  onMenuClick: () => void;
-  onCloseMobile: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  // A new page starts with an empty search and a closed menu.
+  useEffect(() => {
+    setQuery("");
+    setMenuOpen(false);
+  }, [pathname, setQuery]);
+
   return (
-    <div className="app-layout">
+    <div className="shell">
+      <a className="skip-link" href="#content">
+        Saltar al contenido
+      </a>
       <Sidebar
-        page={page}
         user={user}
-        onNavigate={onNavigate}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
         onSignOut={onSignOut}
-        mobileOpen={mobileOpen}
-        onClose={onCloseMobile}
       />
-      <div className="app-main">
+      <div className="shell-main">
         <Topbar
-          page={page}
-          user={user}
-          demo={demoMode}
           query={query}
           onQueryChange={setQuery}
-          onRoleChange={onRoleChange}
-          onNavigate={onNavigate}
-          onMenuClick={onMenuClick}
+          onMenu={() => setMenuOpen(true)}
         />
-        <main className="page-content">{children}</main>
-        <footer className="app-footer">
-          <span>
-            EndosoFlow <b>·</b> Grupo Pana
-          </span>
-          <span>
-            Portal de colaboradores <b>·</b> Fase 1
-          </span>
-        </footer>
+        <main id="content" className="page">
+          {children}
+        </main>
       </div>
     </div>
   );
