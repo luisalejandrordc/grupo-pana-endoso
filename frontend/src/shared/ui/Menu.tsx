@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 export interface MenuItem {
   label: string;
   onSelect: () => void;
-  icon?: Parameters<typeof Icon>[0]["name"];
+  icon?: IconName;
   danger?: boolean;
 }
 
-/** A button that opens a short list of actions. Closes on a click outside, on Escape and after a choice. */
+/**
+ * A button that opens a short list of actions. Arrow keys move through the items, Escape and a click
+ * outside close it, and the focus goes back to the button.
+ */
 export function Menu({
   label,
   items,
@@ -20,22 +23,49 @@ export function Menu({
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent) {
-        if (event.key === "Escape") setOpen(false);
-        return;
-      }
+    const buttons = () => [
+      ...(root.current?.querySelectorAll<HTMLButtonElement>(
+        "[role=menuitem]",
+      ) ?? []),
+    ];
+    buttons()[0]?.focus();
+
+    function close(returnFocus: boolean) {
+      setOpen(false);
+      if (returnFocus) trigger.current?.focus();
+    }
+    function onPointer(event: MouseEvent) {
       if (root.current && !root.current.contains(event.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
+        close(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") return close(true);
+      if (event.key === "Tab") return close(false);
+      const all = buttons();
+      const at = all.findIndex((item) => item === document.activeElement);
+      const move =
+        event.key === "ArrowDown"
+          ? (at + 1) % all.length
+          : event.key === "ArrowUp"
+            ? (at - 1 + all.length) % all.length
+            : event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? all.length - 1
+                : -1;
+      if (move < 0) return;
+      event.preventDefault();
+      all[move]?.focus();
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
@@ -43,6 +73,7 @@ export function Menu({
   return (
     <div className="menu" ref={root}>
       <button
+        ref={trigger}
         className="button button-secondary"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -61,6 +92,7 @@ export function Menu({
               className={item.danger ? "is-danger" : ""}
               onClick={() => {
                 setOpen(false);
+                trigger.current?.focus();
                 item.onSelect();
               }}
             >

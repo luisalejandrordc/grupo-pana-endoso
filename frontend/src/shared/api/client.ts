@@ -1,10 +1,4 @@
-import type {
-  DocumentType,
-  Employee,
-  EmployeeProfile,
-  Role,
-  SessionResponse,
-} from "../types";
+import type { DocumentType, EmployeeProfile, SessionResponse } from "../types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(
   /\/$/,
@@ -39,22 +33,6 @@ export interface PhotoLink {
   url: string;
   expiresAt: string;
   mimeType: string;
-}
-
-export interface CreateEmployeeInput {
-  documentType: DocumentType;
-  documentNumber: string;
-  firstName: string;
-  lastName: string;
-  nationality: string;
-  gender: "M" | "F";
-  birthdate: string;
-  hireDate: string;
-  personalPhone?: string;
-  personalEmail?: string;
-  businessPhone: string;
-  businessEmail: string;
-  role: Role;
 }
 
 export class ApiClient {
@@ -206,37 +184,6 @@ export class ApiClient {
       method: "PUT",
       body: JSON.stringify(input),
     });
-  }
-
-  listEmployees(
-    params: {
-      q?: string;
-      role?: Role;
-      status?: "all" | "active" | "inactive";
-      page?: number;
-      pageSize?: number;
-    } = {},
-  ) {
-    const search = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== "") search.set(key, String(value));
-    });
-    return this.request<{
-      items: Employee[];
-      page: number;
-      pageSize: number;
-      total: number;
-    }>(`/employees?${search.toString()}`);
-  }
-
-  createEmployee(input: CreateEmployeeInput) {
-    return this.request<{ employee: Employee; activationLinkIssued: boolean }>(
-      "/employees",
-      {
-        method: "POST",
-        body: JSON.stringify(input),
-      },
-    );
   }
 }
 
