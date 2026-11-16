@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useDebounced } from "../../shared/lib/useDebounced";
-import { initials } from "../../shared/lib/format";
 import type { Role } from "../../shared/types";
+import { Badge } from "../../shared/ui/Badge";
+import { EmptyState, ErrorState } from "../../shared/ui/EmptyState";
 import { Icon } from "../../shared/ui/Icon";
+import { InitialsTile } from "../../shared/ui/InitialsTile";
+import { PageHeader } from "../../shared/ui/PageHeader";
+import { Pagination } from "../../shared/ui/Pagination";
 import type { Toast } from "../../shared/ui/toast";
 import type { ApiCustomer } from "./api";
 import { CustomerFormModal, type FormMode } from "./CustomerFormModal";
@@ -46,106 +50,86 @@ export function CustomersPage({
   });
 
   const total = list.data?.total ?? 0;
-  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const to = Math.min(page * PAGE_SIZE, total);
-  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const filtering = Boolean(search || typeFilter || status !== "all");
 
   return (
     <div className="stack">
-      <header className="page-head">
-        <div>
-          <h1>Directorio de clientes</h1>
-          <p>
-            Consulta y mantén la información de cada cliente y las operaciones
-            vinculadas a él.
-          </p>
-        </div>
-        <button
-          className="button button-primary"
-          onClick={() => setModal({ kind: "create" })}
-        >
-          <Icon name="plus" size={17} /> Nuevo cliente
-        </button>
-      </header>
+      <PageHeader
+        title="Directorio de clientes"
+        description="Consulta y mantén la información de cada cliente y las operaciones vinculadas a él."
+        actions={
+          <button
+            className="button button-primary"
+            onClick={() => setModal({ kind: "create" })}
+          >
+            <Icon name="plus" size={17} /> Nuevo cliente
+          </button>
+        }
+      />
 
-      <section className="workspace-card">
-        <div className="card-heading">
-          <div>
-            <h3>Clientes</h3>
-            <p>
-              Busca por nombre, número de documento o correo desde la barra
-              superior.
-            </p>
+      <section className="panel">
+        <div className="toolbar">
+          <div className="filter-bar">
+            <label className="filter-control">
+              <span>Tipo de cliente</span>
+              <select
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value)}
+              >
+                <option value="">Todos los tipos</option>
+                {customerTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {customerTypeLabels[type]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="filter-control">
+              <span>Estado</span>
+              <select
+                value={status}
+                onChange={(event) =>
+                  setStatus(event.target.value as typeof status)
+                }
+              >
+                <option value="all">Todos</option>
+                <option value="active">Activo</option>
+                <option value="inactive">Inactivo</option>
+              </select>
+            </label>
           </div>
-          <span className="count-pill">
+          <span className="toolbar-count">
             {list.data ? `${total} registros` : "Cargando…"}
           </span>
         </div>
-        <div className="filter-row">
-          <label className="filter-control">
-            <span>Tipo de cliente</span>
-            <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-            >
-              <option value="">Todos los tipos</option>
-              {customerTypes.map((type) => (
-                <option key={type} value={type}>
-                  {customerTypeLabels[type]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="filter-control">
-            <span>Estado</span>
-            <select
-              value={status}
-              onChange={(event) =>
-                setStatus(event.target.value as typeof status)
-              }
-            >
-              <option value="all">Todos</option>
-              <option value="active">Activo</option>
-              <option value="inactive">Inactivo</option>
-            </select>
-          </label>
-        </div>
 
         {list.isError ? (
-          <div className="list-error" role="alert">
-            <h3>No se pudo cargar la lista</h3>
-            <p>
-              {list.error instanceof Error
+          <ErrorState
+            title="No se pudo cargar la lista"
+            message={
+              list.error instanceof Error
                 ? list.error.message
-                : "Inténtalo nuevamente."}
-            </p>
-            <button
-              className="button button-secondary"
-              onClick={() => list.refetch()}
-            >
-              <Icon name="refresh" size={15} /> Reintentar
-            </button>
-          </div>
+                : "Inténtalo nuevamente."
+            }
+            onRetry={() => list.refetch()}
+          />
         ) : (
           <div className="table-scroll" aria-busy={list.isFetching}>
-            <table className="data-table">
+            <table className="table table-cards">
               <thead>
                 <tr>
-                  <th>CLIENTE</th>
-                  <th>DOCUMENTO</th>
-                  <th>TIPO</th>
-                  <th>CONTACTO</th>
-                  <th>PORTAL</th>
-                  <th>ESTADO</th>
-                  <th />
+                  <th>Cliente</th>
+                  <th>Documento</th>
+                  <th>Contacto</th>
+                  <th>Portal</th>
+                  <th>Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {list.isPending &&
                   Array.from({ length: 6 }, (_, i) => (
                     <tr key={i} aria-hidden="true">
-                      {Array.from({ length: 7 }, (_, j) => (
+                      {Array.from({ length: 5 }, (_, j) => (
                         <td key={j}>
                           <span className="skeleton-line" />
                         </td>
@@ -165,54 +149,26 @@ export function CustomersPage({
         )}
 
         {list.data && total === 0 && (
-          <div className="empty-state">
-            <h3>{filtering ? "Sin resultados" : "Aún no hay clientes"}</h3>
-            <p>
-              {filtering
+          <EmptyState
+            icon="users"
+            title={filtering ? "Sin resultados" : "Aún no hay clientes"}
+            description={
+              filtering
                 ? "No hay clientes que coincidan con la búsqueda o los filtros."
                 : role === "sales_advisor"
                   ? "Los clientes aparecen aquí cuando los creas o cuando se te asigna una venta."
-                  : "Crea el primer cliente con el botón «Nuevo cliente»."}
-            </p>
-          </div>
+                  : "Crea el primer cliente con el botón «Nuevo cliente»."
+            }
+          />
         )}
 
-        <div className="table-footer">
-          <span>
-            {total > 0 ? (
-              <>
-                Mostrando{" "}
-                <strong>
-                  {from}–{to}
-                </strong>{" "}
-                de <strong>{total}</strong>
-              </>
-            ) : (
-              "Sin registros"
-            )}
-          </span>
-          <div className="pager-info">
-            <span>
-              Página {page} de {lastPage}
-            </span>
-            <div className="pagination">
-              <button
-                aria-label="Página anterior"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                <Icon name="chevron-right" size={13} className="flip-icon" />
-              </button>
-              <button
-                aria-label="Página siguiente"
-                disabled={page >= lastPage}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                <Icon name="chevron-right" size={13} />
-              </button>
-            </div>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          showSinglePage
+          onPageChange={(next) => setPage(() => next)}
+        />
       </section>
 
       {modal && (
@@ -240,28 +196,34 @@ function CustomerRow({
   onOpen: () => void;
 }) {
   return (
-    <tr>
-      <td>
-        <div className="sale-customer-cell">
-          <div className="table-avatar">{initials(customer.displayName)}</div>
+    <tr className="is-link" onClick={onOpen}>
+      <td className="cell-primary">
+        <div className="entity-cell">
+          <InitialsTile name={customer.displayName} />
           <div>
-            <strong>{customer.displayName}</strong>
-            <span>ID · {customer.id.slice(0, 8).toUpperCase()}</span>
+            <button
+              className="cell-title"
+              title="Ver y editar la ficha"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpen();
+              }}
+            >
+              {customer.displayName}
+            </button>
+            <span className="cell-sub">
+              {customerTypeLabels[customer.customerType]}
+            </span>
           </div>
         </div>
       </td>
       <td>
-        <strong className="regular-strong">
+        <span className="cell-title">
           {customer.documentType} {customer.documentNumber}
-        </strong>
-      </td>
-      <td>
-        <span className="type-tag">
-          {customerTypeLabels[customer.customerType]}
         </span>
       </td>
       <td>
-        <div className="customer-contact-cell">
+        <div className="contact-cell">
           <span>
             <Icon name="mail" size={13} />
             {customer.email}
@@ -273,29 +235,23 @@ function CustomerRow({
         </div>
       </td>
       <td>
-        <span
-          className={`portal-pill ${customer.portalStatus === "active" ? "portal-active" : customer.portalStatus === "invited" ? "portal-invited" : ""}`}
+        <Badge
+          plain
+          tone={
+            customer.portalStatus === "active"
+              ? "done"
+              : customer.portalStatus === "invited"
+                ? "warn"
+                : "neutral"
+          }
         >
           {portalStatusLabels[customer.portalStatus]}
-        </span>
+        </Badge>
       </td>
-      <td>
-        <span
-          className={`status-pill ${customer.isActive ? "status-active" : "status-inactive"}`}
-        >
-          <i />
+      <td className="cell-aside">
+        <Badge tone={customer.isActive ? "done" : "neutral"}>
           {customer.isActive ? "Activo" : "Inactivo"}
-        </span>
-      </td>
-      <td>
-        <button
-          className="row-open-button"
-          aria-label={`Abrir ficha de ${customer.displayName}`}
-          title="Ver y editar la ficha"
-          onClick={onOpen}
-        >
-          <Icon name="arrow-up-right" size={16} />
-        </button>
+        </Badge>
       </td>
     </tr>
   );

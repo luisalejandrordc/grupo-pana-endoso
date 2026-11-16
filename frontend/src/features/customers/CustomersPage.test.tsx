@@ -163,8 +163,6 @@ const listCalls = () =>
       c.path === "/customers" &&
       c.params.get("pageSize") === "20",
   );
-const callsTo = (method: string, path: string) =>
-  calls.filter((c) => c.method === method && c.path === path);
 
 beforeEach(() => {
   customers = [person(), embassy()];
