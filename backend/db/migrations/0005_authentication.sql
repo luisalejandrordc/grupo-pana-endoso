@@ -108,7 +108,7 @@ CREATE INDEX ix_access_logs_employee ON access_logs (employee_id, created_at);
 CREATE INDEX ix_access_logs_customer ON access_logs (customer_id, created_at);
 
 CREATE INDEX ix_access_logs_attempt ON access_logs (
-  portal_type,
+  account_type,
   attempted_document_type,
   attempted_document_number,
   created_at

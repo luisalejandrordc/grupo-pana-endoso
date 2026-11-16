@@ -947,8 +947,8 @@ SELECT
 SELECT
   pg_temp.expect_fail (
     'an access log cannot name two owners',
-    $q$INSERT INTO access_logs (portal_type, employee_id, customer_id, action_type)
-     VALUES ('employee_portal', 'a0000000-0000-0000-0000-000000000001',
+    $q$INSERT INTO access_logs (account_type, employee_id, customer_id, action_type)
+     VALUES ('employee', 'a0000000-0000-0000-0000-000000000001',
              'c0000000-0000-0000-0000-000000000001', 'login_success')$q$,
     '23514'
   );
