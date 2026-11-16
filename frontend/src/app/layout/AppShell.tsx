@@ -1,30 +1,27 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
+import { useDocumentTitle } from "../../shared/hooks/useDocumentTitle";
 import type { EmployeeProfile } from "../../shared/types";
+import { titleFor } from "../navigation";
+import { ErrorBoundary } from "../ErrorBoundary";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell({
   children,
   user,
-  query,
-  setQuery,
   onSignOut,
 }: {
   children: ReactNode;
   user: EmployeeProfile;
-  query: string;
-  setQuery: (value: string) => void;
   onSignOut: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
-
-  // A new page starts with an empty search and a closed menu.
-  useEffect(() => {
-    setQuery("");
-    setMenuOpen(false);
-  }, [pathname, setQuery]);
+  // The drawer is open for one address only: going anywhere else closes it, with no effect to do so.
+  const [openAt, setOpenAt] = useState<string | null>(null);
+  const menuOpen = openAt === pathname;
+  const closeMenu = useCallback(() => setOpenAt(null), []);
+  useDocumentTitle(titleFor(pathname));
 
   return (
     <div className="shell">
@@ -34,17 +31,13 @@ export function AppShell({
       <Sidebar
         user={user}
         open={menuOpen}
-        onClose={() => setMenuOpen(false)}
+        onClose={closeMenu}
         onSignOut={onSignOut}
       />
       <div className="shell-main">
-        <Topbar
-          query={query}
-          onQueryChange={setQuery}
-          onMenu={() => setMenuOpen(true)}
-        />
+        <Topbar onMenu={() => setOpenAt(pathname)} menuOpen={menuOpen} />
         <main id="content" className="page">
-          {children}
+          <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
         </main>
       </div>
     </div>

@@ -1,44 +1,40 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useSearchQuery } from "../../shared/hooks/useSearchQuery";
 import { Icon } from "../../shared/ui/Icon";
-import { searchPlaceholders } from "../navigation";
+import { SearchField } from "../../shared/ui/SearchField";
+import { searchPlaceholderFor } from "../navigation";
 
 export function Topbar({
-  query,
-  onQueryChange,
   onMenu,
+  menuOpen,
 }: {
-  query: string;
-  onQueryChange: (value: string) => void;
   onMenu: () => void;
+  menuOpen: boolean;
 }) {
   const { pathname } = useLocation();
-  const section = "/" + pathname.split("/")[1];
-  // The search belongs to lists, not to a sale or a form.
-  const searchable =
-    searchPlaceholders[section] !== undefined &&
-    !pathname.startsWith("/sales/");
+  const [query, setQuery] = useSearchQuery();
+  const placeholder = searchPlaceholderFor(pathname);
   return (
-    <header className={`topbar ${searchable ? "" : "is-empty"}`}>
+    <header className={`topbar ${placeholder ? "" : "is-empty"}`}>
       <button
         className="icon-button topbar-menu"
         onClick={onMenu}
         aria-label="Abrir menú"
+        aria-controls="app-sidebar"
+        aria-expanded={menuOpen}
       >
         <Icon name="menu" size={20} />
       </button>
-      {searchable ? (
-        <label className="search">
-          <Icon name="search" size={17} />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder={searchPlaceholders[section]}
-            aria-label="Buscar"
-          />
-        </label>
-      ) : (
-        <span />
+      <Link className="topbar-brand" to="/sales" aria-label="EndosoFlow">
+        <img src="/endosoflow-logo-square.png" alt="" />
+      </Link>
+      {placeholder && (
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder={placeholder}
+          shortcut
+        />
       )}
     </header>
   );
