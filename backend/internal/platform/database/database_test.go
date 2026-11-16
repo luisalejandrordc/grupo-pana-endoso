@@ -33,8 +33,8 @@ func testPool(t *testing.T) (context.Context, TxStarter, func(sql string, args .
 	return ctx, pool, count
 }
 
-const insertAccessLog = `INSERT INTO access_logs (portal_type, action_type, attempted_document_number)
-	VALUES ('employee_portal', 'login_failed', $1)`
+const insertAccessLog = `INSERT INTO access_logs (account_type, action_type, attempted_document_number)
+	VALUES ('employee', 'login_failed', $1)`
 
 const countAccessLog = `SELECT count(*) FROM access_logs WHERE attempted_document_number = $1`
 

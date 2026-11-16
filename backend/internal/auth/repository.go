@@ -232,9 +232,9 @@ type accessLogRow struct {
 
 func insertAccessLog(ctx context.Context, q querier, row accessLogRow) error {
 	_, err := q.Exec(ctx, `INSERT INTO access_logs
-		(id, portal_type, employee_id, attempted_document_type, attempted_document_number,
+		(id, account_type, employee_id, attempted_document_type, attempted_document_number,
 		 action_type, failure_reason, device_info, ip_address, created_at)
-		VALUES ($1, 'employee_portal', $2, $3, $4, $5::text::access_action,
+		VALUES ($1, 'employee', $2, $3, $4, $5::text::access_action,
 				$6::text::access_failure_reason, $7, $8, $9)`,
 		row.ID, row.EmployeeID, nilIfEmpty(row.DocumentType), nilIfEmpty(row.DocumentNumber), row.Action,
 		nilIfEmpty(row.FailureReason), nilIfEmpty(row.DeviceInfo), nilIfEmpty(row.IP), row.CreatedAt)

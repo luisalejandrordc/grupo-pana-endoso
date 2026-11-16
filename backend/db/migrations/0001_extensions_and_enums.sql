@@ -117,7 +117,7 @@ CREATE TYPE storage_deletion_reason AS ENUM(
 -- Authentication
 CREATE TYPE token_purpose AS ENUM('activation', 'password_reset');
 
-CREATE TYPE portal_type AS ENUM('employee_portal', 'customer_portal');
+CREATE TYPE account_type AS ENUM('employee', 'customer');
 
 -- Security events. Business events live in audit_logs; these record sign-in and credential events.
 CREATE TYPE access_action AS ENUM(

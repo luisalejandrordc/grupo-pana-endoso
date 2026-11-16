@@ -75,7 +75,7 @@ WHERE
 -- Append-only; plain ids with no foreign keys so rows survive any deletion.
 CREATE TABLE access_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  portal_type portal_type NOT NULL,
+  account_type account_type NOT NULL,
   employee_id uuid,
   customer_id uuid,
   attempted_document_type text,
@@ -89,13 +89,13 @@ CREATE TABLE access_logs (
     employee_id IS NULL
     OR customer_id IS NULL
   ),
-  CONSTRAINT access_logs_owner_matches_portal CHECK (
+  CONSTRAINT access_logs_owner_matches_account CHECK (
     (
-      portal_type = 'employee_portal'
+      account_type = 'employee'
       AND customer_id IS NULL
     )
     OR (
-      portal_type = 'customer_portal'
+      account_type = 'customer'
       AND employee_id IS NULL
     )
   )
