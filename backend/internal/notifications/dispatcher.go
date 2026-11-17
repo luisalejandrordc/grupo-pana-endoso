@@ -353,7 +353,7 @@ func (d *Dispatcher) load(ctx context.Context, tx pgx.Tx, row claimed) (emailDat
 	var createdAt time.Time
 	var model, version, color, advisorFirst, advisorLast string
 	err := tx.QueryRow(ctx, `SELECT s.sale_number, s.created_at, s.customer_legal_name_snapshot, s.vehicle_model_name_snapshot,
-			s.vehicle_version_name_snapshot, s.vehicle_color_name_snapshot, a.first_name, a.last_name, a.business_email, a.business_phone,
+			s.vehicle_version_name_snapshot, s.vehicle_color_name_snapshot, a.first_name, a.last_name, a.business_email, a.business_phone
 		FROM sale_registers s
 		JOIN employees a ON a.id = s.assigned_advisor_id
 		WHERE s.id = $1`, *row.saleID).
