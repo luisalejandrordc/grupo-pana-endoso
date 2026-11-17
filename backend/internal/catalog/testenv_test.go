@@ -3,7 +3,6 @@ package catalog
 import (
 	"bytes"
 	"context"
-	"endosoflow/internal/adapters/mail"
 	"endosoflow/internal/adapters/storage"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/apperr"
@@ -33,10 +32,6 @@ const (
 	testSecret   = "0123456789abcdef0123456789abcdef"
 	goodPassword = "Correct-Horse-Battery-9"
 )
-
-type discardMail struct{}
-
-func (discardMail) Send(context.Context, mail.Message) error { return nil }
 
 type testEmployee struct {
 	ID        uuid.UUID
@@ -70,7 +65,10 @@ func newTestEnv(t *testing.T) *testEnv {
 	t.Cleanup(pool.Close)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	store := storage.NewMemory("https://img.test")
-	authService := auth.NewService(auth.Deps{DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", Mail: discardMail{}, Logger: logger})
+	authService := auth.NewService(auth.Deps{
+		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test",
+		PortalBaseURL: "http://portal.test", Logger: logger,
+	})
 	return &testEnv{
 		t: t, ctx: ctx, pool: pool, auth: authService, store: store,
 		svc: NewService(Deps{DB: pool, Store: store, Logger: logger}), logger: logger,

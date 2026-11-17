@@ -73,7 +73,10 @@ func (f *fx) emailsOf(sale uuid.UUID) (customer, advisor string) {
 }
 
 func (f *fx) dispatcher(sender mail.Sender, tune func(*notifications.DispatcherDeps)) *notifications.Dispatcher {
-	deps := notifications.DispatcherDeps{DB: f.Pool, Sender: sender, AppBaseURL: "https://app.test", Logger: f.Logger, Now: f.clock.Now}
+	deps := notifications.DispatcherDeps{
+		DB: f.Pool, Sender: sender, AppBaseURL: "https://app.test",
+		PortalBaseURL: "https://portal.test", Logger: f.Logger, Now: f.clock.Now,
+	}
 	if tune != nil {
 		tune(&deps)
 	}
@@ -151,8 +154,15 @@ func TestEverySaleNotificationIsSentOnceWithItsContent(t *testing.T) {
 	}
 
 	c := toCustomer[0]
-	if !strings.Contains(c.Subject, s.Code) || !strings.Contains(c.Body, s.Vehicle.Model) || !strings.Contains(c.Body, s.Advisor.Name) {
-		t.Fatalf("the customer email names the sale, the vehicle and the advisor:\n%s\n%s", c.Subject, c.Body)
+	if c.Subject != "Hemos registrado su nueva solicitud de vehículo" ||
+		!strings.Contains(c.Body, s.Code) || !strings.Contains(c.Body, s.Vehicle.Model) || !strings.Contains(c.Body, s.Advisor.Name) {
+		t.Fatalf("the customer email has the specified subject and names the sale, the vehicle and the advisor:\n%s\n%s", c.Subject, c.Body)
+	}
+	if !strings.Contains(c.HTMLBody, `href="https://portal.test/sales/`+s.ID.String()+`"`) {
+		t.Fatal("the button must open the purchase in the customer portal, not in the employee application")
+	}
+	if !strings.Contains(c.HTMLBody, "0 de 6 etapas completadas") || !strings.Contains(c.HTMLBody, "Cotización y Documentación") {
+		t.Fatal("the progress bar shows the six milestones as they stand")
 	}
 	if c.ReplyTo != advisor || c.HTMLBody == "" || c.EventID == "" {
 		t.Fatalf("a reply reaches the advisor, there is an HTML version and an event id: %+v", c)
@@ -184,14 +194,47 @@ func TestMilestoneEmailsGoToTheCustomerWhenTheTaskCompletes(t *testing.T) {
 	d := f.dispatcher(rec, nil)
 	f.drain(d)
 
-	f.advance(s.ID, f.advisor, 2) // completes tasks 1 and 2; only task 1 notifies the customer
+	f.advance(s.ID, f.advisor, 3) // tasks 1 and 3 notify the customer; task 2 does not
 	f.drain(d)
 	msgs := rec.messagesTo(customer)
-	if len(msgs) != 2 {
-		t.Fatalf("the creation email and the task 1 milestone email: %d", len(msgs))
+	if len(msgs) != 3 {
+		t.Fatalf("the creation email and the milestone emails of tasks 1 and 3: %d", len(msgs))
 	}
-	if !strings.Contains(msgs[1].Subject, "cotización") || msgs[1].ReplyTo == "" {
-		t.Fatalf("milestone email: %+v", msgs[1])
+	q := msgs[1]
+	if q.Subject != "Su cotización oficial está lista para revisión" || q.ReplyTo == "" {
+		t.Fatalf("milestone email: %+v", q)
+	}
+	for _, want := range []string{
+		"Etapa 1 de 6 · Cotización y Documentación",                         // the milestone the task belongs to
+		"1 de 6 etapas completadas",                                         // read live: tasks 1 and 2 finish milestone 1
+		`href="https://portal.test/sales/` + s.ID.String() + `/documentos"`, // the quotation is a document
+	} {
+		if !strings.Contains(q.HTMLBody, want) {
+			t.Fatalf("the quotation email must contain %q:\n%s", want, q.HTMLBody)
+		}
+	}
+	if strings.Contains(q.HTMLBody, "de 7") || strings.Contains(q.Body, " tu ") || strings.Contains(q.Body, "Tu ") {
+		t.Fatal("six milestones, and always \"usted\"")
+	}
+
+	// Task 3 assigns the series and the VIN. The email must not repeat them: the portal is where they are read, so
+	// a later correction by a manager can never leave an email out of date.
+	var series, vin string
+	if err := f.Pool.QueryRow(f.Ctx, `SELECT vehicle_series, vin FROM sale_registers WHERE id = $1`, s.ID).Scan(&series, &vin); err != nil {
+		t.Fatal(err)
+	}
+	if series == "" || vin == "" {
+		t.Fatal("the scenario must have recorded a series and a VIN")
+	}
+	assigned := msgs[2]
+	if assigned.Subject != "Siguiente paso: su vehículo ha sido asignado" ||
+		strings.Contains(assigned.Body, vin) || strings.Contains(assigned.HTMLBody, vin) ||
+		strings.Contains(assigned.Body, series) || strings.Contains(assigned.HTMLBody, series) ||
+		!strings.Contains(assigned.HTMLBody, `href="https://portal.test/sales/`+s.ID.String()+`"`) {
+		t.Fatalf("the assignment email carries a link to the purchase and none of its recorded data:\n%s", assigned.Body)
+	}
+	if assigned.ReplyTo == "" {
+		t.Fatal("replies must still reach the advisor")
 	}
 }
 
@@ -209,7 +252,7 @@ func TestReassigningNotifiesTheCustomerAndBothAdvisors(t *testing.T) {
 
 	newAdvisor := f.emailOfEmployee(f.other.ID)
 	changed := rec.messagesTo(customer)
-	if len(changed) != 2 || !strings.Contains(changed[1].Subject, "asesor ha cambiado") || changed[1].ReplyTo != newAdvisor {
+	if len(changed) != 2 || !strings.Contains(changed[1].Subject, "Ha cambiado el asesor") || changed[1].ReplyTo != newAdvisor {
 		t.Fatalf("the customer is told about the new advisor, and replies reach them: %+v", changed)
 	}
 	if got := rec.messagesTo(newAdvisor); len(got) != 1 || !strings.Contains(got[0].Subject, "Se le asignó") {

@@ -5,7 +5,6 @@ package testkit
 
 import (
 	"context"
-	"endosoflow/internal/adapters/mail"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/ids"
@@ -23,10 +22,6 @@ import (
 
 // Password is the password of every employee that Employee creates with a login.
 const Password = "Correct-Horse-Battery-9"
-
-type discardMail struct{}
-
-func (discardMail) Send(context.Context, mail.Message) error { return nil }
 
 // Env is a connection to the test database plus the services most tests need.
 type Env struct {
@@ -53,7 +48,10 @@ func New(t *testing.T) *Env {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return &Env{
 		T: t, Ctx: ctx, Pool: pool, Logger: logger,
-		Auth: auth.NewService(auth.Deps{DB: pool, JWTSecret: "0123456789abcdef0123456789abcdef", AppBaseURL: "http://app.test", Mail: discardMail{}, Logger: logger}),
+		Auth: auth.NewService(auth.Deps{
+			DB: pool, JWTSecret: "0123456789abcdef0123456789abcdef",
+			AppBaseURL: "http://app.test", PortalBaseURL: "http://portal.test", Logger: logger,
+		}),
 	}
 }
 
