@@ -298,7 +298,7 @@ func insertAccessLog(ctx context.Context, q querier, row accessLogRow) error {
 	_, err := q.Exec(ctx, `INSERT INTO access_logs
 		(id, account_type, employee_id, customer_id, attempted_document_type, attempted_document_number,
 		 action_type, failure_reason, device_info, ip_address, created_at)
-		VALUES ($1, $2::text::portal_type, $3, $4, $5, $6, $7::text::access_action,
+		VALUES ($1, $2::text::account_type, $3, $4, $5, $6, $7::text::access_action,
 				$8::text::access_failure_reason, $9, $10, $11)`,
 		row.ID, account, row.EmployeeID, row.CustomerID, nilIfEmpty(row.DocumentType), nilIfEmpty(row.DocumentNumber),
 		row.Action, nilIfEmpty(row.FailureReason), nilIfEmpty(row.DeviceInfo), nilIfEmpty(row.IP), row.CreatedAt)

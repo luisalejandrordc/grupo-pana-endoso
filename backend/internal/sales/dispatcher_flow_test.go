@@ -205,9 +205,9 @@ func TestMilestoneEmailsGoToTheCustomerWhenTheTaskCompletes(t *testing.T) {
 		t.Fatalf("milestone email: %+v", q)
 	}
 	for _, want := range []string{
-		"Etapa 1 de 6 · Cotización y Documentación",                         // the milestone the task belongs to
-		"1 de 6 etapas completadas",                                         // read live: tasks 1 and 2 finish milestone 1
-		`href="https://portal.test/sales/` + s.ID.String() + `/documentos"`, // the quotation is a document
+		"Etapa 1 de 6 · Cotización y Documentación",                        // the milestone the task belongs to
+		"1 de 6 etapas completadas",                                        // read live: tasks 1 and 2 finish milestone 1
+		`href="https://portal.test/sales/` + s.ID.String() + `/documents"`, // the quotation is a document
 	} {
 		if !strings.Contains(q.HTMLBody, want) {
 			t.Fatalf("the quotation email must contain %q:\n%s", want, q.HTMLBody)

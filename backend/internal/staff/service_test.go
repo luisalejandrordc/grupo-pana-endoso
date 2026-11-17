@@ -235,7 +235,7 @@ func TestCreateIssuesAnActivationLinkAndIsAudited(t *testing.T) {
 	}
 	e.dispatch(t)
 	sent := e.mail.to(in.BusinessEmail)
-	if len(sent) != 1 || !strings.Contains(sent[0].Body, "/activate-account?token=") || !strings.Contains(sent[0].HTMLBody, "/activar-cuenta?token=") {
+	if len(sent) != 1 || !strings.Contains(sent[0].Body, "/activate-account?token=") || !strings.Contains(sent[0].HTMLBody, "/activate-account?token=") {
 		t.Fatalf("expected one activation email with the link in both versions, got %+v", sent)
 	}
 	if n := e.countAudit(t, result.Employee.ID, "CREATED"); n != 1 {
