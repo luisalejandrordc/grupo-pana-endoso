@@ -240,11 +240,12 @@ func (h *Handler) activate(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.logger, err)
 		return
 	}
-	if err := h.svc.Activate(r.Context(), body.Token, body.Password, h.client(r)); err != nil {
+	account, err := h.svc.Activate(r.Context(), body.Token, body.Password, h.client(r))
+	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteJSON(w, http.StatusOK, map[string]AccountType{"accountType": account})
 }
 
 func (h *Handler) forgotPassword(w http.ResponseWriter, r *http.Request) {

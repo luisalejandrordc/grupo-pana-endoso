@@ -75,6 +75,5 @@ func BootstrapAdmin(ctx context.Context, svc *Service, in BootstrapAdminInput) (
 	if err != nil {
 		return "", err
 	}
-	systemActor := SystemActorID
-	return svc.IssueActivation(ctx, id, &systemActor)
+	return svc.MintActivationLink(ctx, id)
 }

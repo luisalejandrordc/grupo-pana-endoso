@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"endosoflow/internal/adapters/mail"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/config"
 	"endosoflow/internal/platform/database"
@@ -66,13 +65,12 @@ func run() error {
 	}
 	defer pool.Close()
 
-	// The command prints the link itself, so the log sender is enough: no real email service is needed.
+	// The command prints the link itself, so it needs no email service and queues nothing.
 	svc := auth.NewService(auth.Deps{
-		DB: pool, JWTSecret: cfg.JWTSecret, AppBaseURL: cfg.AppBaseURL,
-		Mail: mail.NewLogSender(logger), Logger: logger,
+		DB: pool, JWTSecret: cfg.JWTSecret,
+		AppBaseURL: cfg.AppBaseURL, PortalBaseURL: cfg.PortalBaseURL, Logger: logger,
 	})
 	link, err := auth.BootstrapAdmin(ctx, svc, in)
-	svc.WaitForBackgroundWork()
 	if err != nil {
 		return err
 	}
