@@ -135,7 +135,7 @@ func Load(getenv func(string) string) (Config, error) {
 		} else {
 			problems = append(problems, "APP_BASE_URL is required outside local development (emailed links use it)")
 		}
-	} else if u, err := url.Parse(cfg.AppBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
+	} else if u, err := url.Parse(cfg.AppBaseURL); err != nil || u.Host == "" || u.Path != "" || (u.Scheme != "https" && !(u.Scheme == "http" && cfg.Env == "local")) {
 		problems = append(problems,
 			"APP_BASE_URL must be a site address without a path like https://app.endosoflow.com")
 	}
@@ -144,10 +144,10 @@ func Load(getenv func(string) string) (Config, error) {
 	if cfg.PortalBaseURL == "" {
 		if cfg.Env == "local" {
 			cfg.PortalBaseURL = "http://localhost:5174"
-		} else if u, err := url.Parse(cfg.PortalBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
+		} else {
 			problems = append(problems, "PORTAL_BASE_URL is required outside local development (emailed links use it)")
 		}
-	} else if u, err := url.Parse(cfg.PortalBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
+	} else if u, err := url.Parse(cfg.PortalBaseURL); err != nil || u.Host == "" || u.Path != "" || (u.Scheme != "https" && !(u.Scheme == "http" && cfg.Env == "local")) {
 		problems = append(problems,
 			"PORTAL_BASE_URL must be a site address without a path like https://portal.endosoflow.com")
 	}
