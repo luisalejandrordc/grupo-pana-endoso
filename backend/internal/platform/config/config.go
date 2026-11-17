@@ -133,7 +133,7 @@ func Load(getenv func(string) string) (Config, error) {
 		if cfg.Env == "local" {
 			cfg.AppBaseURL = "http://localhost:5173"
 		} else {
-			problems = append(problems, "APP_BASE_URL is required (emailed links use it)")
+			problems = append(problems, "APP_BASE_URL is required outside local development (emailed links use it)")
 		}
 	} else if u, err := url.Parse(cfg.AppBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
 		problems = append(problems,
@@ -145,7 +145,7 @@ func Load(getenv func(string) string) (Config, error) {
 		if cfg.Env == "local" {
 			cfg.PortalBaseURL = "http://localhost:5174"
 		} else if u, err := url.Parse(cfg.PortalBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
-			problems = append(problems, "PORTAL_BASE_URL is required (emailed links use it)")
+			problems = append(problems, "PORTAL_BASE_URL is required outside local development (emailed links use it)")
 		}
 	} else if u, err := url.Parse(cfg.PortalBaseURL); err != nil || u.Host == "" || u.Path != "" || u.Scheme != "https" {
 		problems = append(problems,
