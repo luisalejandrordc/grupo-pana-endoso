@@ -117,7 +117,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	clock := &fakeClock{now: time.Now().UTC().Truncate(time.Second)}
 	queue := &queueRecorder{}
 	svc := NewService(Deps{
-		DB: pool, JWTSecret: string(testSecret), AppBaseURL: "http://app.test", PortalBaseURL: "https://portal.test",
+		DB: pool, JWTSecret: string(testSecret), AppBaseURL: "http://app.test", PortalBaseURL: "http://portal.test",
 		Notifier: queue, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: clock.Now,
 	})
 	return &testEnv{ctx: ctx, pool: pool, svc: svc, clock: clock, queue: queue}

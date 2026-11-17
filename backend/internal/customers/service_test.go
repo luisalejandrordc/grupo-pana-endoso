@@ -1,10 +1,12 @@
 package customers
 
 import (
+	"context"
 	"encoding/json"
 	"endosoflow/internal/adapters/codart"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/ids"
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func testDSN(t *testing.T) string {
@@ -722,4 +725,71 @@ func TestQuotaPeriodUsesTheLimaMonth(t *testing.T) {
 	if start.Format("2006-01-02") != "2026-10-01" {
 		t.Fatalf("start = %v", start)
 	}
+}
+
+// notifierRecorder stands in for the notifications writer: it records the call and writes the real queue row, so
+// the tests see what the database holds.
+type notifierRecorder struct {
+	mu    sync.Mutex
+	calls []string // emails
+}
+
+func (n *notifierRecorder) CustomerCreated(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	n.mu.Lock()
+	n.calls = append(n.calls, email)
+	n.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs (id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
+		VALUES ($1, 'customer_account_created', $2, $3, $4)`, ids.New(), id, email, "customer_account_created:"+id.String())
+	return err
+}
+
+func TestCreateQueuesTheWelcomeEmailAndDeleteCleansItUp(t *testing.T) {
+	rec := &notifierRecorder{}
+	e := newTestEnv(t, func(d *Deps) { d.Notifier = rec })
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+
+	in := person()
+	c := e.createCustomer(admin.actor(), in)
+	if len(rec.calls) != 1 || rec.calls[0] != c.Email {
+		t.Fatalf("expected the welcome queued to %q, got %v", c.Email, rec.calls)
+	}
+	var queued int
+	if err := e.pool.QueryRow(e.ctx, `SELECT count(*) FROM notification_logs WHERE recipient_customer_id = $1`, c.ID).Scan(&queued); err != nil || queued != 1 {
+		t.Fatalf("queued rows: %d (%v)", queued, err)
+	}
+
+	// The dispatcher mints an activation link when it sends; the customer must still be deletable afterwards.
+	if _, err := e.pool.Exec(e.ctx, `INSERT INTO account_tokens (purpose, customer_id, token_hash, expires_at)
+		VALUES ('activation', $1, $2, now() + interval '1 hour')`, c.ID, "hash-"+ids.NewString()); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.Delete(e.ctx, admin.actor(), c.ID, "Creado por error"); err != nil {
+		t.Fatalf("a customer with a welcome email and a link must be deletable: %v", err)
+	}
+	if err := e.pool.QueryRow(e.ctx, `SELECT count(*) FROM notification_logs WHERE recipient_customer_id = $1`, c.ID).Scan(&queued); err != nil || queued != 0 {
+		t.Fatalf("the queued email must go with the customer (%d, %v)", queued, err)
+	}
+}
+
+func TestAFailingNotifierRollsBackTheCustomer(t *testing.T) {
+	e := newTestEnv(t, func(d *Deps) { d.Notifier = failingNotifier{} })
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+	in := person()
+	if _, err := e.svc.Create(e.ctx, admin.actor(), in); err == nil {
+		t.Fatal("expected the creation to fail")
+	}
+	if _, err := e.svc.Lookup(e.ctx, admin.actor(), in.DocumentType, in.DocumentNumber); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	_ = e.pool.QueryRow(e.ctx, `SELECT count(*) FROM customers WHERE document_number = $1`, in.DocumentNumber).Scan(&n)
+	if n != 0 {
+		t.Fatal("the customer must not exist when its email could not be queued")
+	}
+}
+
+type failingNotifier struct{}
+
+func (failingNotifier) CustomerCreated(context.Context, pgx.Tx, uuid.UUID, string) error {
+	return errors.New("queue unavailable")
 }

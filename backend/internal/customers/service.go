@@ -30,9 +30,16 @@ const (
 	DefaultMonthlyQuota = 110
 )
 
+// Notifier queues the welcome email of a new customer inside the caller's transaction (implemented by the
+// notifications writer). The activation link is created later, when the dispatcher sends the email.
+type Notifier interface {
+	CustomerCreated(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
+}
+
 // Deps are the service's dependencies.
 type Deps struct {
 	DB       auth.Database
+	Notifier Notifier         // nil means no welcome email is queued
 	Identity IdentityProvider // nil means automatic name lookup is not configured
 	Logger   *slog.Logger
 	Now      func() time.Time // nil means time.Now
@@ -44,6 +51,7 @@ type Deps struct {
 // Service implements the customer use cases.
 type Service struct {
 	db               auth.Database
+	notifier         Notifier
 	identity         IdentityProvider
 	logger           *slog.Logger
 	now              func() time.Time
@@ -54,7 +62,7 @@ type Service struct {
 // NewService builds the service.
 func NewService(d Deps) *Service {
 	s := &Service{
-		db: d.DB, identity: d.Identity, logger: d.Logger, now: d.Now,
+		db: d.DB, notifier: d.Notifier, identity: d.Identity, logger: d.Logger, now: d.Now,
 		lookupsPerMinute: d.LookupsPerMinute, monthlyQuota: d.MonthlyQuota,
 	}
 	if s.now == nil {
@@ -174,8 +182,8 @@ func rawFromCreate(in CreateInput) rawData {
 	}
 }
 
-// Create adds a customer. The portal account starts as "not invited": the activation link is sent when
-// the customer portal ships (Phase 2). The creator keeps access until the first sale exists.
+// Create adds a customer and queues their welcome email with an activation link, in the same transaction.
+// The creator keeps access until the first sale exists.
 func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) (*Customer, error) {
 	if err := requireStaff(actor); err != nil {
 		return nil, err
@@ -189,6 +197,11 @@ func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) 
 	err := database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
 		if err := insertCustomer(ctx, tx, id, data, actor.ID, now); err != nil {
 			return err
+		}
+		if s.notifier != nil {
+			if err := s.notifier.CustomerCreated(ctx, tx, id, data.Email); err != nil {
+				return err
+			}
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			ActorID: &actor.ID, EntityType: audit.EntityCustomer, EntityID: id, Action: audit.ActionCreated,

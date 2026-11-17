@@ -3,7 +3,6 @@ package customers
 import (
 	"context"
 	"endosoflow/internal/adapters/codart"
-	"endosoflow/internal/adapters/mail"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
@@ -28,10 +27,6 @@ const (
 	testSecret   = "0123456789abcdef0123456789abcdef"
 	goodPassword = "Correct-Horse-Battery-9"
 )
-
-type discardMail struct{}
-
-func (discardMail) Send(context.Context, mail.Message) error { return nil }
 
 // fakeIdentity stands in for Codart and counts the calls that reach it.
 type fakeIdentity struct {
@@ -102,7 +97,7 @@ func newTestEnv(t *testing.T, tweak ...func(*Deps)) *testEnv {
 		f(&deps)
 	}
 	authService := auth.NewService(auth.Deps{
-		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", Mail: discardMail{}, Logger: logger,
+		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", PortalBaseURL: "http://portal.test", Logger: logger,
 	})
 	return &testEnv{t: t, ctx: ctx, pool: pool, auth: authService, identity: identity, svc: NewService(deps), logger: logger}
 }
