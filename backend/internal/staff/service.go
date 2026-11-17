@@ -25,9 +25,10 @@ var (
 	errForbidden       = apperr.Forbidden("FORBIDDEN", "No tiene permiso para realizar esta acción.")
 )
 
-// ActivationIssuer creates and emails an activation link (implemented by the auth service).
-type ActivationIssuer interface {
-	IssueActivation(ctx context.Context, employeeID uuid.UUID, createdBy *uuid.UUID) (string, error)
+// ActivationQueuer queues an employee's activation email inside the caller's transaction (implemented by the
+// auth service). The link itself is created later, when the notification dispatcher sends the email.
+type ActivationQueuer interface {
+	QueueActivation(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID) error
 }
 
 // AccessManager revokes or removes an employee's sessions and links (implemented by the auth service).
@@ -39,7 +40,7 @@ type AccessManager interface {
 // Deps are the service's dependencies.
 type Deps struct {
 	DB         auth.Database
-	Activation ActivationIssuer
+	Activation ActivationQueuer
 	Access     AccessManager
 	Avatars    storage.Store
 	Logger     *slog.Logger
@@ -49,7 +50,7 @@ type Deps struct {
 // Service implements the staff use cases.
 type Service struct {
 	db         auth.Database
-	activation ActivationIssuer
+	activation ActivationQueuer
 	access     AccessManager
 	avatars    storage.Store
 	logger     *slog.Logger
@@ -127,8 +128,9 @@ func (s *Service) Advisors(ctx context.Context, actor auth.Actor) ([]Advisor, er
 	return listAdvisors(ctx, s.db)
 }
 
-// Create adds an employee and sends the activation link. The account has no password until the person
-// opens the link. If issuing the link fails the employee still exists and an Admin can resend it.
+// Create adds an employee and queues their activation email. The account has no password until the person
+// opens the link. The employee and the queued email are written in one transaction: either both exist or
+// neither does. The dispatcher sends the email (within moments) and creates the link at that point.
 func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) (*CreateResult, error) {
 	if err := requireAdmin(actor); err != nil {
 		return nil, err
@@ -150,6 +152,9 @@ func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) 
 		if err := insertEmployee(ctx, tx, id, data, actor.ID, now); err != nil {
 			return err
 		}
+		if err := s.activation.QueueActivation(ctx, tx, id); err != nil {
+			return err
+		}
 		return audit.Record(ctx, tx, audit.Event{
 			ActorID: &actor.ID, EntityType: audit.EntityEmployee, EntityID: id, Action: audit.ActionCreated,
 			Changes: map[string]any{
@@ -166,12 +171,7 @@ func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) 
 	if err != nil {
 		return nil, err
 	}
-	issued := true
-	if _, err := s.activation.IssueActivation(ctx, id, &actor.ID); err != nil {
-		issued = false
-		s.logger.Error("employee created but the activation link could not be issued", "employee_id", id, "error", err)
-	}
-	return &CreateResult{Employee: *created, ActivationLinkIssued: issued}, nil
+	return &CreateResult{Employee: *created, ActivationLinkIssued: true}, nil
 }
 
 func mergeUpdate(current Employee, in UpdateInput) rawData {
@@ -391,15 +391,16 @@ func (s *Service) Reactivate(ctx context.Context, actor auth.Actor, id uuid.UUID
 	return result, nil
 }
 
-// ResendActivation issues a new activation link to an employee who has not set a password yet.
+// ResendActivation queues a new activation email for an employee who has not set a password yet. When the
+// dispatcher sends it, the previous link stops working.
 func (s *Service) ResendActivation(ctx context.Context, actor auth.Actor, id uuid.UUID) error {
 	if err := requireAdmin(actor); err != nil {
 		return err
 	}
-	if _, err := s.activation.IssueActivation(ctx, id, &actor.ID); err != nil {
-		return err
-	}
 	return database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
+		if err := s.activation.QueueActivation(ctx, tx, id); err != nil {
+			return err
+		}
 		return audit.Record(ctx, tx, audit.Event{
 			ActorID: &actor.ID, EntityType: audit.EntityEmployee,
 			EntityID: id, Action: audit.ActionUpdated, Changes: map[string]any{"activationLink": "reissued"},

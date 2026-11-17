@@ -5,6 +5,7 @@ import (
 	"endosoflow/internal/adapters/mail"
 	"endosoflow/internal/adapters/storage"
 	"endosoflow/internal/auth"
+	"endosoflow/internal/notifications"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/ids"
@@ -56,12 +57,13 @@ func (c *captureMail) to(address string) []mail.Message {
 }
 
 type testEnv struct {
-	ctx     context.Context
-	pool    *pgxpool.Pool
-	auth    *auth.Service
-	staff   *Service
-	mail    *captureMail
-	avatars *storage.Memory
+	dispatcher *notifications.Dispatcher
+	ctx        context.Context
+	pool       *pgxpool.Pool
+	auth       *auth.Service
+	staff      *Service
+	mail       *captureMail
+	avatars    *storage.Memory
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -76,12 +78,27 @@ func newTestEnv(t *testing.T) *testEnv {
 
 	captured := &captureMail{}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	// The real chain: the writer queues, the dispatcher mints the link and sends through the capturing sender.
+	waker := notifications.NewWaker()
 	authService := auth.NewService(auth.Deps{
-		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", Mail: captured, Logger: logger,
+		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", PortalBaseURL: "http://portal.test",
+		Notifier: notifications.Writer{Waker: waker}, Logger: logger,
+	})
+	dispatcher := notifications.NewDispatcher(notifications.DispatcherDeps{
+		DB: pool, Sender: captured, Links: authService, Wake: waker, AppBaseURL: "http://app.test",
+		PortalBaseURL: "http://portal.test", Logger: logger,
 	})
 	avatars := storage.NewMemory("")
 	staffService := NewService(Deps{DB: pool, Activation: authService, Access: authService, Avatars: avatars, Logger: logger})
-	return &testEnv{ctx: ctx, pool: pool, auth: authService, staff: staffService, mail: captured, avatars: avatars}
+	return &testEnv{ctx: ctx, pool: pool, auth: authService, staff: staffService, mail: captured, avatars: avatars, dispatcher: dispatcher}
+}
+
+// dispatch sends what is queued, as the running dispatcher would.
+func (e *testEnv) dispatch(t *testing.T) {
+	t.Helper()
+	if _, err := e.dispatcher.RunOnce(e.ctx); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
 }
 
 func actorOf(id uuid.UUID, role auth.Role) auth.Actor { return auth.Actor{ID: id, Role: role} }
@@ -105,6 +122,7 @@ func (e *testEnv) cleanup(id uuid.UUID) {
 	_, _ = conn.Exec(ctx, `SET session_replication_role = replica`)
 	_, _ = conn.Exec(ctx, `DELETE FROM employee_refresh_tokens WHERE employee_id = $1`, id)
 	_, _ = conn.Exec(ctx, `DELETE FROM account_tokens WHERE employee_id = $1`, id)
+	_, _ = conn.Exec(ctx, `DELETE FROM notification_logs WHERE recipient_employee_id = $1`, id)
 	_, _ = conn.Exec(ctx, `DELETE FROM employees WHERE id = $1`, id)
 	_, _ = conn.Exec(ctx, `RESET session_replication_role`)
 }
@@ -212,9 +230,13 @@ func TestCreateIssuesAnActivationLinkAndIsAudited(t *testing.T) {
 		!result.Employee.IsActive || result.Employee.Role != "sales_advisor" {
 		t.Fatalf("unexpected result: %+v", result)
 	}
-	e.auth.WaitForBackgroundWork()
-	if sent := e.mail.to(in.BusinessEmail); len(sent) != 1 || !strings.Contains(sent[0].Body, "/activar-cuenta?token=") {
-		t.Fatalf("expected one activation email, got %+v", sent)
+	if sent := e.mail.to(in.BusinessEmail); len(sent) != 0 {
+		t.Fatalf("nothing is sent before the dispatcher runs, got %+v", sent)
+	}
+	e.dispatch(t)
+	sent := e.mail.to(in.BusinessEmail)
+	if len(sent) != 1 || !strings.Contains(sent[0].Body, "/activate-account?token=") || !strings.Contains(sent[0].HTMLBody, "/activar-cuenta?token=") {
+		t.Fatalf("expected one activation email with the link in both versions, got %+v", sent)
 	}
 	if n := e.countAudit(t, result.Employee.ID, "CREATED"); n != 1 {
 		t.Fatalf("expected 1 CREATED audit row, got %d", n)
@@ -425,16 +447,19 @@ func TestResendActivationUntilTheAccountIsActivated(t *testing.T) {
 	if err := e.staff.ResendActivation(e.ctx, actor, created.Employee.ID); err != nil {
 		t.Fatalf("resend: %v", err)
 	}
-	e.auth.WaitForBackgroundWork()
+	e.dispatch(t) // the creation email and the resend are both queued
 	sent := e.mail.to(in.BusinessEmail)
 	if len(sent) != 2 {
 		t.Fatalf("expected two activation emails, got %d", len(sent))
 	}
-	match := tokenInText.FindStringSubmatch(sent[1].Body)
-	if match == nil {
-		t.Fatal("the second email must contain a link")
+	first, second := tokenInText.FindStringSubmatch(sent[0].Body), tokenInText.FindStringSubmatch(sent[1].Body)
+	if first == nil || second == nil {
+		t.Fatal("both emails must contain a link")
 	}
-	if err := e.auth.Activate(e.ctx, match[1], goodPassword, auth.ClientInfo{}); err != nil {
+	if _, err := e.auth.Activate(e.ctx, first[1], goodPassword, auth.ClientInfo{}); err == nil {
+		t.Fatal("the older link must stop working once a newer one was issued")
+	}
+	if _, err := e.auth.Activate(e.ctx, second[1], goodPassword, auth.ClientInfo{}); err != nil {
 		t.Fatalf("activate with the newest link: %v", err)
 	}
 	wantCode(t, e.staff.ResendActivation(e.ctx, actor, created.Employee.ID), "EMPLOYEE_ALREADY_ACTIVATED")
