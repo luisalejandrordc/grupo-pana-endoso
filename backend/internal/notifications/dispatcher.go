@@ -352,17 +352,12 @@ func (d *Dispatcher) load(ctx context.Context, tx pgx.Tx, row claimed) (emailDat
 	var number int64
 	var createdAt time.Time
 	var model, version, color, advisorFirst, advisorLast string
-	var series, vin, plate *string
-	var delivery *time.Time
 	err := tx.QueryRow(ctx, `SELECT s.sale_number, s.created_at, s.customer_legal_name_snapshot, s.vehicle_model_name_snapshot,
 			s.vehicle_version_name_snapshot, s.vehicle_color_name_snapshot, a.first_name, a.last_name, a.business_email, a.business_phone,
-			s.vehicle_series, s.vin, s.license_plate, f.vehicle_delivery_date
 		FROM sale_registers s
 		JOIN employees a ON a.id = s.assigned_advisor_id
-		LEFT JOIN sale_fulfillment f ON f.sale_id = s.id
 		WHERE s.id = $1`, *row.saleID).
-		Scan(&number, &createdAt, &data.CustomerName, &model, &version, &color, &advisorFirst, &advisorLast, &data.AdvisorEmail, &data.AdvisorPhone,
-			&series, &vin, &plate, &delivery)
+		Scan(&number, &createdAt, &data.CustomerName, &model, &version, &color, &advisorFirst, &advisorLast, &data.AdvisorEmail, &data.AdvisorPhone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return data, "la venta ya no existe", nil
 	}
@@ -374,10 +369,6 @@ func (d *Dispatcher) load(ctx context.Context, tx pgx.Tx, row claimed) (emailDat
 	data.Vehicle = model + " · " + version + " · " + color
 	data.AdvisorName = advisorFirst + " " + advisorLast
 	data.GreetingName = data.CustomerName
-	data.Series, data.VIN, data.Plate = deref(series), deref(vin), deref(plate)
-	if delivery != nil {
-		data.DeliveryDate = *delivery
-	}
 	if row.employeeID != nil {
 		if err := tx.QueryRow(ctx, `SELECT TRIM(CONCAT(first_name, ' ', last_name)) FROM employees WHERE id = $1`, *row.employeeID).
 			Scan(&data.GreetingName); err != nil {
@@ -419,13 +410,6 @@ func loadMilestones(ctx context.Context, tx pgx.Tx, saleID uuid.UUID) ([]milesto
 		out = append(out, m)
 	}
 	return out, rows.Err()
-}
-
-func deref(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }
 
 // finish records a final outcome (sent, skipped or failed).
