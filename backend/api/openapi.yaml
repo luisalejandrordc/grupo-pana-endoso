@@ -134,8 +134,13 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/TokenPasswordRequest" }
       responses:
-        "204":
-          description: The password was set. The person can now sign in.
+        "200":
+          description: >-
+            The password was set. accountType says whose link it was: employees can sign in now; the customer portal
+            is not available yet, so a customer only has a password waiting for it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActivationResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -350,7 +355,7 @@ paths:
             schema: { $ref: "#/components/schemas/CreateEmployeeRequest" }
       responses:
         "201":
-          description: Created. activationLinkIssued is false if the link could not be issued; resend it later.
+          description: Created. The activation email is queued in the same transaction (activationLinkIssued is always true) and sent within moments.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CreateEmployeeResult" }
@@ -2202,6 +2207,11 @@ components:
         businessPhone: { type: string }
         businessEmail: { type: string }
         role: { $ref: "#/components/schemas/Role" }
+    ActivationResult:
+      type: object
+      required: [accountType]
+      properties:
+        accountType: { type: string, enum: [employee, customer] }
     CreateEmployeeResult:
       type: object
       required: [employee, activationLinkIssued]
