@@ -502,7 +502,7 @@ func (d *Dispatcher) loadAccount(ctx context.Context, tx pgx.Tx, row claimed, da
 			NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''),
 			NULLIF(TRIM(CONCAT(contact_first_name, ' ', contact_last_name)), ''),
 			NULLIF(TRIM(legal_name), '')
-			) document_type::text, document_number FROM customers WHERE id = $1`, *row.customerID
+			), document_type::text, document_number FROM customers WHERE id = $1`, *row.customerID
 	default:
 		return data, "la notificación no tiene destinatario", nil
 	}
