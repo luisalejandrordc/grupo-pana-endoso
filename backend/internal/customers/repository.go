@@ -138,7 +138,7 @@ func deleteCustomer(ctx context.Context, q querier, id uuid.UUID) error {
 		return err
 	}
 	if _, err := q.Exec(ctx, `DELETE FROM notification_logs
-		WHERE recipient_customer_id = $1 AND notification_type = 'customer_account_created'`, id); err != nil {
+		WHERE recipient_customer_id = $1 AND notification_type = 'customer_activation'`, id); err != nil {
 		return err
 	}
 	_, err := q.Exec(ctx, `DELETE FROM customers WHERE id = $1`, id)

@@ -20,12 +20,12 @@ const (
 	CustomerAdvisorChanged = "customer_advisor_changed"
 	EmployeeActivation     = "employee_activation"
 	PasswordReset          = "password_reset"
-	CustomerAccountCreated = "customer_account_created"
+	CustomerActivation     = "customer_activation"
 )
 
 // isAccountEmail says whether a notification type carries a single-use account link.
 func isAccountEmail(kind string) bool {
-	return kind == EmployeeActivation || kind == PasswordReset || kind == CustomerAccountCreated
+	return kind == EmployeeActivation || kind == PasswordReset || kind == CustomerActivation
 }
 
 // MilestoneTaskType returns the notification type sent when a milestone task completes, or "" for the tasks

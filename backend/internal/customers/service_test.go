@@ -739,7 +739,7 @@ func (n *notifierRecorder) CustomerCreated(ctx context.Context, tx pgx.Tx, id uu
 	n.calls = append(n.calls, email)
 	n.mu.Unlock()
 	_, err := tx.Exec(ctx, `INSERT INTO notification_logs (id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
-		VALUES ($1, 'customer_account_created', $2, $3, $4)`, ids.New(), id, email, "customer_account_created:"+id.String())
+		VALUES ($1, 'customer_activation', $2, $3, $4)`, ids.New(), id, email, "customer_activation:"+id.String())
 	return err
 }
 
