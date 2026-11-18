@@ -12,6 +12,9 @@ dist/
 coverage/
 build/
 
+# Temporary files
+tmp/
+
 # Local media and documents
 backend/var/
 backend/media/
