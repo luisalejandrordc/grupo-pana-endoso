@@ -1,8 +1,11 @@
-/* Order matters: tokens → base → layout → components → features. */
+/* The EndosoFlow design system. Order matters: fonts → tokens → base → components. */
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/instrument-sans";
+
 @import "./tokens.css";
 @import "./base.css";
-@import "./layout.css";
 
+@import "./components/page.css";
 @import "./components/button.css";
 @import "./components/form.css";
 @import "./components/badge.css";
@@ -11,9 +14,3 @@
 @import "./components/tabs.css";
 @import "./components/feedback.css";
 @import "./components/overlay.css";
-
-@import "./features/login.css";
-@import "./features/sales.css";
-@import "./features/customers.css";
-@import "./features/catalog.css";
-@import "./features/profile.css";

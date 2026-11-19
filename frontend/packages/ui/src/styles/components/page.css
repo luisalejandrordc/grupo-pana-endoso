@@ -1,0 +1,74 @@
+/* Page-level building blocks shared by every app: vertical rhythm, the page heading, the way back. */
+
+.stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-content: start;
+}
+
+.stack-tight {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.page-head h1 {
+  font-size: var(--text-3xl);
+  font-weight: 650;
+}
+
+.page-head p {
+  max-width: 62ch;
+  margin-top: 6px;
+  color: var(--ink-3);
+}
+
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.crumbs {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.crumbs a,
+.crumbs .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.crumbs a:hover,
+.crumbs .text-button:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .page-head h1 {
+    font-size: var(--text-2xl);
+  }
+}
