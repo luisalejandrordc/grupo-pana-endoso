@@ -1,0 +1,8 @@
+/* This app's own styles. The design system (tokens, base, components) comes from @endosoflow/ui. */
+@import "./layout.css";
+
+@import "./features/login.css";
+@import "./features/sales.css";
+@import "./features/customers.css";
+@import "./features/catalog.css";
+@import "./features/profile.css";
