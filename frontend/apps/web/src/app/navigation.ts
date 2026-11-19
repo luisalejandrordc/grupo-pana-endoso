@@ -1,4 +1,4 @@
-import type { IconName } from "../shared/ui/Icon";
+import { type IconName } from "@endosoflow/ui";
 import type { Role } from "../shared/types";
 
 export interface NavItem {

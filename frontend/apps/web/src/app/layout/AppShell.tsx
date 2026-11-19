@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { useDocumentTitle } from "../../shared/hooks/useDocumentTitle";
+import { useDocumentTitle } from "@endosoflow/ui";
 import type { EmployeeProfile } from "../../shared/types";
 import { titleFor } from "../navigation";
 import { ErrorBoundary } from "../ErrorBoundary";

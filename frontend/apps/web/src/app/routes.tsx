@@ -1,8 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth, useCurrentUser } from "../features/auth/useAuth";
-import { useSearchQuery } from "../shared/hooks/useSearchQuery";
-import { useToast } from "../shared/ui/useToast";
+import { useSearchQuery, useToast } from "@endosoflow/ui";
 import { RequireRole } from "./guards/RequireRole";
 import { NotFoundPage } from "./NotFoundPage";
 

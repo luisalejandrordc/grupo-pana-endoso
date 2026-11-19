@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { ErrorState } from "../shared/ui/EmptyState";
+import { ErrorState } from "@endosoflow/ui";
 
 interface Props {
   children: ReactNode;

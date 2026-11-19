@@ -1,10 +1,9 @@
 import { useEffect, useRef } from "react";
 import { NavLink } from "react-router-dom";
-import { useMediaQuery } from "../../shared/hooks/useMediaQuery";
+import { useMediaQuery, Icon, logoLandscape } from "@endosoflow/ui";
 import { roleLabel } from "../../shared/lib/roles";
 import type { EmployeeProfile } from "../../shared/types";
 import { Avatar } from "../../shared/ui/Avatar";
-import { Icon } from "../../shared/ui/Icon";
 import { navItems } from "../navigation";
 
 export function Sidebar({
@@ -50,7 +49,7 @@ export function Sidebar({
         {...(hidden ? ({ inert: "" } as Record<string, string>) : {})}
       >
         <div className="sidebar-brand">
-          <img src="/endosoflow-logo-landscape.png" alt="EndosoFlow" />
+          <img src={logoLandscape} alt="EndosoFlow" />
           <button
             className="icon-button sidebar-close"
             onClick={onClose}

@@ -1,7 +1,7 @@
 import { AuthProvider } from "../features/auth/AuthProvider";
 import { LoginPage } from "../features/auth/LoginPage";
 import { useAuth } from "../features/auth/useAuth";
-import { ToastProvider } from "../shared/ui/ToastProvider";
+import { ToastProvider, logoSquare } from "@endosoflow/ui";
 import { AppShell } from "./layout/AppShell";
 import { AppRoutes } from "./routes";
 
@@ -22,7 +22,7 @@ function Gate() {
   if (authLoading)
     return (
       <div className="boot" role="status" aria-label="Cargando">
-        <img src="/endosoflow-logo-square.png" alt="" width={72} height={72} />
+        <img src={logoSquare} alt="" width={72} height={72} />
       </div>
     );
 

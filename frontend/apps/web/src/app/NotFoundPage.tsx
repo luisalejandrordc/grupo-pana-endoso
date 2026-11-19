@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { EmptyState } from "../shared/ui/EmptyState";
+import { EmptyState } from "@endosoflow/ui";
 
 export function NotFoundPage() {
   return (

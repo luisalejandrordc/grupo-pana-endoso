@@ -1,7 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useSearchQuery } from "../../shared/hooks/useSearchQuery";
-import { Icon } from "../../shared/ui/Icon";
-import { SearchField } from "../../shared/ui/SearchField";
+import { useSearchQuery, Icon, SearchField, logoSquare } from "@endosoflow/ui";
 import { searchPlaceholderFor } from "../navigation";
 
 export function Topbar({
@@ -26,7 +24,7 @@ export function Topbar({
         <Icon name="menu" size={20} />
       </button>
       <Link className="topbar-brand" to="/sales" aria-label="EndosoFlow">
-        <img src="/endosoflow-logo-square.png" alt="" />
+        <img src={logoSquare} alt="" />
       </Link>
       {placeholder && (
         <SearchField
