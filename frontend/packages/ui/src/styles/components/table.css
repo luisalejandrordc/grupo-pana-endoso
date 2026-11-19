@@ -80,6 +80,21 @@
   text-align: right;
 }
 
+/* A deactivated person stays in the list, quietly. */
+.table tr.is-inactive td {
+  color: var(--ink-3);
+}
+
+.table tr.is-inactive .cell-title {
+  color: var(--ink-2);
+}
+
+.table tr.is-inactive .avatar,
+.table tr.is-inactive .initials-tile {
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+
 .cell-title {
   display: block;
   font-weight: 600;
@@ -269,9 +284,12 @@ button.cell-title:hover {
     grid-row: 1;
   }
 
-  .table-cards .cell-actions {
+  /* The actions menu sits at the top right of the card, where .cell-aside would go. */
+  .table-cards td.cell-actions {
+    grid-column: 2;
+    grid-row: 1;
     width: auto;
-    text-align: left;
+    text-align: right;
   }
 
   .table-cards tr.is-link:hover td {

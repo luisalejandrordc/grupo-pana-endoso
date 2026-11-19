@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Icon, type IconName } from "./Icon";
 
 export interface MenuItem {
@@ -6,40 +7,75 @@ export interface MenuItem {
   onSelect: () => void;
   icon?: IconName;
   danger?: boolean;
+  disabled?: boolean;
 }
+
+interface Position {
+  right: number;
+  top?: number;
+  bottom?: number;
+}
+
+// Matches the CSS (a 38px row, 6px padding around the list), so the list can be placed before it is drawn.
+const ROW = 38;
+const PADDING = 14;
+const GAP = 6;
 
 /**
  * A button that opens a short list of actions. Arrow keys move through the items, Escape and a click
  * outside close it, and the focus goes back to the button.
+ *
+ * The list is drawn on the page, not inside the button's container, so a menu in the last row of a table
+ * is never cut off by the table's scrolling. It opens upward when there is no room below.
+ *
+ * `variant="icon"` is a quiet "⋯" button for a row of a table; `label` is then its accessible name.
  */
 export function Menu({
   label,
   items,
   children,
+  variant = "button",
 }: {
   label: string;
   items: MenuItem[];
-  children: ReactNode;
+  children?: ReactNode;
+  variant?: "button" | "icon";
 }) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<Position | null>(null);
+  const open = position !== null;
   const trigger = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+
+  function openMenu() {
+    const rect = trigger.current?.getBoundingClientRect();
+    if (!rect) return;
+    const height = items.length * ROW + PADDING;
+    const room = window.innerHeight - rect.bottom;
+    const flip = room < height + GAP * 2 && rect.top > height + GAP * 2;
+    setPosition({
+      right: Math.max(8, window.innerWidth - rect.right),
+      ...(flip
+        ? { bottom: window.innerHeight - rect.top + GAP }
+        : { top: rect.bottom + GAP }),
+    });
+  }
 
   useEffect(() => {
     if (!open) return;
     const buttons = () => [
-      ...(root.current?.querySelectorAll<HTMLButtonElement>(
-        "[role=menuitem]",
+      ...(list.current?.querySelectorAll<HTMLButtonElement>(
+        "[role=menuitem]:not(:disabled)",
       ) ?? []),
     ];
     buttons()[0]?.focus();
 
     function close(returnFocus: boolean) {
-      setOpen(false);
+      setPosition(null);
       if (returnFocus) trigger.current?.focus();
     }
     function onPointer(event: MouseEvent) {
-      if (root.current && !root.current.contains(event.target as Node))
+      const target = event.target as Node;
+      if (!list.current?.contains(target) && !trigger.current?.contains(target))
         close(false);
     }
     function onKey(event: KeyboardEvent) {
@@ -61,47 +97,70 @@ export function Menu({
       event.preventDefault();
       all[move]?.focus();
     }
+    // The list is placed once, so it must not drift from its button when the page moves.
+    const away = () => close(false);
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", away, true);
+    window.addEventListener("resize", away);
     return () => {
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", away, true);
+      window.removeEventListener("resize", away);
     };
   }, [open]);
 
   if (items.length === 0) return null;
   return (
-    <div className="menu" ref={root}>
+    <div className="menu">
       <button
         ref={trigger}
-        className="button button-secondary"
+        className={
+          variant === "icon" ? "icon-button" : "button button-secondary"
+        }
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => (open ? setPosition(null) : openMenu())}
       >
-        {children}
-        <Icon name="chevron-down" size={15} />
+        {variant === "icon" ? (
+          <Icon name="dots" size={18} />
+        ) : (
+          <>
+            {children}
+            <Icon name="chevron-down" size={15} />
+          </>
+        )}
       </button>
-      {open && (
-        <div className="menu-list" role="menu">
-          {items.map((item) => (
-            <button
-              key={item.label}
-              role="menuitem"
-              className={item.danger ? "is-danger" : ""}
-              onClick={() => {
-                setOpen(false);
-                trigger.current?.focus();
-                item.onSelect();
-              }}
-            >
-              {item.icon && <Icon name={item.icon} size={16} />}
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={list}
+            className="menu-list"
+            role="menu"
+            aria-label={label}
+            style={position}
+          >
+            {items.map((item) => (
+              <button
+                key={item.label}
+                role="menuitem"
+                disabled={item.disabled}
+                className={item.danger ? "is-danger" : ""}
+                onClick={() => {
+                  setPosition(null);
+                  trigger.current?.focus();
+                  item.onSelect();
+                }}
+              >
+                {item.icon && <Icon name={item.icon} size={16} />}
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

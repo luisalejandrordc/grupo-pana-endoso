@@ -28,19 +28,20 @@ src/
 └─ styles/               tokens.css → base.css → components/*.css, in that order (index.css)
 ```
 
-| Component                        | Use it for                                                           |
-| -------------------------------- | -------------------------------------------------------------------- |
-| `PageHeader`, `BackLink`         | The title block every page opens with                                |
-| `Badge` (`tone`, `plain`)        | A status or a label                                                  |
-| `Tabs` (`underline`/`segmented`) | Sections of a page, or the filters of a list. Arrow keys move focus  |
-| `Pagination`                     | The footer of any paged list                                         |
-| `EmptyState`, `ErrorState`       | Nothing to show / a failed request (with "Reintentar")               |
-| `Callout`                        | A message inside a page: error, warning, confirmation                |
-| `SearchField`                    | A search box; `shortcut` makes `/` focus it                          |
-| `Field`                          | A labelled control with hint or error, wired for screen readers      |
-| `Modal`, `Menu`                  | Dialogs (focus trap, Escape) and action menus (arrow keys)           |
-| `ToastProvider` + `useToast()`   | Notifications. `const { notify } = useToast()`; they stack and close |
-| `InitialsTile`, `Icon`           | An organization's initials; the icon set                             |
+| Component                                 | Use it for                                                                                                     |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `PageHeader`, `BackLink`                  | The title block every page opens with                                                                          |
+| `Badge` (`tone`, `plain`)                 | A status or a label                                                                                            |
+| `Tabs` (`underline`/`segmented`)          | Sections of a page, or the filters of a list. Arrow keys move focus                                            |
+| `Pagination`                              | The footer of any paged list                                                                                   |
+| `EmptyState`, `ErrorState`                | Nothing to show / a failed request (with "Reintentar")                                                         |
+| `Callout`                                 | A message inside a page: error, warning, confirmation                                                          |
+| `SearchField`                             | A search box; `shortcut` makes `/` focus it                                                                    |
+| `Field`                                   | A labelled control with hint or error, wired for screen readers                                                |
+| `Modal`, `ConfirmDialog`                  | Dialogs (focus trap, Escape); "are you sure?" before something hard to undo (`tone="danger"`, `busy`, `error`) |
+| `Menu` (`variant="icon"` for a table row) | Action menus: arrow keys, drawn on the page so a table never clips it, opens upward near the screen's bottom   |
+| `ToastProvider` + `useToast()`            | Notifications. `const { notify } = useToast()`; they stack and close                                           |
+| `InitialsTile`, `Icon`                    | An organization's initials; the icon set                                                                       |
 
 Buttons are a CSS contract: `.button` + `.button-primary | -secondary | -ghost | -danger` + optional `.button-sm | .button-wide`.
 

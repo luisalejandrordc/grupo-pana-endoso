@@ -10,6 +10,7 @@ export * from "./brand";
 // components
 export * from "./components/Badge";
 export * from "./components/Callout";
+export * from "./components/ConfirmDialog";
 export * from "./components/EmptyState";
 export * from "./components/Field";
 export * from "./components/Icon";
@@ -31,4 +32,4 @@ export * from "./hooks/useMediaQuery";
 export * from "./hooks/useSearchQuery";
 
 // formatting (es-PE, America/Lima)
-export * from "./lib/format";
+e;

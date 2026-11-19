@@ -93,10 +93,9 @@
 }
 
 .menu-list {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: var(--z-menu);
+  /* Placed by the Menu component from its button's position, on the page itself (not inside a table). */
+  position: fixed;
+  z-index: var(--z-popover);
   display: grid;
   min-width: 230px;
   padding: 6px;
@@ -119,11 +118,16 @@
   text-align: left;
 }
 
-.menu-list button:hover,
+.menu-list button:hover:not(:disabled),
 .menu-list button:focus-visible {
   background: var(--surface-2);
 }
 
 .menu-list .is-danger {
   color: var(--brand-strong);
+}
+
+.menu-list button:disabled {
+  color: var(--ink-4);
+  cursor: not-allowed;
 }

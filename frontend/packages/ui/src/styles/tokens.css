@@ -92,9 +92,9 @@
 
   /* ---- stacking ---- */
   --z-sticky: 20;
-  --z-menu: 30;
   --z-drawer: 40;
   --z-modal: 60;
+  --z-popover: 70; /* menus are drawn on the page, so they must also sit above a dialog */
   --z-toast: 80;
 
   /* ---- motion ---- */
