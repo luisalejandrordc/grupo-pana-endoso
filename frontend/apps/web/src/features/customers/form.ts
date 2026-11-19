@@ -1,4 +1,4 @@
-import { ApiError } from "../../shared/api/client";
+import { ApiError } from "@endosoflow/api";
 import type {
   ApiCustomer,
   CreateCustomerBody,

@@ -1,6 +1,5 @@
 import { api } from "../../shared/api/client";
-import { queryString } from "../../shared/api/query";
-import type { Schemas } from "../../shared/api/schema";
+import { queryString, type Schemas } from "@endosoflow/api";
 
 export type ApiCustomer = Schemas["Customer"];
 export type CustomerList = Schemas["CustomerList"];

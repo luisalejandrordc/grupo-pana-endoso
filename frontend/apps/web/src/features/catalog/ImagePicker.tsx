@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef } from "react";
-import { Icon } from "../../shared/ui/Icon";
+import { Icon } from "@endosoflow/ui";
 import { ACCEPTED_IMAGE_TYPES } from "./images";
 
 /** Picks one image file and previews it. The caller keeps the file and decides when to upload it. */

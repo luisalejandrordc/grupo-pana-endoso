@@ -8,14 +8,17 @@ import {
   type CustomerDocumentType,
 } from "../customers/labels";
 import { useCustomerList } from "../customers/queries";
-import { useDebounced } from "../../shared/lib/useDebounced";
-import { formatMoneyText } from "../../shared/lib/format";
+import {
+  useDebounced,
+  formatMoneyText,
+  Field,
+  Callout,
+  Icon,
+  BackLink,
+  PageHeader,
+  type Toast,
+} from "@endosoflow/ui";
 import type { Role } from "../../shared/types";
-import { Field } from "../../shared/ui/Field";
-import { Callout } from "../../shared/ui/Callout";
-import { Icon } from "../../shared/ui/Icon";
-import { BackLink, PageHeader } from "../../shared/ui/PageHeader";
-import type { Toast } from "../../shared/ui/toast";
 import { salesApi, type CreateSaleBody, type Temperature } from "./api";
 import { errorText, fieldErrors, temperatureLabels } from "./labels";
 import { useAdvisors, useSaleMutation, useSelectableCatalog } from "./queries";

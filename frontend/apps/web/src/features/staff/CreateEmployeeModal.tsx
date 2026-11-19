@@ -1,11 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { errorText, fieldErrors } from "../../shared/api/errors";
+import { errorText, fieldErrors } from "@endosoflow/api";
 import { roleLabel, roleOptions } from "../../shared/lib/roles";
 import type { DocumentType, Role } from "../../shared/types";
-import { Field } from "../../shared/ui/Field";
-import { Icon } from "../../shared/ui/Icon";
-import { Modal } from "../../shared/ui/Modal";
-import type { Toast } from "../../shared/ui/toast";
+import { Field, Icon, Modal, type Toast } from "@endosoflow/ui";
 import { documentTypeOptions } from "../auth/documentTypes";
 import type { CreateEmployeeInput } from "./api";
 import { useCreateEmployee } from "./queries";

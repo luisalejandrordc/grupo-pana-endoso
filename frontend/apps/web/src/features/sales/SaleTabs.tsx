@@ -1,8 +1,5 @@
 import { useState } from "react";
-import { formatDateTime } from "../../shared/lib/format";
-import { Field } from "../../shared/ui/Field";
-import { Icon } from "../../shared/ui/Icon";
-import type { Toast } from "../../shared/ui/toast";
+import { formatDateTime, Field, Icon, type Toast } from "@endosoflow/ui";
 import { documentsApi, salesApi, type ApiSale } from "./api";
 import { describeChanges, describeEvent, errorText } from "./labels";
 import { useDocuments, useHistory, useSaleMutation } from "./queries";
@@ -242,14 +239,14 @@ export function HistoryTab({ sale }: { sale: ApiSale }) {
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
             >
-              &lt;
+              Anterior
             </button>
             <button
               className="button button-secondary button-sm"
               disabled={page >= pages}
               onClick={() => setPage(page + 1)}
             >
-              &gt;
+              Siguiente
             </button>
           </span>
         </footer>

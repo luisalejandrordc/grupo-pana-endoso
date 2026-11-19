@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { formatDateTime } from "../../shared/lib/format";
-import { Icon } from "../../shared/ui/Icon";
-import type { Toast } from "../../shared/ui/toast";
+import { formatDateTime, Icon, type Toast } from "@endosoflow/ui";
 import { documentsApi, type ApiTaskSlot } from "./api";
 import { ConfirmDialog, ReasonDialog } from "./dialogs";
 import { errorText } from "./labels";

@@ -1,14 +1,18 @@
 import { useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { formatDate } from "../../shared/lib/format";
-import { useDebounced } from "../../shared/lib/useDebounced";
+import {
+  formatDate,
+  useDebounced,
+  EmptyState,
+  ErrorState,
+  Icon,
+  PageHeader,
+  Pagination,
+  Tabs,
+  type TabItem,
+} from "@endosoflow/ui";
 import type { Role } from "../../shared/types";
 import { Avatar } from "../../shared/ui/Avatar";
-import { EmptyState, ErrorState } from "../../shared/ui/EmptyState";
-import { Icon } from "../../shared/ui/Icon";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { Pagination } from "../../shared/ui/Pagination";
-import { Tabs, type TabItem } from "../../shared/ui/Tabs";
 import type { SaleListItem, SaleListParams, Temperature } from "./api";
 import { errorText, stateLabels, temperatureLabels } from "./labels";
 import { Progress, StateBadge, TaskBadge, TempBadge } from "./pills";

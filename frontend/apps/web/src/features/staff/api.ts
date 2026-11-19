@@ -1,5 +1,5 @@
 import { api } from "../../shared/api/client";
-import { queryString } from "../../shared/api/query";
+import { queryString } from "@endosoflow/api";
 import type { DocumentType, Employee, Role } from "../../shared/types";
 
 export interface EmployeeListParams {

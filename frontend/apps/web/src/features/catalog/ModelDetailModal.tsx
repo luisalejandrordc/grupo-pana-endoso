@@ -1,10 +1,7 @@
 import { useState } from "react";
-import { ApiError } from "../../shared/api/client";
+import { ApiError } from "@endosoflow/api";
 import type { Role } from "../../shared/types";
-import { Field } from "../../shared/ui/Field";
-import { Icon } from "../../shared/ui/Icon";
-import { Modal } from "../../shared/ui/Modal";
-import type { Toast } from "../../shared/ui/toast";
+import { Field, Icon, Modal, type Toast } from "@endosoflow/ui";
 import {
   catalogApi,
   type ApiColor,

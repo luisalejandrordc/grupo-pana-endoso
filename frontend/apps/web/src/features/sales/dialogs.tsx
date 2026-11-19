@@ -1,7 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Field } from "../../shared/ui/Field";
-import { Icon } from "../../shared/ui/Icon";
-import { Modal } from "../../shared/ui/Modal";
+import { Field, Icon, Modal } from "@endosoflow/ui";
 import type { Advisor, ApiSale, CancelCategory } from "./api";
 import {
   cancelCategories,

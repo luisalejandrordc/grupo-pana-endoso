@@ -60,7 +60,7 @@ export const TASK_NAMES: string[] = [
   "Entrega al cliente",
 ];
 
-export { errorText, fieldErrors } from "../../shared/api/errors";
+export { errorText, fieldErrors } from "@endosoflow/api";
 
 export function shortId(id: string) {
   return id.slice(0, 8).toUpperCase();

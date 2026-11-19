@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 // Vitest runs this file in Node; the app's own code never touches `process`.
 declare const process: { env: Record<string, string | undefined> };
-import { ApiClient, ApiError } from "../../shared/api/client";
+import { ApiClient, ApiError } from "@endosoflow/api";
 import { customersApi } from "./api";
 import { api } from "../../shared/api/client";
 import {
@@ -228,7 +228,9 @@ describe.skipIf(!enabled)("customers against the real backend", () => {
   });
 
   it("is signed out after logout", async () => {
-    const client = new ApiClient();
+    const client = new ApiClient({
+      baseUrl: import.meta.env.VITE_API_BASE_URL || "/api/v1",
+    });
     await expect(
       client.request("/customers", { skipRefresh: true }),
     ).rejects.toMatchObject({ status: 401 });

@@ -1,8 +1,6 @@
 import { useState } from "react";
-import { ApiError } from "../../shared/api/client";
-import { Field } from "../../shared/ui/Field";
-import { Modal } from "../../shared/ui/Modal";
-import type { Toast } from "../../shared/ui/toast";
+import { ApiError } from "@endosoflow/api";
+import { Field, Modal, type Toast } from "@endosoflow/ui";
 import type { ApiCustomer } from "./api";
 import { useCustomerStatus, useDeleteCustomer } from "./queries";
 

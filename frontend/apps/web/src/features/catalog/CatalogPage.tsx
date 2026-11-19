@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { useDebounced } from "../../shared/lib/useDebounced";
+import {
+  useDebounced,
+  Badge,
+  EmptyState,
+  ErrorState,
+  Icon,
+  PageHeader,
+  Pagination,
+  type Toast,
+} from "@endosoflow/ui";
 import type { Role } from "../../shared/types";
-import { Badge } from "../../shared/ui/Badge";
-import { EmptyState, ErrorState } from "../../shared/ui/EmptyState";
-import { Icon } from "../../shared/ui/Icon";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { Pagination } from "../../shared/ui/Pagination";
-import type { Toast } from "../../shared/ui/toast";
 import type { ApiModelSummary } from "./api";
 import { CreateModelModal } from "./CreateModelModal";
 import { categories, categoryLabels, formatPrice } from "./labels";

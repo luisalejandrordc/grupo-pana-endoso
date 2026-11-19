@@ -1,9 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { ApiError } from "../../shared/api/client";
-import { Field } from "../../shared/ui/Field";
-import { Icon } from "../../shared/ui/Icon";
-import { Modal } from "../../shared/ui/Modal";
-import type { Toast } from "../../shared/ui/toast";
+import { ApiError } from "@endosoflow/api";
+import { Field, Icon, Modal, type Toast } from "@endosoflow/ui";
 import { catalogApi, type ApiColor, type ApiVersion } from "./api";
 import { normalizePrice, priceProblem, simpleErrorsFrom } from "./form";
 import { imageProblem } from "./images";

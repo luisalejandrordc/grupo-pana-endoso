@@ -1,4 +1,4 @@
-import type { Schemas } from "../../shared/api/schema";
+import { type Schemas } from "@endosoflow/api";
 
 export type CustomerType = Schemas["CustomerType"];
 export type CustomerDocumentType = Schemas["CustomerDocumentType"];

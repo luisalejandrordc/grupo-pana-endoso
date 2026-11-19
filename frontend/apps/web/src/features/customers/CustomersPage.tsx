@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { useDebounced } from "../../shared/lib/useDebounced";
+import {
+  useDebounced,
+  Badge,
+  EmptyState,
+  ErrorState,
+  Icon,
+  InitialsTile,
+  PageHeader,
+  Pagination,
+  type Toast,
+} from "@endosoflow/ui";
 import type { Role } from "../../shared/types";
-import { Badge } from "../../shared/ui/Badge";
-import { EmptyState, ErrorState } from "../../shared/ui/EmptyState";
-import { Icon } from "../../shared/ui/Icon";
-import { InitialsTile } from "../../shared/ui/InitialsTile";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { Pagination } from "../../shared/ui/Pagination";
-import type { Toast } from "../../shared/ui/toast";
 import type { ApiCustomer } from "./api";
 import { CustomerFormModal, type FormMode } from "./CustomerFormModal";
 import {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Icon } from "../../shared/ui/Icon";
+import { Icon, logoLandscape } from "@endosoflow/ui";
 import { ForgotPasswordForm } from "./ForgotPasswordForm";
 import { LoginForm, type LoginInput } from "./LoginForm";
 
@@ -60,11 +60,7 @@ export function LoginPage({
 
       <section className="login-form-panel">
         <div className="login-form-card">
-          <img
-            className="login-logo"
-            src="/endosoflow-logo-landscape.png"
-            alt="EndosoFlow"
-          />
+          <img className="login-logo" src={logoLandscape} alt="EndosoFlow" />
           <div className="login-form-heading">
             <p className="section-kicker">PORTAL DE COLABORADORES</p>
             <h1>

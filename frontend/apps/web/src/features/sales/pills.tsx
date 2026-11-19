@@ -1,4 +1,4 @@
-import { Badge } from "../../shared/ui/Badge";
+import { Badge } from "@endosoflow/ui";
 import type { SaleStateValue, TaskStatusValue, Temperature } from "./api";
 import { stateLabels, temperatureLabels } from "./labels";
 

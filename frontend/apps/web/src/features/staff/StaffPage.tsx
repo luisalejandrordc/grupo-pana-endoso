@@ -1,17 +1,20 @@
 import { useState } from "react";
-import { errorText } from "../../shared/api/errors";
-import { formatDate } from "../../shared/lib/format";
+import { errorText } from "@endosoflow/api";
+import {
+  formatDate,
+  useDebounced,
+  Badge,
+  EmptyState,
+  ErrorState,
+  Icon,
+  PageHeader,
+  Pagination,
+  SearchField,
+  type Toast,
+} from "@endosoflow/ui";
 import { roleLabel, roleOptions, roleShortLabel } from "../../shared/lib/roles";
-import { useDebounced } from "../../shared/lib/useDebounced";
 import type { Employee, EmployeeProfile, Role } from "../../shared/types";
 import { Avatar } from "../../shared/ui/Avatar";
-import { Badge } from "../../shared/ui/Badge";
-import { EmptyState, ErrorState } from "../../shared/ui/EmptyState";
-import { Icon } from "../../shared/ui/Icon";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { Pagination } from "../../shared/ui/Pagination";
-import { SearchField } from "../../shared/ui/SearchField";
-import type { Toast } from "../../shared/ui/toast";
 import { CreateEmployeeModal } from "./CreateEmployeeModal";
 import { roleTone } from "./labels";
 import { useEmployeeList } from "./queries";

@@ -1,4 +1,4 @@
-import type { BadgeTone } from "../../shared/ui/Badge";
+import { type BadgeTone } from "@endosoflow/ui";
 import type { Role } from "../../shared/types";
 
 /** The color of each role's badge: the administrator stands out, an advisor is the plain default. */

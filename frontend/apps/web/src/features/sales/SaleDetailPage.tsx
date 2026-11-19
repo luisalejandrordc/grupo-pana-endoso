@@ -5,14 +5,18 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { formatDate, formatMoneyText } from "../../shared/lib/format";
+import {
+  formatDate,
+  formatMoneyText,
+  ErrorState,
+  Icon,
+  Menu,
+  type MenuItem,
+  BackLink,
+  Tabs,
+  type Toast,
+} from "@endosoflow/ui";
 import { Avatar } from "../../shared/ui/Avatar";
-import { ErrorState } from "../../shared/ui/EmptyState";
-import { Icon } from "../../shared/ui/Icon";
-import { Menu, type MenuItem } from "../../shared/ui/Menu";
-import { BackLink } from "../../shared/ui/PageHeader";
-import { Tabs } from "../../shared/ui/Tabs";
-import type { Toast } from "../../shared/ui/toast";
 import { salesApi, type ApiSale } from "./api";
 import {
   CancelSaleDialog,

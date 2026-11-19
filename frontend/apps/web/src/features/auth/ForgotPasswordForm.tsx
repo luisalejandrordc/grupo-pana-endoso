@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../../shared/api/client";
 import type { DocumentType } from "../../shared/types";
-import { Field } from "../../shared/ui/Field";
-import { Icon } from "../../shared/ui/Icon";
+import { Field, Icon } from "@endosoflow/ui";
 import { documentTypeOptions } from "./documentTypes";
 
 export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {

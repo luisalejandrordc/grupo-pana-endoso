@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiError } from "../../shared/api/client";
+import { ApiError } from "@endosoflow/api";
 import type { HistoryEntry } from "./api";
 import {
   describeChanges,

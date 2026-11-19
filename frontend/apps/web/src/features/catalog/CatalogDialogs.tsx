@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Field } from "../../shared/ui/Field";
-import { Modal } from "../../shared/ui/Modal";
+import { Field, Modal } from "@endosoflow/ui";
 
 function messageOf(error: unknown) {
   return error instanceof Error ? error.message : "Inténtalo nuevamente.";

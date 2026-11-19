@@ -10,7 +10,8 @@
 import { describe, expect, it } from "vitest";
 
 declare const process: { env: Record<string, string | undefined> };
-import { api, ApiError } from "../../shared/api/client";
+import { ApiError } from "@endosoflow/api";
+import { api } from "../../shared/api/client";
 import { customersApi } from "../customers/api";
 import { documentsApi, pickersApi, salesApi, tasksApi } from "./api";
 import { toDraft } from "./taskForms";

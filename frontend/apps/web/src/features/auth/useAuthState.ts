@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../shared/api/client";
-import { type DocumentType, type EmployeeProfile } from "../../shared/types";
+import {
+  type DocumentType,
+  type EmployeeProfile,
+  type SessionResponse,
+} from "../../shared/types";
 
 /** The session itself: who is signed in, and the calls that change that. AuthProvider owns the one instance. */
 export function useAuthState() {
@@ -12,7 +16,7 @@ export function useAuthState() {
     api.setUnauthorizedHandler(() => setUser(null));
     let alive = true;
     api
-      .refreshSession()
+      .refreshSession<SessionResponse>()
       .then((session) => {
         if (alive && session) setUser(session.employee);
       })

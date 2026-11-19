@@ -1,4 +1,4 @@
-import { Icon } from "../../shared/ui/Icon";
+import { Icon } from "@endosoflow/ui";
 import type { ApiSale } from "./api";
 
 const taskStateText = {

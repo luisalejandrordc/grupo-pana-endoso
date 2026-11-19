@@ -4,11 +4,7 @@ import { roleLabel } from "../../shared/lib/roles";
 import { useForgetPhoto } from "../../shared/photos/usePhoto";
 import { Avatar } from "../../shared/ui/Avatar";
 import { type EmployeeProfile } from "../../shared/types";
-import { Field } from "../../shared/ui/Field";
-import { Badge } from "../../shared/ui/Badge";
-import { Icon } from "../../shared/ui/Icon";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { type Toast } from "../../shared/ui/toast";
+import { Field, Badge, Icon, PageHeader, type Toast } from "@endosoflow/ui";
 
 const MAX_PHOTO = 2 * 1024 * 1024;
 

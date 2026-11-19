@@ -1,6 +1,5 @@
 import { api } from "../../shared/api/client";
-import { queryString } from "../../shared/api/query";
-import type { Operations, Schemas } from "../../shared/api/schema";
+import { queryString, type Operations, type Schemas } from "@endosoflow/api";
 
 /** A sale as the detail returns it: people, vehicle, milestones, the 13 task summaries and what the caller may do. */
 export type ApiSale = Schemas["Sale"];

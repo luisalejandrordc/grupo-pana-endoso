@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { formatDateTime, formatMoneyText } from "../../shared/lib/format";
-import { Field } from "../../shared/ui/Field";
-import { Icon } from "../../shared/ui/Icon";
-import type { Toast } from "../../shared/ui/toast";
+import {
+  formatDateTime,
+  formatMoneyText,
+  Field,
+  Icon,
+  type Toast,
+} from "@endosoflow/ui";
 import { tasksApi, type ApiSale, type ApiTaskDetail } from "./api";
 import { ReasonDialog } from "./dialogs";
 import { errorText, fieldErrors, phaseLabels } from "./labels";

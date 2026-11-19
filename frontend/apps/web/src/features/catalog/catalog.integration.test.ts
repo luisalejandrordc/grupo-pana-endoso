@@ -5,7 +5,8 @@
  * storage, or R2 with a public address) so the test can fetch them back.
  */
 import { describe, expect, it } from "vitest";
-import { api, ApiError } from "../../shared/api/client";
+import { ApiError } from "@endosoflow/api";
+import { api } from "../../shared/api/client";
 import { catalogApi } from "./api";
 import { createErrorsFrom } from "./form";
 
