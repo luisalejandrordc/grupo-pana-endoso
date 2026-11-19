@@ -21,7 +21,7 @@ React 18 · TypeScript · Vite · TanStack Query · React Router · Vitest + Tes
 
 ```bash
 npm install            # once, at this folder: installs every app and package
-npm run dev:staff      # http://localhost:5173
+npm run dev:web        # http://localhost:5173
 npm run dev:portal     # http://localhost:5174   (run each in its own terminal to have both)
 ```
 
