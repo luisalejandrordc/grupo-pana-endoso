@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { initials } from "../lib/format";
+import { initials } from "@endosoflow/ui";
 import { usePhoto } from "../photos/usePhoto";
 
 /**
