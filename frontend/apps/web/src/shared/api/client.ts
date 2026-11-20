@@ -86,4 +86,4 @@ export class EmployeeApiClient extends ApiClient {
 
 export const api = new EmployeeApiClient({
   baseUrl: import.meta.env.VITE_API_BASE_URL || "/api/v1",
-}););
+});
