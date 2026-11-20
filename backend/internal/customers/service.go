@@ -30,19 +30,19 @@ const (
 	DefaultMonthlyQuota = 110
 )
 
-// Notifier queues the welcome email of a new customer inside the caller's transaction (implemented by the
-// notifications writer). The activation link is created later, when the dispatcher sends the email.
-type Notifier interface {
-	CustomerCreated(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
+// ActivationQueuer queues a customer's activation email inside the caller's transaction (implemented by the auth
+// service). The link itself is created later, when the notification dispatcher sends the email.
+type ActivationQueuer interface {
+	QueueCustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID) error
 }
 
 // Deps are the service's dependencies.
 type Deps struct {
-	DB       auth.Database
-	Notifier Notifier         // nil means no welcome email is queued
-	Identity IdentityProvider // nil means automatic name lookup is not configured
-	Logger   *slog.Logger
-	Now      func() time.Time // nil means time.Now
+	DB         auth.Database
+	Activation ActivationQueuer // nil means no welcome email is queued
+	Identity   IdentityProvider // nil means automatic name lookup is not configured
+	Logger     *slog.Logger
+	Now        func() time.Time // nil means time.Now
 
 	LookupsPerMinute int // 0 means DefaultLookupsPerMinute
 	MonthlyQuota     int // 0 means DefaultMonthlyQuota
@@ -51,7 +51,7 @@ type Deps struct {
 // Service implements the customer use cases.
 type Service struct {
 	db               auth.Database
-	notifier         Notifier
+	activation       ActivationQueuer
 	identity         IdentityProvider
 	logger           *slog.Logger
 	now              func() time.Time
@@ -62,7 +62,7 @@ type Service struct {
 // NewService builds the service.
 func NewService(d Deps) *Service {
 	s := &Service{
-		db: d.DB, notifier: d.Notifier, identity: d.Identity, logger: d.Logger, now: d.Now,
+		db: d.DB, activation: d.Activation, identity: d.Identity, logger: d.Logger, now: d.Now,
 		lookupsPerMinute: d.LookupsPerMinute, monthlyQuota: d.MonthlyQuota,
 	}
 	if s.now == nil {
@@ -198,10 +198,8 @@ func (s *Service) Create(ctx context.Context, actor auth.Actor, in CreateInput) 
 		if err := insertCustomer(ctx, tx, id, data, actor.ID, now); err != nil {
 			return err
 		}
-		if s.notifier != nil {
-			if err := s.notifier.CustomerCreated(ctx, tx, id, data.Email); err != nil {
-				return err
-			}
+		if err := s.activation.QueueCustomerActivation(ctx, tx, id); err != nil {
+			return err
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			ActorID: &actor.ID, EntityType: audit.EntityCustomer, EntityID: id, Action: audit.ActionCreated,
@@ -386,6 +384,23 @@ func (s *Service) Deactivate(ctx context.Context, actor auth.Actor, id uuid.UUID
 // Reactivate turns an inactive customer back on.
 func (s *Service) Reactivate(ctx context.Context, actor auth.Actor, id uuid.UUID) (*Customer, error) {
 	return s.setActiveState(ctx, actor, id, true)
+}
+
+// ResendActivation queues a new activation email for a customer who has not set a password yet, the equivalent of
+// resending an employee's. When the dispatcher sends it, the previous link stops working.
+func (s *Service) ResendActivation(ctx context.Context, actor auth.Actor, id uuid.UUID) error {
+	if err := requireManagement(actor); err != nil {
+		return err
+	}
+	return database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
+		if err := s.activation.QueueCustomerActivation(ctx, tx, id); err != nil {
+			return err
+		}
+		return audit.Record(ctx, tx, audit.Event{
+			ActorID: &actor.ID, EntityType: audit.EntityCustomer, EntityID: id,
+			Action: audit.ActionUpdated, Changes: map[string]any{"activationLink": "reissued"},
+		}, s.now())
+	})
 }
 
 // Delete permanently removes a customer who has no sales. It is exceptional and Admin-only.

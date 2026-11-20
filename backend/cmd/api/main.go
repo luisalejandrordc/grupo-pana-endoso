@@ -72,7 +72,7 @@ func run() error {
 	} else {
 		logger.Warn("CODART_TOKEN is not set: automatic DNI/RUC name lookup is off")
 	}
-	customersService := customers.NewService(customers.Deps{DB: pool, Notifier: notificationWriter, Identity: identity, Logger: logger})
+	customersService := customers.NewService(customers.Deps{DB: pool, Activation: authService, Identity: identity, Logger: logger})
 	customersHandler := customers.NewHandler(customersService, authHandler, logger)
 
 	// Object storage: public catalog images and private documents and photos, each in its own bucket.

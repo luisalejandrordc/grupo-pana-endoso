@@ -3,6 +3,7 @@ package customers
 import (
 	"encoding/json"
 	"endosoflow/internal/auth"
+	"endosoflow/internal/platform/ids"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -175,5 +176,31 @@ func TestLookupRoutesOverHTTP(t *testing.T) {
 	}
 	if rec := send(router, http.MethodGet, "/api/v1/lookups/identity?documentType=CE&documentNumber=AB1234567", "", manager); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "LOOKUP_NOT_SUPPORTED") {
 		t.Fatalf("unsupported type: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestResendActivationRouteOverHTTP(t *testing.T) {
+	e := newTestEnv(t)
+	router := e.router()
+	manager := e.tokenFor(e.insertEmployee(auth.RoleSalesManager, goodPassword))
+	advisor := e.tokenFor(e.insertEmployee(auth.RoleSalesAdvisor, goodPassword))
+	c := e.createCustomer(e.insertEmployee(auth.RoleSalesManager, "").actor(), person())
+	path := "/api/v1/customers/" + c.ID.String() + "/resend-activation"
+
+	if rec := send(router, http.MethodPost, path, "", advisor); rec.Code != http.StatusForbidden {
+		t.Fatalf("an advisor must not resend: %d", rec.Code)
+	}
+	if rec := send(router, http.MethodPost, path, "", ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous: %d", rec.Code)
+	}
+	before := e.queue.count()
+	if rec := send(router, http.MethodPost, path, "", manager); rec.Code != http.StatusAccepted {
+		t.Fatalf("a manager resends: %d %s", rec.Code, rec.Body.String())
+	}
+	if e.queue.count() != before+1 {
+		t.Fatal("the resend must queue an email")
+	}
+	if rec := send(router, http.MethodPost, "/api/v1/customers/"+ids.NewString()+"/resend-activation", "", manager); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown customer: %d", rec.Code)
 	}
 }

@@ -727,31 +727,20 @@ func TestQuotaPeriodUsesTheLimaMonth(t *testing.T) {
 	}
 }
 
-// notifierRecorder stands in for the notifications writer: it records the call and writes the real queue row, so
-// the tests see what the database holds.
-type notifierRecorder struct {
-	mu    sync.Mutex
-	calls []string // emails
+// failingQueuer makes queueing the activation email fail.
+type failingQueuer struct{}
+
+func (failingQueuer) QueueCustomerActivation(context.Context, pgx.Tx, uuid.UUID) error {
+	return errors.New("queue unavailable")
 }
 
-func (n *notifierRecorder) CustomerCreated(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
-	n.mu.Lock()
-	n.calls = append(n.calls, email)
-	n.mu.Unlock()
-	_, err := tx.Exec(ctx, `INSERT INTO notification_logs (id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
-		VALUES ($1, 'customer_activation', $2, $3, $4)`, ids.New(), id, email, "customer_activation:"+id.String())
-	return err
-}
-
-func TestCreateQueuesTheWelcomeEmailAndDeleteCleansItUp(t *testing.T) {
-	rec := &notifierRecorder{}
-	e := newTestEnv(t, func(d *Deps) { d.Notifier = rec })
+func TestCreateQueuesTheActivationEmailAndDeleteCleansItUp(t *testing.T) {
+	e := newTestEnv(t)
 	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
 
-	in := person()
-	c := e.createCustomer(admin.actor(), in)
-	if len(rec.calls) != 1 || rec.calls[0] != c.Email {
-		t.Fatalf("expected the welcome queued to %q, got %v", c.Email, rec.calls)
+	c := e.createCustomer(admin.actor(), person())
+	if e.queue.count() != 1 || e.queue.calls[0] != c.Email {
+		t.Fatalf("expected the activation email queued to %q, got %v", c.Email, e.queue.calls)
 	}
 	var queued int
 	if err := e.pool.QueryRow(e.ctx, `SELECT count(*) FROM notification_logs WHERE recipient_customer_id = $1`, c.ID).Scan(&queued); err != nil || queued != 1 {
@@ -764,22 +753,19 @@ func TestCreateQueuesTheWelcomeEmailAndDeleteCleansItUp(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := e.svc.Delete(e.ctx, admin.actor(), c.ID, "Creado por error"); err != nil {
-		t.Fatalf("a customer with a welcome email and a link must be deletable: %v", err)
+		t.Fatalf("a customer with an activation email and a link must be deletable: %v", err)
 	}
 	if err := e.pool.QueryRow(e.ctx, `SELECT count(*) FROM notification_logs WHERE recipient_customer_id = $1`, c.ID).Scan(&queued); err != nil || queued != 0 {
 		t.Fatalf("the queued email must go with the customer (%d, %v)", queued, err)
 	}
 }
 
-func TestAFailingNotifierRollsBackTheCustomer(t *testing.T) {
-	e := newTestEnv(t, func(d *Deps) { d.Notifier = failingNotifier{} })
+func TestAFailingQueueRollsBackTheCustomer(t *testing.T) {
+	e := newTestEnv(t, func(d *Deps) { d.Activation = failingQueuer{} })
 	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
 	in := person()
 	if _, err := e.svc.Create(e.ctx, admin.actor(), in); err == nil {
 		t.Fatal("expected the creation to fail")
-	}
-	if _, err := e.svc.Lookup(e.ctx, admin.actor(), in.DocumentType, in.DocumentNumber); err != nil {
-		t.Fatal(err)
 	}
 	var n int
 	_ = e.pool.QueryRow(e.ctx, `SELECT count(*) FROM customers WHERE document_number = $1`, in.DocumentNumber).Scan(&n)
@@ -788,8 +774,52 @@ func TestAFailingNotifierRollsBackTheCustomer(t *testing.T) {
 	}
 }
 
-type failingNotifier struct{}
+func TestResendActivationQueuesANewEmailForManagersAndAdminsOnly(t *testing.T) {
+	e := newTestEnv(t)
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+	manager := e.insertEmployee(auth.RoleSalesManager, "")
+	advisor := e.insertEmployee(auth.RoleSalesAdvisor, "")
+	c := e.createCustomer(admin.actor(), person())
 
-func (failingNotifier) CustomerCreated(context.Context, pgx.Tx, uuid.UUID, string) error {
-	return errors.New("queue unavailable")
+	for _, who := range []testEmployee{admin, manager} {
+		before := e.queue.count()
+		if err := e.svc.ResendActivation(e.ctx, who.actor(), c.ID); err != nil {
+			t.Fatalf("%s must be able to resend: %v", who.Role, err)
+		}
+		if e.queue.count() != before+1 {
+			t.Fatalf("%s: a resend must queue a new email", who.Role)
+		}
+	}
+	var queued int
+	_ = e.pool.QueryRow(e.ctx, `SELECT count(*) FROM notification_logs WHERE recipient_customer_id = $1`, c.ID).Scan(&queued)
+	if queued != 3 {
+		t.Fatalf("the creation email and two resends must all be queued, got %d", queued)
+	}
+	wantCode(t, e.svc.ResendActivation(e.ctx, advisor.actor(), c.ID), "FORBIDDEN")
+
+	var audited int
+	_ = e.pool.QueryRow(e.ctx, `SELECT count(*) FROM audit_logs WHERE entity_id = $1 AND changes_summary ? 'activationLink'`, c.ID).Scan(&audited)
+	if audited != 2 {
+		t.Fatalf("each resend must be audited, got %d", audited)
+	}
+}
+
+func TestResendActivationIsRefusedWhenItMakesNoSense(t *testing.T) {
+	e := newTestEnv(t)
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+	wantCode(t, e.svc.ResendActivation(e.ctx, admin.actor(), ids.New()), "CUSTOMER_NOT_FOUND")
+
+	c := e.createCustomer(admin.actor(), person())
+	if _, err := e.svc.Deactivate(e.ctx, admin.actor(), c.ID); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, e.svc.ResendActivation(e.ctx, admin.actor(), c.ID), "CUSTOMER_NOT_FOUND") // inactive
+
+	if _, err := e.svc.Reactivate(e.ctx, admin.actor(), c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(e.ctx, `UPDATE customers SET password_hash = 'x', activated_at = now() WHERE id = $1`, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, e.svc.ResendActivation(e.ctx, admin.actor(), c.ID), "CUSTOMER_ALREADY_ACTIVATED")
 }

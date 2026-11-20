@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -63,6 +64,7 @@ func (f *fakeIdentity) LookupRUC(_ context.Context, ruc string) (string, error) 
 }
 
 type testEnv struct {
+	queue    *activationRecorder
 	t        *testing.T
 	ctx      context.Context
 	pool     *pgxpool.Pool
@@ -92,14 +94,17 @@ func newTestEnv(t *testing.T, tweak ...func(*Deps)) *testEnv {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	identity := &fakeIdentity{}
-	deps := Deps{DB: pool, Identity: identity, Logger: logger}
+	// The real auth service validates and queues, behind a recorder that stands in for the notifications writer
+	// (the notifications package depends on this one, so the real writer cannot be used here).
+	queue := &activationRecorder{}
+	authService := auth.NewService(auth.Deps{
+		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", PortalBaseURL: "http://portal.test", Notifier: queue, Logger: logger,
+	})
+	deps := Deps{DB: pool, Activation: authService, Identity: identity, Logger: logger}
 	for _, f := range tweak {
 		f(&deps)
 	}
-	authService := auth.NewService(auth.Deps{
-		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", PortalBaseURL: "http://portal.test", Logger: logger,
-	})
-	return &testEnv{t: t, ctx: ctx, pool: pool, auth: authService, identity: identity, svc: NewService(deps), logger: logger}
+	return &testEnv{t: t, ctx: ctx, pool: pool, auth: authService, identity: identity, svc: NewService(deps), logger: logger, queue: queue}
 }
 
 // replica runs fn on a connection where foreign keys and triggers are off, so fixtures and cleanup can
@@ -157,6 +162,8 @@ func (e *testEnv) trackCustomer(id uuid.UUID) {
 	e.t.Cleanup(func() {
 		e.replica(func(c *pgxpool.Conn) {
 			ctx := context.Background()
+			_, _ = c.Exec(ctx, `DELETE FROM account_tokens WHERE customer_id = $1`, id)
+			_, _ = c.Exec(ctx, `DELETE FROM notification_logs WHERE recipient_customer_id = $1`, id)
 			_, _ = c.Exec(ctx, `DELETE FROM sale_registers WHERE customer_id = $1`, id)
 			_, _ = c.Exec(ctx, `DELETE FROM audit_logs WHERE entity_id = $1`, id)
 			_, _ = c.Exec(ctx, `DELETE FROM customers WHERE id = $1`, id)
@@ -277,4 +284,33 @@ func fieldNames(err error) map[string]bool {
 		}
 	}
 	return names
+}
+
+// activationRecorder records the activation emails the auth service queues and writes the real queue row.
+type activationRecorder struct {
+	mu    sync.Mutex
+	calls []string // customer emails
+}
+
+func (a *activationRecorder) CustomerActivation(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	a.mu.Lock()
+	a.calls = append(a.calls, email)
+	a.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs (id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
+		VALUES ($1, 'customer_activation', $2, $3, $4)`, ids.New(), id, email, "customer_activation:"+ids.NewString())
+	return err
+}
+
+func (a *activationRecorder) EmployeeActivation(context.Context, pgx.Tx, uuid.UUID, string) error {
+	return errors.New("not used by customer tests")
+}
+
+func (a *activationRecorder) PasswordReset(context.Context, pgx.Tx, uuid.UUID, string) error {
+	return errors.New("not used by customer tests")
+}
+
+func (a *activationRecorder) count() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return len(a.calls)
 }
