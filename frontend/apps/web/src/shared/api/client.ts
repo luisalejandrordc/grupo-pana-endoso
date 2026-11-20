@@ -1,4 +1,4 @@
-import { ApiClient } from "@endosoflow/api";
+import { ApiClient, type Schemas } from "@endosoflow/api";
 import type { DocumentType, EmployeeProfile, SessionResponse } from "../types";
 
 export interface PhotoLink {
@@ -58,6 +58,24 @@ export class EmployeeApiClient extends ApiClient {
     });
   }
 
+  /** Sets the first password, from the one-use link in the activation email. */
+  activateAccount(input: Schemas["TokenPasswordRequest"]) {
+    return this.request<void>("/auth/activate", {
+      method: "POST",
+      body: JSON.stringify(input),
+      skipRefresh: true,
+    });
+  }
+
+  /** Sets a new password from the one-use link in the reset email. It ends every session of the account. */
+  resetPassword(input: Schemas["TokenPasswordRequest"]) {
+    return this.request<void>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(input),
+      skipRefresh: true,
+    });
+  }
+
   changePassword(input: { currentPassword: string; newPassword: string }) {
     return this.request<void>("/me/password", {
       method: "PUT",
@@ -68,4 +86,4 @@ export class EmployeeApiClient extends ApiClient {
 
 export const api = new EmployeeApiClient({
   baseUrl: import.meta.env.VITE_API_BASE_URL || "/api/v1",
-});
+}););

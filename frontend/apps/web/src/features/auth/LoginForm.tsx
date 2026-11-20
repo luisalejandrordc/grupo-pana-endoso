@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { DocumentType } from "../../shared/types";
-import { Field, Icon } from "@endosoflow/ui";
+import { Field, Icon, PasswordField } from "@endosoflow/ui";
 import { documentTypeOptions } from "../../shared/lib/documentTypes";
 
 export interface LoginInput {
@@ -24,7 +24,6 @@ export function LoginForm({
   const [documentNumber, setDocumentNumber] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent) {
@@ -71,29 +70,13 @@ export function LoginForm({
           inputMode="text"
         />
       </Field>
-      <Field label="Contraseña">
-        <div className="password-input">
-          <input
-            required
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Ingresa tu contraseña"
-            autoComplete="current-password"
-          />
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={
-              showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-            }
-            aria-pressed={showPassword}
-            onClick={() => setShowPassword((value) => !value)}
-          >
-            <Icon name={showPassword ? "eye-off" : "eye"} size={18} />
-          </button>
-        </div>
-      </Field>
+      <PasswordField
+        label="Contraseña"
+        value={password}
+        onChange={setPassword}
+        placeholder="Ingresa tu contraseña"
+        autoComplete="current-password"
+      />
       <div className="login-form-options">
         <label className="checkbox-label">
           <input

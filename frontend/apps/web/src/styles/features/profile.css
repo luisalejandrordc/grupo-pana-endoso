@@ -102,24 +102,9 @@
   gap: var(--space-4);
 }
 
+/* The checklist (RuleList) spans the whole form grid. */
 .password-rules {
-  display: flex;
-  flex-wrap: wrap;
   grid-column: 1 / -1;
-  gap: var(--space-4);
-}
-
-.password-rules span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink-3);
-  font-size: var(--text-sm);
-}
-
-.password-rules .is-met {
-  color: var(--done);
-  font-weight: 550;
 }
 
 .password-form-footer {

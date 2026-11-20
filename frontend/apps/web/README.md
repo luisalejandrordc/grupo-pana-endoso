@@ -62,3 +62,19 @@ Tests describe behavior through roles and visible text, not class names, so a re
 - **Deactivating asks first** (it ends the person's sessions); reactivating and resending do not.
 - An administrator who edits their own record refreshes the session (`onSelfUpdated`), so the sidebar shows the new name; and cannot change their own role from this screen.
 - The contract also has `DELETE /employees/{id}` for an employee who never signed in or acted. It is deliberately not in the UI: deactivating is the normal way to remove access.
+
+## Public pages: the links in the emails
+
+Two routes open without a session, and `app/App.tsx` serves them before the login gate (they never wait for, or depend on, a session):
+
+| Route                       | Page                  | Call                        |
+| --------------------------- | --------------------- | --------------------------- |
+| `/activate-account?token=…` | `ActivateAccountPage` | `POST /auth/activate`       |
+| `/reset-password?token=…`   | `ResetPasswordPage`   | `POST /auth/reset-password` |
+
+Both are a `SetPasswordPage` (in `features/auth`) configured with its own words and call, and share `AuthLayout` with the login.
+
+- **The token** is read from the address once, kept in memory and sent with the password. The server says nothing about a token until it is used, so a dead link (expired or already used) shows up as a `400` on submit: the page then says so and shows the way out (a reset link leads to the "forgot your password" step; an activation link tells the person to ask an administrator for a new one, from the team page's "Reenviar activación").
+- **After success** the token is removed from the address, and the person is sent to the login. A reset ends every session of the account, so a browser that is signed in is signed out too.
+- **Passwords** are chosen with `PasswordField` and the live `RuleList` from `@endosoflow/ui`; the rules (`shared/lib/passwordRules.ts`) are the same ones the profile page uses. The server has the last word and its complaint about the password is shown on the field.
+- The sites need the SPA rewrite rule to open these links directly (see `docs/DEPLOY.md`).

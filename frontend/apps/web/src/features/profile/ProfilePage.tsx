@@ -1,10 +1,21 @@
 import { useRef, useState, type FormEvent } from "react";
 import { api } from "../../shared/api/client";
+import {
+  MIN_PASSWORD_LENGTH,
+  passwordRules,
+} from "../../shared/lib/passwordRules";
 import { roleLabel } from "../../shared/lib/roles";
 import { useForgetPhoto } from "../../shared/photos/usePhoto";
 import { Avatar } from "../../shared/ui/Avatar";
 import { type EmployeeProfile } from "../../shared/types";
-import { Field, Badge, Icon, PageHeader, type Toast } from "@endosoflow/ui";
+import {
+  Badge,
+  Icon,
+  PageHeader,
+  PasswordField,
+  RuleList,
+  type Toast,
+} from "@endosoflow/ui";
 
 const MAX_PHOTO = 2 * 1024 * 1024;
 
@@ -82,10 +93,10 @@ export function ProfilePage({
   const [saving, setSaving] = useState(false);
   async function submitPassword(event: FormEvent) {
     event.preventDefault();
-    if (newPassword.length < 10)
+    if (newPassword.length < MIN_PASSWORD_LENGTH)
       return toast({
         title: "Contraseña muy corta",
-        message: "Utiliza al menos 10 caracteres.",
+        message: `Utiliza al menos ${MIN_PASSWORD_LENGTH} caracteres.`,
         tone: "error",
       });
     if (newPassword !== confirmPassword)
@@ -190,55 +201,30 @@ export function ProfilePage({
           </div>
         </div>
         <form onSubmit={submitPassword} className="password-change-form">
-          <Field label="Contraseña actual">
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </Field>
-          <Field label="Nueva contraseña" hint="Mínimo 10 caracteres.">
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              required
-              minLength={10}
-              autoComplete="new-password"
-            />
-          </Field>
-          <Field label="Confirmar nueva contraseña">
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              minLength={10}
-              autoComplete="new-password"
-            />
-          </Field>
-          <div className="password-rules">
-            <span>
-              <Icon
-                name={newPassword.length >= 10 ? "check-circle" : "circle"}
-                size={14}
-              />{" "}
-              Al menos 10 caracteres
-            </span>
-            <span>
-              <Icon
-                name={
-                  newPassword && confirmPassword === newPassword
-                    ? "check-circle"
-                    : "circle"
-                }
-                size={14}
-              />{" "}
-              Las contraseñas coinciden
-            </span>
-          </div>
+          <PasswordField
+            label="Contraseña actual"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            autoComplete="current-password"
+          />
+          <PasswordField
+            label="Nueva contraseña"
+            hint={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres.`}
+            value={newPassword}
+            onChange={setNewPassword}
+            autoComplete="new-password"
+          />
+          <PasswordField
+            label="Confirmar nueva contraseña"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            autoComplete="new-password"
+          />
+          <RuleList
+            className="password-rules"
+            label="Requisitos de la contraseña"
+            rules={passwordRules(newPassword, confirmPassword)}
+          />
           <div className="password-form-footer">
             <span>
               <Icon name="shield-check" size={15} /> Al cambiarla, se cerrarán
