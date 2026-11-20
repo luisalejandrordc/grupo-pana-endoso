@@ -53,3 +53,12 @@ Tests describe behavior through roles and visible text, not class names, so a re
 3. `features/<name>/<Name>Page.tsx`: the screen, built from `@endosoflow/ui`.
 4. A lazy route and a small route component in `app/routes.tsx`; an entry in `app/navigation.ts` if it needs a menu item.
 5. A test next to the page.
+
+## Notes on the team (`features/staff`)
+
+- **Edit sends only what changed** plus the `version` it started from (`employeeForm.ts`, unit-tested). A personal contact is cleared by sending it empty. The name's source is never sent: the backend marks an edited name as manual.
+- **A stale version** (`VERSION_CONFLICT`) does not lose the person's work silently: the form says someone else saved first and offers "Cargar datos actuales", which reloads the server's copy and saves against its version.
+- **What the menu offers depends on the person's state:** edit always; resend activation only for an active account that has not set a password; deactivate only for an active person other than yourself; reactivate only for an inactive one.
+- **Deactivating asks first** (it ends the person's sessions); reactivating and resending do not.
+- An administrator who edits their own record refreshes the session (`onSelfUpdated`), so the sidebar shows the new name; and cannot change their own role from this screen.
+- The contract also has `DELETE /employees/{id}` for an employee who never signed in or acted. It is deliberately not in the UI: deactivating is the normal way to remove access.

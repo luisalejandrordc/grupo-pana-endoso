@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import type { DocumentType } from "../../shared/types";
 import { Field, Icon } from "@endosoflow/ui";
-import { documentTypeOptions } from "./documentTypes";
+import { documentTypeOptions } from "../../shared/lib/documentTypes";
 
 export interface LoginInput {
   documentType: DocumentType;

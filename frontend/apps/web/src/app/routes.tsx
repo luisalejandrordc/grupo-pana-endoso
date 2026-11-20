@@ -85,8 +85,9 @@ function CatalogRoute() {
 
 function StaffRoute() {
   const user = useCurrentUser();
+  const { reload } = useAuth();
   const { notify } = useToast();
-  return <StaffPage user={user} toast={notify} />;
+  return <StaffPage user={user} toast={notify} onSelfUpdated={reload} />;
 }
 
 function ProfileRoute() {

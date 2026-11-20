@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "../../shared/api/client";
 import type { DocumentType } from "../../shared/types";
 import { Field, Icon } from "@endosoflow/ui";
-import { documentTypeOptions } from "./documentTypes";
+import { documentTypeOptions } from "../../shared/lib/documentTypes";
 
 export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   const [documentType, setDocumentType] = useState<DocumentType>("DNI");
