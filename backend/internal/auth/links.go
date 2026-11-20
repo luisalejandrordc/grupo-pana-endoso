@@ -168,6 +168,26 @@ func (s *Service) QueueActivation(ctx context.Context, tx pgx.Tx, employeeID uui
 	return s.notifier.EmployeeActivation(ctx, tx, emp.ID, emp.BusinessEmail)
 }
 
+// QueueCustomerActivation queues the activation email of a customer who has not set a password yet, inside tx. It is
+// the customer equivalent of QueueActivation: customer management calls it in the transaction that creates the
+// customer, and again to resend it.
+func (s *Service) QueueCustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID) error {
+	customer, err := findCustomerByID(ctx, tx, customerID, true)
+	if err != nil {
+		return err
+	}
+	if customer == nil || !customer.IsActive {
+		return apperr.NotFound("CUSTOMER_NOT_FOUND", "El cliente no existe o está inactivo.")
+	}
+	if customer.ActivatedAt != nil {
+		return apperr.Conflict("CUSTOMER_ALREADY_ACTIVATED", "El cliente ya activó su cuenta.")
+	}
+	if s.notifier == nil {
+		return errNoNotifier
+	}
+	return s.notifier.CustomerActivation(ctx, tx, customer.ID, customer.Email)
+}
+
 // MintActivationLink creates an activation link and returns it without sending anything. It is for the
 // first-Admin command, which runs where no email can be relied on and prints the link for the operator.
 func (s *Service) MintActivationLink(ctx context.Context, employeeID uuid.UUID) (string, error) {

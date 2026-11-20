@@ -71,6 +71,16 @@ func (q *queueRecorder) EmployeeActivation(ctx context.Context, tx pgx.Tx, id uu
 	return q.add(ctx, tx, "employee_activation", id, email)
 }
 
+func (q *queueRecorder) CustomerActivation(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	q.mu.Lock()
+	q.queued = append(q.queued, queuedEmail{"customer_activation", id, email})
+	q.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs
+		(id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
+		VALUES ($1, 'customer_activation', $2, $3, $4)`, ids.New(), id, email, "customer_activation:"+ids.NewString())
+	return err
+}
+
 func (q *queueRecorder) PasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
 	return q.add(ctx, tx, "password_reset", id, email)
 }
@@ -647,5 +657,77 @@ func TestChangePassword(t *testing.T) {
 	}
 	if n := env.countAccessLogs(t, emp.ID, "password_changed"); n != 1 {
 		t.Fatalf("expected 1 password_changed row, got %d", n)
+	}
+}
+
+// ---- the customer equivalent of QueueActivation -------------------------------------------------
+
+func (e *testEnv) insertCustomer(t *testing.T) (id uuid.UUID, email string) {
+	t.Helper()
+	id = ids.New()
+	email = "cliente-" + id.String() + "@test.pe"
+	if _, err := e.pool.Exec(e.ctx, `INSERT INTO customers (id, customer_type, document_type, document_number, first_name, last_name, gender,
+			nationality, phone, email, created_by)
+		VALUES ($1, 'diplomatico', 'DNI', $2, 'Lucía', 'Quispe', 'F', 'Peruana', '999111222', $3, $4)`,
+		id, fmt.Sprintf("%08d", rand.IntN(100_000_000)), email, SystemActorID); err != nil {
+		t.Fatalf("insert customer: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = e.pool.Exec(ctx, `DELETE FROM account_tokens WHERE customer_id = $1`, id)
+		_, _ = e.pool.Exec(ctx, `DELETE FROM notification_logs WHERE recipient_customer_id = $1`, id)
+		_, _ = e.pool.Exec(ctx, `DELETE FROM access_logs WHERE customer_id = $1`, id)
+		_, _ = e.pool.Exec(ctx, `DELETE FROM customers WHERE id = $1`, id)
+	})
+	return id, email
+}
+
+func (e *testEnv) queueCustomerActivation(id uuid.UUID) error {
+	return database.WithTx(e.ctx, e.pool, func(tx pgx.Tx) error { return e.svc.QueueCustomerActivation(e.ctx, tx, id) })
+}
+
+func TestQueueCustomerActivationMirrorsTheEmployeeOne(t *testing.T) {
+	env := newTestEnv(t)
+	id, email := env.insertCustomer(t)
+
+	// Sent, and sent again: each call queues an email.
+	for i := 1; i <= 2; i++ {
+		if err := env.queueCustomerActivation(id); err != nil {
+			t.Fatalf("queue %d: %v", i, err)
+		}
+		if got := env.queue.of("customer_activation", id); len(got) != i || got[i-1].Email != email {
+			t.Fatalf("after %d call(s): %+v", i, got)
+		}
+	}
+
+	// Its link opens in the customer portal, whose address can differ from the employees'.
+	svc := NewService(Deps{DB: env.pool, JWTSecret: string(testSecret), AppBaseURL: "http://app.test", PortalBaseURL: "https://portal.test", Notifier: env.queue})
+	var link AccountLink
+	if err := database.WithTx(env.ctx, env.pool, func(tx pgx.Tx) error {
+		var err error
+		link, _, err = svc.IssueLink(env.ctx, tx, LinkActivation, LinkRecipient{CustomerID: &id})
+		return err
+	}); err != nil || !strings.HasPrefix(link.URL, "https://portal.test/activate-account?token=") {
+		t.Fatalf("a customer's link must open in the customer portal: %q (%v)", link.URL, err)
+	}
+
+	// Once activated there is nothing to send.
+	if _, err := svc.Activate(env.ctx, tokenFrom(t, link.URL), goodPassword, ClientInfo{}); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	wantCode(t, env.queueCustomerActivation(id), "CUSTOMER_ALREADY_ACTIVATED")
+}
+
+func TestQueueCustomerActivationRefusesWhatCannotBeActivated(t *testing.T) {
+	env := newTestEnv(t)
+	wantCode(t, env.queueCustomerActivation(ids.New()), "CUSTOMER_NOT_FOUND")
+
+	id, _ := env.insertCustomer(t)
+	if _, err := env.pool.Exec(env.ctx, `UPDATE customers SET is_active = false, deactivated_at = now(), deactivated_by = created_by WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, env.queueCustomerActivation(id), "CUSTOMER_NOT_FOUND")
+	if env.queue.total() != 0 {
+		t.Fatal("nothing may be queued for a customer who cannot be activated")
 	}
 }

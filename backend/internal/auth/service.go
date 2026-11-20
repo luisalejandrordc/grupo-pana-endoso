@@ -44,6 +44,7 @@ type Database interface {
 // transaction the caller passes, so an email is queued if and only if the change that caused it committed.
 type Notifier interface {
 	EmployeeActivation(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
+	CustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
 	PasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
 }
 

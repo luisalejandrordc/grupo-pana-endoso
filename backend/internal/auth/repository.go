@@ -228,6 +228,7 @@ func markAccountTokenUsed(ctx context.Context, q querier, id uuid.UUID, now time
 // customerRecord is the part of a customer that activation needs.
 type customerRecord struct {
 	ID             uuid.UUID
+	Email          string
 	DocumentNumber string
 	IsActive       bool
 	ActivatedAt    *time.Time
@@ -235,12 +236,12 @@ type customerRecord struct {
 
 // findCustomerByID returns (nil, nil) when the customer does not exist.
 func findCustomerByID(ctx context.Context, q querier, id uuid.UUID, forUpdate bool) (*customerRecord, error) {
-	sql := `SELECT id, document_number, is_active, activated_at FROM customers WHERE id = $1`
+	sql := `SELECT id, email, document_number, is_active, activated_at FROM customers WHERE id = $1`
 	if forUpdate {
 		sql += ` FOR UPDATE`
 	}
 	var c customerRecord
-	err := q.QueryRow(ctx, sql, id).Scan(&c.ID, &c.DocumentNumber, &c.IsActive, &c.ActivatedAt)
+	err := q.QueryRow(ctx, sql, id).Scan(&c.ID, &c.Email, &c.DocumentNumber, &c.IsActive, &c.ActivatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
