@@ -32,4 +32,4 @@ export * from "./hooks/useMediaQuery";
 export * from "./hooks/useSearchQuery";
 
 // formatting (es-PE, America/Lima)
-e;
+export * from "./lib/format";
