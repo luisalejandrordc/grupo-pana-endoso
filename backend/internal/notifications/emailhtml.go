@@ -30,7 +30,7 @@ const (
 type fact struct{ label, value string }
 
 // person is a contact card: the advisor in the customer's emails.
-type person struct{ name, email, phone string }
+type person struct{ name, email, phone, gender string }
 
 // button is the call to action.
 type button struct{ label, url string }
@@ -114,15 +114,16 @@ func (c content) text() string {
 		}
 	}
 	if p := c.contact; p != nil {
-		b.WriteString("Su asesor: " + p.name + "\n")
+		of := p.of() // "del asesor" or "de la asesora"
+		b.WriteString("Su " + asesor(p.gender) + ": " + p.name + "\n")
 		if p.email != "" {
-			b.WriteString("Correo del asesor: " + p.email + "\n")
+			b.WriteString("Correo " + of + ": " + p.email + "\n")
 		}
 		if p.phone != "" {
-			b.WriteString("Teléfono del asesor: " + p.phone + "\n")
+			b.WriteString("Teléfono " + of + ": " + p.phone + "\n")
 		}
 		if w := whatsappURL(p.phone); w != "" {
-			b.WriteString("WhatsApp del asesor: " + w + "\n")
+			b.WriteString("WhatsApp " + of + ": " + w + "\n")
 		}
 		wrote = true
 	}
@@ -203,7 +204,11 @@ func (c content) html(subject string) string {
 	if c.toCustomer {
 		footer = "Este es un mensaje automático de Grupo Pana."
 		if c.replyToAdvisor {
-			footer = "Puede responder a este correo: su mensaje llegará directamente a su asesor."
+			word := "asesor"
+			if c.contact != nil {
+				word = asesor(c.contact.gender)
+			}
+			footer = "Puede responder a este correo: su mensaje llegará directamente a su " + word + "."
 		}
 	}
 	fmt.Fprintf(&b, `<tr><td bgcolor="%s" style="background:%s;border:1px solid %s;border-top:0;border-radius:0 0 16px 16px;padding:20px 32px;font-family:%s;">`+
@@ -236,6 +241,14 @@ func factsHTML(facts []fact) string {
 		colorLine, rows.String())
 }
 
+// of is "del asesor" or "de la asesora", for lines such as "Correo de la asesora".
+func (p person) of() string {
+	if p.gender == "F" {
+		return "de la asesora"
+	}
+	return "del asesor"
+}
+
 // html draws the advisor card.
 func (p person) html() string {
 	var lines strings.Builder
@@ -252,9 +265,9 @@ func (p person) html() string {
 		`<tr><td width="64" valign="middle" style="padding:16px 0 16px 16px;">`+
 		`<table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td width="44" height="44" align="center" valign="middle" bgcolor="%s" style="width:44px;height:44px;border-radius:22px;background:%s;color:#ffffff;font-family:%s;font-size:17px;font-weight:800;">%s</td></tr></table></td>`+
 		`<td valign="middle" style="padding:16px 16px 16px 14px;font-family:%s;">`+
-		`<div style="font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:%s;">Su asesor</div>`+
+		`<div style="font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:%s;">Su %s</div>`+
 		`<div style="font-size:16px;font-weight:800;color:%s;margin:2px 0 3px;">%s</div>%s</td></tr></table>`,
-		colorSoft, colorLine, colorDark, colorDark, fontStack, esc(initials(p.name)), fontStack, colorMuted, colorInk, esc(p.name), lines.String())
+		colorSoft, colorLine, colorDark, colorDark, fontStack, esc(initials(p.name)), fontStack, colorMuted, asesor(p.gender), colorInk, esc(p.name), lines.String())
 }
 
 // progressTitle is the heading of the progress bar: how many of the milestones are done.

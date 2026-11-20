@@ -16,7 +16,7 @@ import (
 // Writer translates business events into transactional notification outbox entries.
 //
 // Every entry is written inside the caller's transaction. When the Writer has a Waker, the dispatcher is woken
-// after that transaction commits, otherwise it only finds new notifications on its periodic look .
+// after that transaction commits, otherwise it only finds new notifications on its periodic look.
 type Writer struct {
 	Waker *Waker
 }
@@ -194,12 +194,12 @@ func (w Writer) PasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UU
 	})
 }
 
-// CustomerCreated queues the welcome and activation email of a new customer. It is queued once per customer:
-// the dedupe key makes a second call for the same customer a no-op.
-func (w Writer) CustomerCreated(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error {
+// CustomerActivation queues the welcome and activation email of a customer, the equivalent of EmployeeActivation.
+// It is used when the customer is created and again to resend it, so each call gets its own dedupe key.
+func (w Writer) CustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error {
 	return w.enqueue(ctx, tx, Notification{
-		Type:       CustomerAccountCreated,
-		DedupeKey:  CustomerAccountCreated + ":" + customerID.String(),
+		Type:       CustomerActivation,
+		DedupeKey:  CustomerActivation + ":" + customerID.String() + ":" + ids.New().String(),
 		CustomerID: &customerID,
 		Email:      email,
 	})

@@ -353,11 +353,11 @@ func (d *Dispatcher) load(ctx context.Context, tx pgx.Tx, row claimed) (emailDat
 	var createdAt time.Time
 	var model, version, color, advisorFirst, advisorLast string
 	err := tx.QueryRow(ctx, `SELECT s.sale_number, s.created_at, s.customer_legal_name_snapshot, s.vehicle_model_name_snapshot,
-			s.vehicle_version_name_snapshot, s.vehicle_color_name_snapshot, a.first_name, a.last_name, a.business_email, a.business_phone
+			s.vehicle_version_name_snapshot, s.vehicle_color_name_snapshot, a.first_name, a.last_name, a.business_email, a.business_phone, a.gender::text
 		FROM sale_registers s
 		JOIN employees a ON a.id = s.assigned_advisor_id
 		WHERE s.id = $1`, *row.saleID).
-		Scan(&number, &createdAt, &data.CustomerName, &model, &version, &color, &advisorFirst, &advisorLast, &data.AdvisorEmail, &data.AdvisorPhone)
+		Scan(&number, &createdAt, &data.CustomerName, &model, &version, &color, &advisorFirst, &advisorLast, &data.AdvisorEmail, &data.AdvisorPhone, &data.AdvisorGender)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return data, "la venta ya no existe", nil
 	}
@@ -370,23 +370,27 @@ func (d *Dispatcher) load(ctx context.Context, tx pgx.Tx, row claimed) (emailDat
 	data.AdvisorName = advisorFirst + " " + advisorLast
 	data.GreetingName = data.CustomerName
 	if row.employeeID != nil {
-		if err := tx.QueryRow(ctx, `SELECT TRIM(CONCAT(first_name, ' ', last_name)) FROM employees WHERE id = $1`, *row.employeeID).
-			Scan(&data.GreetingName); err != nil {
+		var gender *string
+		if err := tx.QueryRow(ctx, `SELECT TRIM(CONCAT(first_name, ' ', last_name)), gender::text FROM employees WHERE id = $1`, *row.employeeID).
+			Scan(&data.GreetingName, &gender); err != nil {
 			return data, "", err
 		}
+		data.Gender = deref(gender)
 		return data, "", nil
 	}
 	// Customer emails: the greeting names the person (a company's contact), and the progress bar is read from the
 	// same view the application uses, so email, portal and reports always agree.
 	if row.customerID != nil {
+		var gender *string
 		if err := tx.QueryRow(ctx, `SELECT COALESCE(
 			NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''),
 			NULLIF(TRIM(CONCAT(contact_first_name, ' ', contact_last_name)), ''),
 			NULLIF(TRIM(legal_name), '')
-			) FROM customers WHERE id = $1`, *row.customerID).
-			Scan(&data.GreetingName); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			), gender::text FROM customers WHERE id = $1`, *row.customerID).
+			Scan(&data.GreetingName, &gender); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return data, "", err
 		}
+		data.Gender = deref(gender)
 	}
 	data.Milestones, err = loadMilestones(ctx, tx, *row.saleID)
 	return data, "", err
@@ -494,7 +498,7 @@ func (d *Dispatcher) loadAccount(ctx context.Context, tx pgx.Tx, row claimed, da
 	var id uuid.UUID
 	switch {
 	case row.employeeID != nil:
-		query, id = `SELECT TRIM(CONCAT(first_name, ' ', last_name)), document_type::text, document_number
+		query, id = `SELECT TRIM(CONCAT(first_name, ' ', last_name)), document_type::text, document_number, gender::text
 			FROM employees WHERE id = $1`, *row.employeeID
 	case row.customerID != nil:
 		// A company's welcome is addressed to its contact person.
@@ -502,16 +506,18 @@ func (d *Dispatcher) loadAccount(ctx context.Context, tx pgx.Tx, row claimed, da
 			NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''),
 			NULLIF(TRIM(CONCAT(contact_first_name, ' ', contact_last_name)), ''),
 			NULLIF(TRIM(legal_name), '')
-			), document_type::text, document_number FROM customers WHERE id = $1`, *row.customerID
+		), document_type::text, document_number, gender::text FROM customers WHERE id = $1`, *row.customerID
 	default:
 		return data, "la notificación no tiene destinatario", nil
 	}
 	var docType, docNumber string
-	if err := tx.QueryRow(ctx, query, id).Scan(&data.GreetingName, &docType, &docNumber); errors.Is(err, pgx.ErrNoRows) {
+	var gender *string
+	if err := tx.QueryRow(ctx, query, id).Scan(&data.GreetingName, &docType, &docNumber, &gender); errors.Is(err, pgx.ErrNoRows) {
 		return data, "la cuenta ya no existe", nil
 	} else if err != nil {
 		return data, "", err
 	}
+	data.Gender = deref(gender)
 	data.LoginID = documentLabel(docType) + " " + docNumber
 	if d.links == nil {
 		return data, "", errors.New("no hay un emisor de enlaces configurado para enviar este correo")
@@ -554,4 +560,12 @@ func documentLabel(code string) string {
 		return "Pasaporte"
 	}
 	return code
+}
+
+// deref reads an optional text column; a missing value is the empty string.
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

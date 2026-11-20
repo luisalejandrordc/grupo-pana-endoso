@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -12,13 +13,15 @@ type emailData struct {
 	SaleID        string
 	SaleCode      string
 	GreetingName  string // the recipient's name
+	Gender        string // the recipient's gender (M or F)
 	CustomerName  string
 	Vehicle       string // "Hilux · SR 4x4 · Blanco"
 	AdvisorName   string
 	AdvisorEmail  string
 	AdvisorPhone  string
-	AppBaseURL    string      // the employee portal's address
-	PortalBaseURL string      // the customer portal's address
+	AdvisorGender string
+	AppBaseURL    string
+	PortalBaseURL string
 	LogoURL       string      // public address of the header logo; empty falls back to the brand name
 	Milestones    []milestone // sale's six customer milestones with their state, read at send time
 	LoginID       string      // document the recipient signs in with ("DNI 12345678"), told in welcome emails
@@ -44,6 +47,43 @@ type milestone struct {
 	Number int
 	Name   string
 	State  string // pending, in_progress or completed
+}
+
+// dear, welcome and asesor give the Spanish word that agrees with a person's recorded gender (M or F). Where the
+// gender is not known the neutral "(a)" form is used, except for "asesor": advisors always have a gender, and the
+// masculine is the generic noun of the role.
+func dear(gender string) string {
+	switch gender {
+	case "M":
+		return "Estimado"
+	case "F":
+		return "Estimada"
+	}
+	return "Estimado(a)"
+}
+
+func welcome(gender string) string {
+	switch gender {
+	case "M":
+		return "Bienvenido"
+	case "F":
+		return "Bienvenida"
+	}
+	return "Bienvenido(a)"
+}
+
+func asesor(gender string) string {
+	if gender == "F" {
+		return "asesora"
+	}
+	return "asesor"
+}
+
+func newAdvisor(gender string) string {
+	if gender == "F" {
+		return "nueva asesora"
+	}
+	return "nuevo asesor"
 }
 
 // portalSale is where a customer opens one purchase in the customer portal.
@@ -92,7 +132,7 @@ var stages = map[string]stage{
 	},
 	"milestone_task_11": {
 		6, "Su vehículo está en fase de preparación final", "Su vehículo está en preparación final",
-		"Su vehículo ya se encuentra en la etapa previa a la entrega, en la que se realiza la inspección y se instalan los accesorios. Ante cualquier consulta, su asesor está a su disposición.",
+		"Su vehículo ya se encuentra en la etapa previa a la entrega, en la que se realiza la inspección y se instalan los accesorios. Ante cualquier consulta, su {asesor} está a su disposición.",
 		"Ver el avance", false,
 	},
 	"milestone_task_13": {
@@ -122,17 +162,17 @@ type rendered struct {
 
 // render builds the email of a notification type, or reports that the type has no template.
 func render(d emailData) (rendered, bool) {
-	greeting := "Estimado(a) " + d.GreetingName + ","
+	greeting := dear(d.Gender) + " " + d.GreetingName + ","
 	vehicleFact := fact{"Vehículo", d.Vehicle}
 	saleFact := fact{"Compra", d.SaleCode}
-	advisor := &person{name: d.AdvisorName, email: d.AdvisorEmail, phone: d.AdvisorPhone}
+	advisor := &person{name: d.AdvisorName, email: d.AdvisorEmail, phone: d.AdvisorPhone, gender: d.AdvisorGender}
 	userFact := fact{"Su usuario de ingreso", d.LoginID}
 
 	switch {
 	case d.Type == EmployeeActivation:
 		return content{
 			preheader:  "Defina su contraseña para empezar a usar EndosoFlow.",
-			eyebrow:    "Bienvenido(a) al equipo",
+			eyebrow:    welcome(d.Gender) + " al equipo",
 			title:      "Active su cuenta",
 			greeting:   "Hola " + d.GreetingName + ",",
 			paragraphs: []string{"Se creó su cuenta en EndosoFlow, la plataforma de gestión comercial de Grupo Pana. Para empezar, defina su contraseña con el botón de abajo. Para ingresar usará su documento de identidad y la contraseña que cree."},
@@ -160,10 +200,10 @@ func render(d emailData) (rendered, bool) {
 			},
 		}.withLogo(d.LogoURL).build("Restablezca su contraseña de EndosoFlow"), true
 
-	case d.Type == CustomerAccountCreated:
+	case d.Type == CustomerActivation:
 		return content{
 			preheader:  "Active su cuenta para seguir el avance de su compra.",
-			eyebrow:    "Bienvenido(a) a Grupo Pana",
+			eyebrow:    welcome(d.Gender) + " a Grupo Pana",
 			title:      "Active su cuenta de cliente",
 			greeting:   greeting,
 			paragraphs: []string{"Hemos registrado sus datos en Grupo Pana. Desde su portal de seguimiento podrá ver el avance de cada una de sus compras. Para ingresar, active su cuenta definiendo su contraseña; su usuario es el documento con el que fue registrado."},
@@ -175,7 +215,7 @@ func render(d emailData) (rendered, bool) {
 				"Si no esperaba este mensaje, puede ignorarlo.",
 			},
 			toCustomer: true,
-		}.withLogo(d.LogoURL).build("Bienvenido a Grupo Pana: acceso a su portal de seguimiento"), true
+		}.withLogo(d.LogoURL).build(welcome(d.Gender) + " a Grupo Pana: acceso a su portal de seguimiento"), true
 
 	case d.Type == SaleCreated:
 		return content{
@@ -183,7 +223,7 @@ func render(d emailData) (rendered, bool) {
 			eyebrow:        stageEyebrow(1, d.Milestones),
 			title:          "Hemos registrado su solicitud",
 			greeting:       greeting,
-			paragraphs:     []string{"Su proceso de compra ha comenzado. Estos son los datos de su solicitud y de su asesor, quien le acompañará en cada etapa. Puede seguir el avance desde su portal."},
+			paragraphs:     []string{"Su proceso de compra ha comenzado. Estos son los datos de su solicitud y de su " + asesor(d.AdvisorGender) + ", quien le acompañará en cada etapa. Puede seguir el avance desde su portal."},
 			facts:          []fact{saleFact, vehicleFact},
 			contact:        advisor,
 			progress:       d.Milestones,
@@ -194,6 +234,7 @@ func render(d emailData) (rendered, bool) {
 
 	case stages[d.Type].title != "":
 		st := stages[d.Type]
+		st.text = strings.ReplaceAll(st.text, "{asesor}", asesor(d.AdvisorGender))
 		url := d.portalSale()
 		if st.documents {
 			url = d.portalDocuments()
@@ -214,7 +255,7 @@ func render(d emailData) (rendered, bool) {
 
 	case d.Type == CustomerAdvisorChanged:
 		return content{
-			preheader:      "A partir de ahora puede comunicarse con su nuevo asesor.",
+			preheader:      "A partir de ahora puede comunicarse con su " + newAdvisor(d.AdvisorGender) + ".",
 			eyebrow:        "Cambio de asesor",
 			title:          "Su asesor ha cambiado",
 			greeting:       greeting,
@@ -244,7 +285,7 @@ func render(d emailData) (rendered, bool) {
 			title:      "La venta " + d.SaleCode + " ya no está asignada a usted",
 			greeting:   "Hola " + d.GreetingName + ",",
 			paragraphs: []string{"La venta fue reasignada a otro asesor y usted ya no tiene acceso a ella."},
-			facts:      []fact{{"Venta", d.SaleCode}, {"Cliente", d.CustomerName}, vehicleFact, {"Nuevo asesor", d.AdvisorName}},
+			facts:      []fact{{"Venta", d.SaleCode}, {"Cliente", d.CustomerName}, vehicleFact, {strings.ToUpper(newAdvisor(d.AdvisorGender)[:1]) + newAdvisor(d.AdvisorGender)[1:], d.AdvisorName}},
 		}.withLogo(d.LogoURL).build("La venta " + d.SaleCode + " ya no está asignada a usted"), true
 	}
 	return rendered{}, false
