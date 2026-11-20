@@ -99,7 +99,7 @@ services:
         value: nosniff
       - path: /*
         name: Referrer-Policy
-        value: strict-origin-when-cross-origin
+        value: no-referrer
       - path: /*
         name: X-Robots-Tag
         value: noindex, nofollow
@@ -148,11 +148,17 @@ services:
 
 ## 5. After the first deploy, check
 
-1. Open a deep link directly (`/sales`, or any address on the portal) and refresh: it must not 404.
-2. Sign in on the main app, then **refresh the page**: you must stay signed in. If you are sent back to the login, the refresh cookie is being blocked: re-read section 2.
+1. Open a deep link directly (`/sales`, or any address on the portal) and refresh: it must not 404. The staff site's email links depend on this: `/activate-account?token=…` and `/reset-password?token=…` are routes of the app, not files, so they only open because of rewrite rule 2.
+2. Sign in on the staff site, then **refresh the page**: you must stay signed in. If you are sent back to the login, the refresh cookie is being blocked: re-read section 2.
 3. `/robots.txt` answers with `Disallow: /`.
 4. Push a change that touches only `apps/portal`: only the portal redeploys. Change something in `packages/ui`: both do.
 
-## 6. Local development
+## 6. The links in the emails
 
-`npm run dev:web` (5173) and `npm run dev:portal` (5174) proxy `/api` and `/media` to the Go server (`VITE_API_PROXY_TARGET`, default `http://localhost:8080`), which is the same shape the rewrite gives in production: the browser talks to its own origin.
+The backend writes the activation and password-reset links (`/activate-account?token=…`, `/reset-password?token=…`) using its own configured public address for the staff site. **That address must be the staff site's real hostname**: if the site is deployed as `endosoflow-staff.onrender.com` but the backend still says `endosoflow-app.onrender.com` (or the other way round), every email link opens a site that does not exist. Update it in the backend's environment whenever the site's address changes (and again when you move to a custom domain).
+
+Because those URLs carry a one-use token, the staff site sends **no referrer** (`Referrer-Policy: no-referrer`, set both as a header above and as a `<meta>` in `index.html`), and the page removes the token from the address bar once it is used.
+
+## 7. Local development
+
+`npm run dev:staff` (5173) and `npm run dev:portal` (5174) proxy `/api` and `/media` to the Go server (`VITE_API_PROXY_TARGET`, default `http://localhost:8080`), which is the same shape the rewrite gives in production: the browser talks to its own origin.
