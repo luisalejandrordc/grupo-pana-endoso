@@ -11,8 +11,7 @@ type Preview struct {
 
 // previewTypes lists every notification type that has a template, in the order they are shown.
 var previewTypes = []string{
-	EmployeeActivation, PasswordReset, CustomerAccountCreated,
-	SaleCreated,
+	EmployeeActivation, PasswordReset, CustomerActivation, SaleCreated,
 	"milestone_task_1", "milestone_task_3", "milestone_task_6", "milestone_task_7",
 	"milestone_task_10", "milestone_task_11", "milestone_task_13",
 	CustomerAdvisorChanged, SaleAssigned, SaleUnassigned,
@@ -23,9 +22,9 @@ func sampleData(kind, appBaseURL, portalBaseURL, logoURL string) emailData {
 	return emailData{
 		Type: kind, AppBaseURL: appBaseURL, PortalBaseURL: portalBaseURL, LogoURL: logoURL,
 		SaleID: "7d0c3f6e-2f1a-4c55-9d3b-0a1b2c3d4e5f", SaleCode: "EF-2026-00042",
-		GreetingName: "Lucía", CustomerName: "Lucía Quispe Huamán",
+		GreetingName: "Lucía", Gender: "F", CustomerName: "Lucía Quispe Huamán",
 		Vehicle:     "Hilux · SR 4x4 · Blanco Perlado",
-		AdvisorName: "Carlos Mendoza", AdvisorEmail: "carlos.mendoza@grupopana.pe", AdvisorPhone: "+51 987 654 321",
+		AdvisorName: "Carlos Mendoza", AdvisorEmail: "carlos.mendoza@grupopana.pe", AdvisorPhone: "+51 987 654 321", AdvisorGender: "M",
 		Link: appBaseURL + "/activate-account?token=EJEMPLO-de-enlace-de-un-solo-uso", LinkValidFor: "72 horas",
 		LoginID: "DNI 45678912", Milestones: sampleMilestones(kind),
 	}

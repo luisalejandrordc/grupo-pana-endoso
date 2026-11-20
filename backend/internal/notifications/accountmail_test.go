@@ -39,7 +39,7 @@ func TestEveryTemplateRendersBothVersions(t *testing.T) {
 }
 
 func TestAccountEmailsCarryTheLinkInBothVersions(t *testing.T) {
-	for _, kind := range []string{EmployeeActivation, PasswordReset, CustomerAccountCreated} {
+	for _, kind := range []string{EmployeeActivation, PasswordReset, CustomerActivation} {
 		d := sampleData(kind, "https://app.test", "https://portal.test", "https://cdn.test/logo.png")
 		d.Link = "https://app.test/activate-account?token=abc_DEF-123"
 		r, ok := render(d)
@@ -65,9 +65,9 @@ func TestEmailsEscapeWhatPeopleTyped(t *testing.T) {
 	}
 }
 
-// The nine customer notifications of the specification (the seven task emails, creation and welcome), in "usted".
+// The nine customer notifications of the specification (the seven task emails, creation and welcome)
 var specSubjects = map[string]string{
-	CustomerAccountCreated: "Bienvenido a Grupo Pana: acceso a su portal de seguimiento",
+	CustomerActivation:     "Bienvenida a Grupo Pana: acceso a su portal de seguimiento", // the sample customer is a woman
 	SaleCreated:            "Hemos registrado su nueva solicitud de vehículo",
 	"milestone_task_1":     "Su cotización oficial está lista para revisión",
 	"milestone_task_3":     "Siguiente paso: su vehículo ha sido asignado",
@@ -156,7 +156,7 @@ func TestProgressEmailsCarryNoRecordedDataBecauseThePortalIsTheSourceOfTruth(t *
 		t.Fatal("the sale code and the vehicle identify the purchase")
 	}
 	// Logging in is by document, which never changes, and the welcome emails must say which one.
-	w, _ := render(sampleData(CustomerAccountCreated, "https://app.test", "https://portal.test", "https://cdn.test/logo.png"))
+	w, _ := render(sampleData(CustomerActivation, "https://app.test", "https://portal.test", "https://cdn.test/logo.png"))
 	if !strings.Contains(w.Text, "Su usuario de ingreso: DNI 45678912") {
 		t.Fatal("the welcome email names the login document")
 	}
@@ -167,7 +167,7 @@ func TestEveryPurchaseEmailShowsTheAdvisorAndTheWelcomeDoesNot(t *testing.T) {
 	for kind, shows := range map[string]bool{
 		SaleCreated: true, CustomerAdvisorChanged: true,
 		"milestone_task_1": true, "milestone_task_6": true, "milestone_task_13": true,
-		CustomerAccountCreated: false, // no sale yet, so no advisor
+		CustomerActivation: false, // no sale yet, so no advisor
 	} {
 		r, _ := render(sampleData(kind, "https://app.test", "https://portal.test", "https://cdn.test/logo.png"))
 		has := strings.Contains(r.Text, "carlos.mendoza@grupopana.pe") && strings.Contains(r.HTML, "wa.me/")
@@ -240,7 +240,7 @@ func TestTheAdvisorCardOffersWhatsApp(t *testing.T) {
 func TestOnlyEmailsFromAnAdvisorAreRepliedToTheAdvisor(t *testing.T) {
 	for kind, want := range map[string]bool{
 		SaleCreated: true, "milestone_task_3": true, CustomerAdvisorChanged: true,
-		CustomerAccountCreated: false, EmployeeActivation: false, SaleAssigned: false,
+		CustomerActivation: false, EmployeeActivation: false, SaleAssigned: false,
 	} {
 		if r, _ := render(sampleData(kind, "https://app.test", "https://portal.test", "https://cdn.test/logo.png")); r.ReplyToAdvisor != want {
 			t.Errorf("%s: ReplyToAdvisor = %v, want %v", kind, r.ReplyToAdvisor, want)
@@ -256,6 +256,81 @@ func TestTheHeaderShowsTheLogoWhenThereIsAnAddressAndTheNameWhenNot(t *testing.T
 	without, _ := render(sampleData(SaleCreated, "https://app.test", "https://portal.test", ""))
 	if strings.Contains(without.HTML, "<img") || !strings.Contains(without.HTML, "Endoso<span") {
 		t.Fatal("without a logo address the header must show the brand name as text")
+	}
+}
+
+func TestGreetingsAndWelcomesAgreeWithTheRecipientsGender(t *testing.T) {
+	for gender, want := range map[string]struct{ dear, welcome string }{
+		"M": {"Estimado Carlos,", "Bienvenido"},
+		"F": {"Estimada Lucía,", "Bienvenida"},
+		"":  {"Estimado(a) Lucía,", "Bienvenido(a)"}, // an organization has no gender recorded
+	} {
+		name := "Lucía"
+		if gender == "M" {
+			name = "Carlos"
+		}
+		for _, kind := range []string{CustomerActivation, SaleCreated, "milestone_task_6", CustomerAdvisorChanged} {
+			d := sampleData(kind, "https://app.test", "https://portal.test", "")
+			d.Gender, d.GreetingName = gender, name
+			r, _ := render(d)
+			if !strings.Contains(r.Text, want.dear) || !strings.Contains(r.HTML, want.dear) {
+				t.Errorf("gender %q, %s: expected the greeting %q:\n%s", gender, kind, want.dear, r.Text)
+			}
+		}
+		for kind, label := range map[string]string{CustomerActivation: " a Grupo Pana", EmployeeActivation: " al equipo"} {
+			d := sampleData(kind, "https://app.test", "https://portal.test", "")
+			d.Gender = gender
+			r, _ := render(d)
+			if !strings.Contains(r.HTML, want.welcome+label) {
+				t.Errorf("gender %q, %s: expected %q", gender, kind, want.welcome+label)
+			}
+			if gender != "" && strings.Contains(r.HTML+r.Subject, "(a)") {
+				t.Errorf("gender %q, %s: a known gender must not leave an \"(a)\"", gender, kind)
+			}
+		}
+	}
+	d := sampleData(CustomerActivation, "https://app.test", "https://portal.test", "")
+	d.Gender = "M"
+	if r, _ := render(d); r.Subject != "Bienvenido a Grupo Pana: acceso a su portal de seguimiento" {
+		t.Fatalf("the subject follows the gender too: %q", r.Subject)
+	}
+}
+
+func TestAdvisorWordingAgreesWithTheAdvisorsGender(t *testing.T) {
+	woman := func(kind string) rendered {
+		d := sampleData(kind, "https://app.test", "https://portal.test", "")
+		d.AdvisorGender, d.AdvisorName = "F", "Carla Mendoza"
+		r, _ := render(d)
+		return r
+	}
+	man := func(kind string) rendered {
+		d := sampleData(kind, "https://app.test", "https://portal.test", "")
+		d.AdvisorGender = "M"
+		r, _ := render(d)
+		return r
+	}
+	for _, kind := range []string{SaleCreated, "milestone_task_6", "milestone_task_11", CustomerAdvisorChanged} {
+		w, m := woman(kind), man(kind)
+		for _, want := range []string{"Su asesora: Carla Mendoza", "Correo de la asesora:", "Teléfono de la asesora:", "WhatsApp de la asesora:", "directamente a su asesora"} {
+			if !strings.Contains(w.Text, want) && !strings.Contains(w.HTML, want) {
+				t.Errorf("%s with a woman as advisor: expected %q:\n%s", kind, want, w.Text)
+			}
+		}
+		if !strings.Contains(w.HTML, ">Su asesora</div>") {
+			t.Errorf("%s: the card label must say \"Su asesora\"", kind)
+		}
+		if strings.Contains(m.Text, "asesora") || strings.Contains(m.HTML, "asesora") {
+			t.Errorf("%s with a man as advisor must not say \"asesora\"", kind)
+		}
+	}
+	if !strings.Contains(woman("milestone_task_11").Text, "su asesora está a su disposición") {
+		t.Fatal("the advisor in a sentence agrees too")
+	}
+	if !strings.Contains(woman(CustomerAdvisorChanged).HTML, "su nueva asesora") { // in the preview line
+		t.Fatal("\"nuevo\" becomes \"nueva\" with the advisor")
+	}
+	if !strings.Contains(woman(SaleUnassigned).Text, "Nueva asesora: Carla Mendoza") {
+		t.Fatal("the label of the employee email agrees as well")
 	}
 }
 
@@ -412,6 +487,9 @@ func TestTheActivationEmailCarriesALinkThatWorks(t *testing.T) {
 	if !strings.Contains(sent[0].Body, "http://app.test/activate-account?token=") || !strings.Contains(sent[0].Body, "Su usuario de ingreso: DNI ") {
 		t.Fatalf("an employee's link opens in the employee portal and names the login document:\n%s", sent[0].Body)
 	}
+	if !strings.Contains(sent[0].HTMLBody, "Bienvenida al equipo") {
+		t.Fatal("the new employee is a woman: the welcome must agree with her gender")
+	}
 	match := tokenIn.FindStringSubmatch(sent[0].Body)
 	if match == nil {
 		t.Fatalf("no link in %q", sent[0].Body)
@@ -495,35 +573,41 @@ func TestCustomerWelcomeEmailActivatesTheCustomer(t *testing.T) {
 		}
 		queue := func() error {
 			return database.WithTx(f.env.Ctx, f.env.Pool, func(tx pgx.Tx) error {
-				return f.writer.CustomerCreated(f.env.Ctx, tx, customerID, email)
+				return f.writer.CustomerActivation(f.env.Ctx, tx, customerID, email)
 			})
 		}
-		if err := queue(); err != nil {
+		if err := queue(); err != nil { // the welcome when the customer is created
 			t.Fatal(err)
 		}
-		if err := queue(); err != nil { // queued once per customer
+		if err := queue(); err != nil { // a resend
 			t.Fatal(err)
 		}
 		if _, err := f.disp.RunOnce(f.env.Ctx); err != nil {
 			t.Fatal(err)
 		}
 		sent := f.sender.to(email)
-		if len(sent) != 1 {
-			t.Fatalf("the welcome must be sent exactly once, got %d", len(sent))
+		if len(sent) != 2 {
+			t.Fatalf("the welcome and the resend must both be sent, got %d", len(sent))
 		}
-		greeting := map[bool]string{false: "Estimado(a) Lucía Quispe,", true: "Estimado(a) Hiro Tanaka,"}[organization]
-		if !strings.Contains(sent[0].Body, greeting) || sent[0].ReplyTo != "" {
-			t.Fatalf("expected %q in %q", greeting, sent[0].Body)
+		greeting := map[bool]string{
+			false: "Estimada Lucía Quispe,",
+			true:  "Estimado(a) Hiro Tanaka,",
+		}[organization] // an organization's contact has no recorded gender
+		if !strings.Contains(sent[1].Body, greeting) || sent[1].ReplyTo != "" {
+			t.Fatalf("expected %q in %q", greeting, sent[1].Body)
 		}
-		if !strings.Contains(sent[0].Body, "https://portal.test/activate-account?token=") ||
-			!strings.Contains(sent[0].Body, "Su usuario de ingreso: "+map[bool]string{false: "DNI", true: "RUC"}[organization]+" ") {
-			t.Fatalf("a customer's link opens in the customer portal and names the login document:\n%s", sent[0].Body)
+		if !strings.Contains(sent[1].Body, "https://portal.test/activate-account?token=") ||
+			!strings.Contains(sent[1].Body, "Su usuario de ingreso: "+map[bool]string{false: "DNI", true: "RUC"}[organization]+" ") {
+			t.Fatalf("a customer's link opens in the customer portal and names the login document:\n%s", sent[1].Body)
 		}
-		match := tokenIn.FindStringSubmatch(sent[0].Body)
-		if match == nil {
-			t.Fatalf("no link in %q", sent[0].Body)
+		oldLink, newLink := tokenIn.FindStringSubmatch(sent[0].Body), tokenIn.FindStringSubmatch(sent[1].Body)
+		if oldLink == nil || newLink == nil {
+			t.Fatalf("both emails need a link:\n%s\n%s", sent[0].Body, sent[1].Body)
 		}
-		account, err := f.env.Auth.Activate(f.env.Ctx, match[1], testkit.Password, auth.ClientInfo{})
+		if _, err := f.env.Auth.Activate(f.env.Ctx, oldLink[1], testkit.Password, auth.ClientInfo{}); err == nil {
+			t.Fatal("the link of the first email must stop working once the resend went out")
+		}
+		account, err := f.env.Auth.Activate(f.env.Ctx, newLink[1], testkit.Password, auth.ClientInfo{})
 		if err != nil || account != auth.AccountCustomer {
 			t.Fatalf("activate: %v (%q)", err, account)
 		}
@@ -531,7 +615,7 @@ func TestCustomerWelcomeEmailActivatesTheCustomer(t *testing.T) {
 		if err := f.env.Pool.QueryRow(f.env.Ctx, `SELECT portal_invited_at IS NOT NULL, password_hash IS NOT NULL AND activated_at IS NOT NULL FROM customers WHERE id = $1`, customerID).Scan(&invited, &activated); err != nil || !invited || !activated {
 			t.Fatalf("invited=%v activated=%v (%v)", invited, activated, err)
 		}
-		if _, err := f.env.Auth.Activate(f.env.Ctx, match[1], testkit.Password, auth.ClientInfo{}); err == nil {
+		if _, err := f.env.Auth.Activate(f.env.Ctx, newLink[1], testkit.Password, auth.ClientInfo{}); err == nil {
 			t.Fatal("the link is single use")
 		}
 	}
