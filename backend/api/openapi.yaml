@@ -685,6 +685,29 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /customers/{id}/resend-activation:
+    parameters:
+      - $ref: "#/components/parameters/CustomerId"
+    post:
+      tags: [Customers]
+      operationId: resendCustomerActivation
+      summary: Send the customer a new activation link (Admin, Manager)
+      description: >-
+        Only for customers who have not set a password yet. The email is queued and sent within moments; the
+        previous link stops working when the new one is sent. Customers who are inactive or already activated are
+        refused.
+      security:
+        - bearerAuth: []
+      responses:
+        "202":
+          description: Accepted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Accepted" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /customers/{id}/reactivate:
     parameters:
       - $ref: "#/components/parameters/CustomerId"
