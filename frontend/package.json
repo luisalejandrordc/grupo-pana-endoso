@@ -1,31 +1,32 @@
 {
-  "name": "endosoflow-employee-portal",
+  "name": "endosoflow-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview --host 0.0.0.0",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
-    "api:types": "openapi-typescript ../backend/api/openapi.yaml --default-non-nullable=false -o src/shared/api/schema.d.ts",
-    "api:types:check": "openapi-typescript ../backend/api/openapi.yaml --default-non-nullable=false -o /tmp/schema.check.d.ts && diff -q /tmp/schema.check.d.ts src/shared/api/schema.d.ts",
-    "test:integration": "INTEGRATION_API=1 VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://127.0.0.1:8080/api/v1} INTEGRATION_PASSWORD=${INTEGRATION_PASSWORD:-Demo-12345!} INTEGRATION_MANAGER=${INTEGRATION_MANAGER:-DNI:40123002} INTEGRATION_ADMIN=${INTEGRATION_ADMIN:-DNI:40123001} INTEGRATION_ADVISOR=${INTEGRATION_ADVISOR:-DNI:40123003} vitest run integration"
+  "description": "EndosoFlow frontends: the main web app, the customer portal, and the packages they share.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
   },
-  "dependencies": {
-    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
-    "@fontsource-variable/instrument-sans": "^5.3.0",
-    "@tanstack/react-query": "^5.105.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.6"
+  "scripts": {
+    "dev": "npm run dev:web",
+    "dev:web": "npm run dev -w @endosoflow/web",
+    "dev:portal": "npm run dev -w @endosoflow/portal",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build -w @endosoflow/web",
+    "build:portal": "npm run build -w @endosoflow/portal",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"{apps,packages}/*/src/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"{apps,packages}/*/src/**/*.{ts,tsx,css}\"",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "api:types": "npm run api:types -w @endosoflow/api",
+    "api:types:check": "npm run api:types:check -w @endosoflow/api"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

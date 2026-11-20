@@ -11,6 +11,7 @@ backend/bin/
 dist/
 coverage/
 build/
+*.tsbuildinfo
 
 # Local media and documents
 backend/var/

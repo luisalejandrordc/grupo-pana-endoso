@@ -1,0 +1,104 @@
+/* ==========================================================================
+   Design tokens — the single source of truth for the EndosoFlow look.
+   Components never hard-code a color, size or shadow: they read these variables.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- typography ---- */
+  --font-ui:
+    "Instrument Sans Variable", "Instrument Sans", system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-display:
+    "Bricolage Grotesque Variable", "Bricolage Grotesque", var(--font-ui);
+
+  --text-xs: 0.78rem; /* 12.5px */
+  --text-sm: 0.865rem; /* 13.8px */
+  --text-md: 0.9375rem; /* 15px   */
+  --text-lg: 1.0625rem; /* 17px   */
+  --text-xl: 1.25rem; /* 20px   */
+  --text-2xl: 1.5rem; /* 24px   */
+  --text-3xl: 1.875rem; /* 30px   */
+
+  /* ---- brand ---- */
+  --brand: #d2111a;
+  --brand-strong: #b00d15;
+  --brand-deep: #8a0a11;
+  --brand-wash: #fdecee;
+  --brand-line: #f4c4c8;
+
+  /* ---- ink and surfaces ---- */
+  --ink: #1b1c20;
+  --ink-2: #474a53;
+  --ink-3: #6b6f7a;
+  --ink-4: #9a9ea8;
+  --paper: #f2f3f5;
+  --surface: #ffffff;
+  --surface-2: #f7f8f9;
+  --surface-3: #eceef1;
+  --line: #e3e5e9;
+  --line-strong: #cdd1d8;
+
+  /* ---- status: done / doing / warn each have a wash, a line and a text color ---- */
+  --done: #167a4a;
+  --done-wash: #e5f4ec;
+  --done-line: #b9dfca;
+  --done-ink: #0f5a37;
+
+  --doing: #1f5fd0;
+  --doing-wash: #e8effc;
+  --doing-line: #c2d4f5;
+  --doing-ink: #174a9f;
+
+  --warn: #9a5b00;
+  --warn-wash: #fcf0d9;
+  --warn-line: #efd7a3;
+  --warn-ink: #6d4100;
+
+  --late-ink: #7c0d13;
+
+  /* ---- space (4px grid) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* ---- shape ---- */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* ---- elevation ---- */
+  --shadow-xs: 0 1px 1px rgb(20 22 28 / 4%);
+  --shadow: 0 1px 2px rgb(20 22 28 / 5%), 0 1px 1px rgb(20 22 28 / 3%);
+  --shadow-raised: 0 8px 22px rgb(20 22 28 / 9%), 0 1px 3px rgb(20 22 28 / 6%);
+  --shadow-pop: 0 12px 32px rgb(20 22 28 / 16%), 0 2px 6px rgb(20 22 28 / 8%);
+
+  /* ---- focus ---- */
+  --focus: #1f5fd0;
+  --ring: 0 0 0 3px rgb(27 28 32 / 12%);
+  --ring-danger: 0 0 0 3px rgb(210 17 26 / 16%);
+
+  /* ---- layout ---- */
+  --sidebar: 248px;
+  --topbar: 60px;
+  --page-max: 1320px;
+
+  /* ---- stacking ---- */
+  --z-sticky: 20;
+  --z-drawer: 40;
+  --z-modal: 60;
+  --z-popover: 70; /* menus are drawn on the page, so they must also sit above a dialog */
+  --z-toast: 80;
+
+  /* ---- motion ---- */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-1: 0.12s;
+  --dur-2: 0.2s;
+}

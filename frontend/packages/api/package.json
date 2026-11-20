@@ -1,0 +1,19 @@
+{
+  "name": "@endosoflow/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "EndosoFlow backend contract: generated OpenAPI types, the HTTP client core and the error and query helpers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "api:types": "openapi-typescript ../../../backend/api/openapi.yaml --default-non-nullable=false -o src/schema.d.ts",
+    "api:types:check": "openapi-typescript ../../../backend/api/openapi.yaml --default-non-nullable=false -o /tmp/schema.check.d.ts && diff -q /tmp/schema.check.d.ts src/schema.d.ts"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.105.0"
+  }
+}

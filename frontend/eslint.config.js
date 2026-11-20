@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "src/shared/api/schema.d.ts"] },
+  { ignores: ["**/dist", "**/node_modules", "packages/api/src/schema.d.ts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -33,4 +33,35 @@ export default tseslint.config(
       ],
     },
   },
+  // ---- the dependency rules of the workspace: apps → packages, never the other way, never sideways ----
+  boundary(
+    ["packages/ui/**/*.{ts,tsx}"],
+    ["@endosoflow/*"],
+    "The design system depends on no other EndosoFlow package.",
+  ),
+  boundary(
+    ["packages/api/**/*.{ts,tsx}"],
+    ["@endosoflow/*"],
+    "The API package depends on no other EndosoFlow package.",
+  ),
+  boundary(
+    ["apps/web/**/*.{ts,tsx}"],
+    ["@endosoflow/portal", "@endosoflow/portal/*"],
+    "Apps never import each other: move what they share into a package.",
+  ),
+  boundary(
+    ["apps/portal/**/*.{ts,tsx}"],
+    ["@endosoflow/web", "@endosoflow/web/*"],
+    "Apps never import each other: move what they share into a package.",
+  ),
 );
+
+/** Forbids importing the given packages from the given files. */
+function boundary(files, group, message) {
+  return {
+    files,
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [{ group, message }] }],
+    },
+  };
+}
