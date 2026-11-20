@@ -324,6 +324,30 @@ input[type="radio"] {
   }
 }
 
+/* ---- a checklist of what a value still needs ---- */
+
+.rule-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rule-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
+.rule-list .is-met {
+  color: var(--done);
+  font-weight: 550;
+}
+
 /* A phone has no "/" key, and filters sit two to a row. */
 @media (max-width: 900px) {
   .search kbd {

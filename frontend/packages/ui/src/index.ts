@@ -19,6 +19,8 @@ export * from "./components/Menu";
 export * from "./components/Modal";
 export * from "./components/PageHeader";
 export * from "./components/Pagination";
+export * from "./components/PasswordField";
+export * from "./components/RuleList";
 export * from "./components/SearchField";
 export * from "./components/Tabs";
 export * from "./components/ToastProvider";
