@@ -308,7 +308,7 @@ func progressHTML(ms []milestone) string {
 
 // html draws the call to action as a table cell, which survives clients that ignore styles on links.
 func (b button) html() string {
-	return fmt.Sprintf(`<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:10px 0 20px;"><tr>`+
+	return fmt.Sprintf(`<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:10px auto 20px;"><tr>`+
 		`<td align="center" bgcolor="%s" style="background:%s;border-radius:10px;">`+
 		`<a href="%s" target="_blank" style="display:inline-block;padding:14px 30px;font-family:%s;font-size:15px;font-weight:800;color:#ffffff;text-decoration:none;border-radius:10px;">%s</a>`+
 		`</td></tr></table>`, colorRed, colorRed, esc(b.url), fontStack, esc(b.label))
