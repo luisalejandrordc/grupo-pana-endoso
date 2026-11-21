@@ -120,8 +120,8 @@ export function CustomersPage({
                   <th>Cliente</th>
                   <th>Documento</th>
                   <th>Contacto</th>
-                  <th>Portal</th>
                   <th>Estado</th>
+                  <th>Activación</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,14 +233,14 @@ function CustomerRow({
           </span>
         </div>
       </td>
-      <td>
-        <Badge plain tone={customer.activatedAt ? "done" : "warn"}>
-          {customer.activatedAt ? "Activada" : "Pendiente"}
-        </Badge>
-      </td>
       <td className="cell-aside">
         <Badge tone={customer.isActive ? "done" : "neutral"}>
           {customer.isActive ? "Activo" : "Inactivo"}
+        </Badge>
+      </td>
+      <td>
+        <Badge plain tone={customer.activatedAt ? "done" : "warn"}>
+          {customer.activatedAt ? "Activada" : "Pendiente"}
         </Badge>
       </td>
     </tr>
