@@ -27,17 +27,12 @@ const customerColumns = `c.id, c.customer_type::text, c.document_type::text, c.d
 
 func scanCustomer(row pgx.Row) (*Customer, error) {
 	var c Customer
-	var activatedAt *time.Time
 	err := row.Scan(&c.ID, &c.CustomerType, &c.DocumentType, &c.DocumentNumber,
 		&c.FirstName, &c.LastName, &c.Gender, &c.LegalName, &c.DisplayName, &c.NameSource,
 		&c.Nationality, &c.Phone, &c.Email, &c.ContactFirstName, &c.ContactLastName, &c.ContactJobTitle,
-		&activatedAt, &c.IsActive, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+		&c.ActivatedAt, &c.IsActive, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		return nil, err
-	}
-	c.PortalStatus = "pending"
-	if activatedAt != nil {
-		c.PortalStatus = "active"
 	}
 	return &c, nil
 }

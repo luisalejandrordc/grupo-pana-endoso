@@ -48,8 +48,8 @@ func TestCreatePersonKeepsLeadingZerosNormalizesAndAudits(t *testing.T) {
 	if c.LegalName != nil || c.ContactFirstName != nil {
 		t.Fatalf("organization fields must be empty for a person: %+v", c)
 	}
-	if c.PortalStatus != "pending" || !c.IsActive || c.Version != 1 {
-		t.Fatalf("lifecycle = %s active=%v version=%d", c.PortalStatus, c.IsActive, c.Version)
+	if c.ActivatedAt != nil || !c.IsActive || c.Version != 1 {
+		t.Fatalf("not activated, active=%v, version=%d", c.IsActive, c.Version)
 	}
 	if e.countAudit(c.ID, "CREATED") != 1 {
 		t.Fatal("expected one CREATED audit entry")

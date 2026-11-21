@@ -472,43 +472,11 @@ func (s *Service) Activate(ctx context.Context, plainToken, password string, cli
 		if token.Owner.CustomerID != nil {
 			account = AccountCustomer
 			failure, err = s.activateCustomer(ctx, tx, token, password, client, now)
-			return err
+		} else {
+			account = AccountEmployee
+			failure, err = s.activateEmployee(ctx, tx, token, password, client, now)
 		}
-		// TODO: Create a activateEmployee(args) similar to activateCustomer
-		account = AccountEmployee
-		emp, err := findEmployeeByID(ctx, tx, *token.Owner.EmployeeID, true)
-		if err != nil {
-			return err
-		}
-		if emp == nil || !emp.IsActive || emp.ActivatedAt != nil {
-			failure = errInvalidLink
-			return nil
-		}
-		if problem := ValidatePassword(password, emp.DocumentNumber); problem != nil {
-			failure = problem // the link stays valid so the person can try another password
-			return nil
-		}
-		hash, err := HashPassword(password)
-		if err != nil {
-			return err
-		}
-		if err := setPassword(ctx, tx, emp.ID, hash, now); err != nil {
-			return err
-		}
-		if err := markAccountTokenUsed(ctx, tx, token.ID, now); err != nil {
-			return err
-		}
-		// Tell the person (and so warn them, should it not have been them). Queued in this transaction,
-		// so the news goes out if and only if the account really was activated.
-		if s.notifier != nil {
-			if err := s.notifier.EmployeeActivated(ctx, tx, emp.ID, emp.BusinessEmail); err != nil {
-				return err
-			}
-		}
-		return s.logAccess(ctx, tx, accessEntry{
-			EmployeeID: &emp.ID, DocType: emp.DocumentType,
-			DocNumber: emp.DocumentNumber, Action: "account_activated",
-		}, client, now)
+		return err
 	})
 	if err != nil {
 		return "", err
@@ -517,6 +485,40 @@ func (s *Service) Activate(ctx context.Context, plainToken, password string, cli
 		return "", failure
 	}
 	return account, nil
+}
+
+// activateEmployee is Activate for a link that belongs to an employee. It returns the problem to show the
+// caller (nil on success) separately from a database error.
+func (s *Service) activateEmployee(ctx context.Context, tx pgx.Tx, token *accountToken, password string, client ClientInfo, now time.Time) (*apperr.Error, error) {
+	emp, err := findEmployeeByID(ctx, tx, *token.Owner.EmployeeID, true)
+	if err != nil {
+		return nil, err
+	}
+	if emp == nil || !emp.IsActive || emp.ActivatedAt != nil {
+		return errInvalidLink, nil
+	}
+	if problem := ValidatePassword(password, emp.DocumentNumber); problem != nil {
+		return problem, nil
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	if err := setPassword(ctx, tx, emp.ID, hash, now); err != nil {
+		return nil, err
+	}
+	if err := markAccountTokenUsed(ctx, tx, token.ID, now); err != nil {
+		return nil, err
+	}
+	if s.notifier != nil {
+		if err := s.notifier.EmployeeActivated(ctx, tx, emp.ID, emp.BusinessEmail); err != nil {
+			return nil, err
+		}
+	}
+	return nil, s.logAccess(ctx, tx, accessEntry{
+		EmployeeID: &emp.ID, DocType: emp.DocumentType,
+		DocNumber: emp.DocumentNumber, Action: "account_activated",
+	}, client, now)
 }
 
 // activateCustomer is Activate for a link that belongs to a customer. It returns the problem to show the
