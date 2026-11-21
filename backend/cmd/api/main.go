@@ -48,10 +48,11 @@ func run() error {
 	defer pool.Close()
 
 	sender, delivers := newMailer(cfg, logger)
-	notificationWriter := notifications.Writer{}
+	wake := notifications.NewWaker()
+	notificationWriter := notifications.Writer{Waker: wake}
 
 	authService := auth.NewService(auth.Deps{
-		DB: pool, JWTSecret: cfg.JWTSecret, AppBaseURL: cfg.AppBaseURL, Mail: sender, Logger: logger,
+		DB: pool, JWTSecret: cfg.JWTSecret, AppBaseURL: cfg.AppBaseURL, PortalBaseURL: cfg.PortalBaseURL, Notifier: notificationWriter, Logger: logger,
 	})
 	authHandler := auth.NewHandler(authService, logger, auth.HandlerConfig{
 		AppBaseURL: cfg.AppBaseURL, CookieSecure: cfg.CookieSecure, TrustProxy: cfg.TrustProxy,
@@ -71,7 +72,7 @@ func run() error {
 	} else {
 		logger.Warn("CODART_TOKEN is not set: automatic DNI/RUC name lookup is off")
 	}
-	customersService := customers.NewService(customers.Deps{DB: pool, Identity: identity, Logger: logger})
+	customersService := customers.NewService(customers.Deps{DB: pool, Activation: authService, Identity: identity, Logger: logger})
 	customersHandler := customers.NewHandler(customersService, authHandler, logger)
 
 	// Object storage: public catalog images and private documents and photos, each in its own bucket.
@@ -112,7 +113,7 @@ func run() error {
 	// Background work: the notification dispatcher and the retry of failed file deletions.
 	jobsCtx, stopJobs := context.WithCancel(context.Background())
 	defer stopJobs()
-	waitForJobs := startJobs(jobsCtx, cfg, pool, st, mailer{Sender: sender, delivers: delivers}, logger)
+	waitForJobs := startJobs(jobsCtx, cfg, pool, st, mailer{Sender: sender, delivers: delivers}, authService, wake, logger)
 
 	serverErr := make(chan error, 1)
 	go func() {
@@ -133,7 +134,6 @@ func run() error {
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("graceful shutdown: %w", err)
 		}
-		authService.WaitForBackgroundWork()
 		stopJobs()
 		waitForJobs()
 		return nil

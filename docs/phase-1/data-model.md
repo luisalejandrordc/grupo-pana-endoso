@@ -129,7 +129,7 @@ A model is available for new sales only when the model, the chosen version and t
 
 **`customers`**
 
-- Columns: `id`, `customer_type`, `document_type`, `document_number`, `first_name`, `last_name`, `gender`, `legal_name`, `display_name` (generated column for search), `name_source`, `nationality`, `phone`, `email` (required, not unique), `contact_first_name`, `contact_last_name`, `contact_job_title`, `password_hash` (nullable), `portal_invited_at`, `activated_at`, `failed_login_count`, `locked_until`, lifecycle, `row_version`, provenance.
+- Columns: `id`, `customer_type`, `document_type`, `document_number`, `first_name`, `last_name`, `gender`, `legal_name`, `display_name` (generated column for search), `name_source`, `nationality`, `phone`, `email` (required, not unique), `contact_first_name`, `contact_last_name`, `contact_job_title`, `password_hash` (nullable), `activated_at`, `failed_login_count`, `locked_until`, lifecycle, `row_version`, provenance.
 - Constraints: unique on `(document_type, document_number)`; a CHECK on shape: _Diplomático_ needs first name, last name and gender, forbids legal name and contact fields, and allows DNI, CE, PAS or CDI; every other type needs legal name and the three contact fields, forbids the personal name fields, and requires RUC; format CHECKs: DNI 8 digits, RUC 11 digits, CE 9 alphanumeric, PAS 6–12, CDI 8–12.
 - Indexes: `created_by` (advisor scope), trigram on the normalized name, `(is_active)`.
 
@@ -232,7 +232,7 @@ A model is available for new sales only when the model, the chosen version and t
 **`notification_logs`** — transactional outbox
 
 - Columns: `id`, `notification_type`, `sale_id` and `task_instance_id` (nullable, `SET NULL`), `recipient_employee_id` or `recipient_customer_id` (at most one), `recipient_email`, `dedupe_key` (unique), `status`, `attempt_count`, `last_error`, `created_at`, `dispatched_at`.
-- Types: customer_account_created, sale_created, one milestone type for each of Tasks 1, 3, 6, 7, 10, 11 and 13, customer_advisor_changed (to the customer), sale_assigned (to the advisor who receives a sale, whether it is created for them or reassigned) and sale_unassigned (to the previous advisor),
+- Types: customer_activation, sale_created, one milestone type for each of Tasks 1, 3, 6, 7, 10, 11 and 13, customer_advisor_changed (to the customer), sale_assigned (to the advisor who receives a sale, whether it is created for them or reassigned) and sale_unassigned (to the previous advisor),
 - Dedupe keys: sale plus event for customer notices; reassignment adds the new advisor and a sequence number; reminders add the task and the reminder number.
 - Flow: the row is inserted as `pending` in the same transaction as the business change, the sender claims it, sends, and marks it `sent` or `failed`; the hourly job retries failed rows.
 - Indexes: unique `dedupe_key`, `(status, created_at)`, `(sale_id)`.

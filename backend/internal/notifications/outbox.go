@@ -12,13 +12,30 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Notification types accepted by the notification_type enum that sales and tasks produce.
+// Notification types accepted by the notification_type enum.
 const (
 	SaleCreated            = "sale_created"
 	SaleAssigned           = "sale_assigned"
 	SaleUnassigned         = "sale_unassigned"
 	CustomerAdvisorChanged = "customer_advisor_changed"
+	EmployeeActivation     = "employee_activation"
+	EmployeeActivated      = "employee_activated"
+	PasswordReset          = "password_reset"
+	CustomerActivation     = "customer_activation"
+	CustomerActivated      = "customer_activated"
 )
+
+// needsLink says whether a notification type carries a single-use account link, which the dispatcher mints when
+// it sends.
+func needsLink(kind string) bool {
+	return kind == EmployeeActivation || kind == PasswordReset || kind == CustomerActivation
+}
+
+// isAccountEmail says whether a notification type is about an account rather than a sale: the recipient's own
+// data is all it needs.
+func isAccountEmail(kind string) bool {
+	return needsLink(kind) || kind == EmployeeActivated || kind == CustomerActivated
+}
 
 // MilestoneTaskType returns the notification type sent when a milestone task completes, or "" for the tasks
 // that do not notify the customer (2, 4, 5, 8, 9, 12).

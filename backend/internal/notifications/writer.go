@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"context"
+	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/ids"
 	"endosoflow/internal/sales"
 	"endosoflow/internal/tasks"
@@ -12,8 +13,22 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Writer translates sales and task events into transactional notification outbox entries.
-type Writer struct{}
+// Writer translates business events into transactional notification outbox entries.
+//
+// Every entry is written inside the caller's transaction. When the Writer has a Waker, the dispatcher is woken
+// after that transaction commits, otherwise it only finds new notifications on its periodic look.
+type Writer struct {
+	Waker *Waker
+}
+
+// enqueue writes the notification and arranges for the dispatcher to be woken once q's transaction commits.
+func (w Writer) enqueue(ctx context.Context, q execer, n Notification) error {
+	if err := Enqueue(ctx, q, n); err != nil {
+		return err
+	}
+	database.AfterCommit(q, w.Waker.Wake)
+	return nil
+}
 
 type recipient struct {
 	ID    uuid.UUID
@@ -47,7 +62,7 @@ func employeeOf(ctx context.Context, q tasks.Querier, employeeID uuid.UUID) (rec
 }
 
 // TaskCompleted queues a customer notification when a milestone task is completed.
-func (Writer) TaskCompleted(ctx context.Context, q tasks.Querier, saleID uuid.UUID,
+func (w Writer) TaskCompleted(ctx context.Context, q tasks.Querier, saleID uuid.UUID,
 	taskID uuid.UUID, taskNumber int,
 ) error {
 	kind := MilestoneTaskType(taskNumber)
@@ -58,7 +73,7 @@ func (Writer) TaskCompleted(ctx context.Context, q tasks.Querier, saleID uuid.UU
 	if err != nil {
 		return err
 	}
-	return Enqueue(ctx, q, Notification{
+	return w.enqueue(ctx, q, Notification{
 		Type:       kind,
 		DedupeKey:  kind + ":" + saleID.String(),
 		SaleID:     &saleID,
@@ -70,14 +85,14 @@ func (Writer) TaskCompleted(ctx context.Context, q tasks.Querier, saleID uuid.UU
 
 // SaleCreated queues the customer notification and, when the sale
 // was assigned to another advisor, the advisor notification.
-func (Writer) SaleCreated(ctx context.Context, q tasks.Querier, saleID uuid.UUID,
+func (w Writer) SaleCreated(ctx context.Context, q tasks.Querier, saleID uuid.UUID,
 	advisorID uuid.UUID, createdBy uuid.UUID,
 ) error {
 	customer, err := customerOf(ctx, q, saleID)
 	if err != nil {
 		return err
 	}
-	if err := Enqueue(ctx, q, Notification{
+	if err := w.enqueue(ctx, q, Notification{
 		Type:       SaleCreated,
 		DedupeKey:  SaleCreated + ":" + saleID.String(),
 		SaleID:     &saleID,
@@ -97,7 +112,7 @@ func (Writer) SaleCreated(ctx context.Context, q tasks.Querier, saleID uuid.UUID
 	if !found {
 		return fmt.Errorf("assigned advisor %s not found", advisorID)
 	}
-	return Enqueue(ctx, q, Notification{
+	return w.enqueue(ctx, q, Notification{
 		Type:       SaleAssigned,
 		DedupeKey:  SaleAssigned + ":" + saleID.String() + ":" + advisorID.String(),
 		SaleID:     &saleID,
@@ -106,9 +121,8 @@ func (Writer) SaleCreated(ctx context.Context, q tasks.Querier, saleID uuid.UUID
 	})
 }
 
-// AdvisorChanged queues notifications for the customer,
-// the new advisor, and the previous advisor.
-func (Writer) AdvisorChanged(ctx context.Context, q tasks.Querier, saleID uuid.UUID,
+// AdvisorChanged queues notifications for the customer, the new advisor, and the previous advisor.
+func (w Writer) AdvisorChanged(ctx context.Context, q tasks.Querier, saleID uuid.UUID,
 	previous uuid.UUID, next uuid.UUID,
 ) error {
 	customer, err := customerOf(ctx, q, saleID)
@@ -117,7 +131,7 @@ func (Writer) AdvisorChanged(ctx context.Context, q tasks.Querier, saleID uuid.U
 	}
 	// Each change gets its own key, so reassigning back and forth notifies every time.
 	stamp := ids.New().String()
-	if err := Enqueue(ctx, q, Notification{
+	if err := w.enqueue(ctx, q, Notification{
 		Type:       CustomerAdvisorChanged,
 		DedupeKey:  "advisor_changed:" + saleID.String() + ":" + stamp,
 		SaleID:     &saleID,
@@ -132,7 +146,7 @@ func (Writer) AdvisorChanged(ctx context.Context, q tasks.Querier, saleID uuid.U
 		return err
 	}
 	if found {
-		if err := Enqueue(ctx, q, Notification{
+		if err := w.enqueue(ctx, q, Notification{
 			Type:       SaleAssigned,
 			DedupeKey:  "sale_assigned:" + saleID.String() + ":" + stamp,
 			SaleID:     &saleID,
@@ -148,7 +162,7 @@ func (Writer) AdvisorChanged(ctx context.Context, q tasks.Querier, saleID uuid.U
 		return err
 	}
 	if found {
-		return Enqueue(ctx, q, Notification{
+		return w.enqueue(ctx, q, Notification{
 			Type:       SaleUnassigned,
 			DedupeKey:  "sale_unassigned:" + saleID.String() + ":" + stamp,
 			SaleID:     &saleID,
@@ -157,6 +171,55 @@ func (Writer) AdvisorChanged(ctx context.Context, q tasks.Querier, saleID uuid.U
 		})
 	}
 	return nil
+}
+
+// EmployeeActivation queues the activation email of an employee (also used to resend it). The link is minted
+// by the dispatcher when it sends, so each call gets its own dedupe key and a resend always goes out.
+func (w Writer) EmployeeActivation(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error {
+	return w.enqueue(ctx, tx, Notification{
+		Type:       EmployeeActivation,
+		DedupeKey:  EmployeeActivation + ":" + employeeID.String() + ":" + ids.New().String(),
+		EmployeeID: &employeeID,
+		Email:      email,
+	})
+}
+
+// PasswordReset queues a password reset email for an employee.
+func (w Writer) PasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error {
+	return w.enqueue(ctx, tx, Notification{
+		Type:       PasswordReset,
+		DedupeKey:  PasswordReset + ":" + employeeID.String() + ":" + ids.New().String(),
+		EmployeeID: &employeeID,
+		Email:      email,
+	})
+}
+
+// CustomerActivation queues the welcome and activation email of a customer, the equivalent of EmployeeActivation.
+// It is used when the customer is created and again to resend it, so each call gets its own dedupe key.
+func (w Writer) CustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error {
+	return w.enqueue(ctx, tx, Notification{
+		Type:       CustomerActivation,
+		DedupeKey:  CustomerActivation + ":" + customerID.String() + ":" + ids.New().String(),
+		CustomerID: &customerID,
+		Email:      email,
+	})
+}
+
+// EmployeeActivated queues the confirmation that an employee's account is now active. An account is activated once,
+// so the dedupe key makes a repeated call a no-op.
+func (w Writer) EmployeeActivated(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error {
+	return w.enqueue(ctx, tx, Notification{
+		Type: EmployeeActivated, DedupeKey: EmployeeActivated + ":" + employeeID.String(),
+		EmployeeID: &employeeID, Email: email,
+	})
+}
+
+// CustomerActivated queues the confirmation that a customer's account is now active.
+func (w Writer) CustomerActivated(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error {
+	return w.enqueue(ctx, tx, Notification{
+		Type: CustomerActivated, DedupeKey: CustomerActivated + ":" + customerID.String(),
+		CustomerID: &customerID, Email: email,
+	})
 }
 
 // Compile-time interface checks.

@@ -46,6 +46,7 @@ func (h *Handler) Mount(r chi.Router) {
 			r.Patch("/{id}", h.update)
 			r.With(management).Post("/{id}/deactivate", h.deactivate)
 			r.With(management).Post("/{id}/reactivate", h.reactivate)
+			r.With(management).Post("/{id}/resend-activation", h.resendActivation)
 			r.With(adminOnly).Delete("/{id}", h.delete)
 		})
 	})
@@ -167,6 +168,19 @@ func (h *Handler) deactivate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, customer)
+}
+
+func (h *Handler) resendActivation(w http.ResponseWriter, r *http.Request) {
+	id, ok := h.customerID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.svc.ResendActivation(r.Context(), h.actor(r), id); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	// Accepted, not "done": the email is queued and sent within moments.
+	httpx.WriteJSON(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }
 
 func (h *Handler) reactivate(w http.ResponseWriter, r *http.Request) {

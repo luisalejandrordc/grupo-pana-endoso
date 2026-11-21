@@ -163,38 +163,52 @@ const (
 	purposePasswordReset = "password_reset"
 )
 
-type accountToken struct {
-	ID         uuid.UUID
-	EmployeeID uuid.UUID
-	Purpose    string
-	ExpiresAt  time.Time
-	UsedAt     *time.Time
-	RevokedAt  *time.Time
+// accountOwner is who an account token belongs to: exactly one of the two is set.
+type accountOwner struct {
+	EmployeeID *uuid.UUID
+	CustomerID *uuid.UUID
 }
 
-func insertAccountToken(ctx context.Context, q querier, id, employeeID uuid.UUID, purpose, tokenHash string,
-	expiresAt time.Time, createdBy *uuid.UUID, now time.Time,
+func (o accountOwner) id() uuid.UUID {
+	if o.EmployeeID != nil {
+		return *o.EmployeeID
+	}
+	return *o.CustomerID
+}
+
+type accountToken struct {
+	ID        uuid.UUID
+	Owner     accountOwner
+	Purpose   string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	RevokedAt *time.Time
+}
+
+func insertAccountToken(ctx context.Context, q querier, id uuid.UUID, owner accountOwner, purpose,
+	tokenHash string, expiresAt time.Time, createdBy *uuid.UUID, now time.Time,
 ) error {
 	_, err := q.Exec(ctx, `INSERT INTO account_tokens
-		(id, purpose, employee_id, token_hash, expires_at, created_by, created_at)
-		VALUES ($1, $2::text::token_purpose, $3, $4, $5, $6, $7)`,
-		id, purpose, employeeID, tokenHash, expiresAt, createdBy, now)
+		(id, purpose, employee_id, customer_id, token_hash, expires_at, created_by, created_at)
+		VALUES ($1, $2::text::token_purpose, $3, $4, $5, $6, $7, $8)`,
+		id, purpose, owner.EmployeeID, owner.CustomerID, tokenHash, expiresAt, createdBy, now)
 	return err
 }
 
-func revokeOpenAccountTokens(ctx context.Context, q querier, employeeID uuid.UUID, purpose string, now time.Time) error {
+// revokeOpenAccountTokens cancels the unused links of one purpose.
+func revokeOpenAccountTokens(ctx context.Context, q querier, ownerID uuid.UUID, purpose string, now time.Time) error {
 	_, err := q.Exec(ctx, `UPDATE account_tokens SET revoked_at = $3
-		WHERE employee_id = $1 AND purpose = $2::text::token_purpose
-		  AND used_at IS NULL AND revoked_at IS NULL`, employeeID, purpose, now)
+		WHERE (employee_id = $1 OR customer_id = $1) AND purpose = $2::text::token_purpose
+		  AND used_at IS NULL AND revoked_at IS NULL`, ownerID, purpose, now)
 	return err
 }
 
-// findAccountTokenByHash returns (nil, nil) when no employee link matches.
+// findAccountTokenByHash returns (nil, nil) when no link matches. The link may belong to an employee or a customer.
 func findAccountTokenByHash(ctx context.Context, q querier, tokenHash string) (*accountToken, error) {
 	var t accountToken
-	err := q.QueryRow(ctx, `SELECT id, employee_id, purpose::text, expires_at, used_at, revoked_at
-		FROM account_tokens WHERE token_hash = $1 AND employee_id IS NOT NULL FOR UPDATE`, tokenHash).
-		Scan(&t.ID, &t.EmployeeID, &t.Purpose, &t.ExpiresAt, &t.UsedAt, &t.RevokedAt)
+	err := q.QueryRow(ctx, `SELECT id, employee_id, customer_id, purpose::text, expires_at, used_at, revoked_at
+		FROM account_tokens WHERE token_hash = $1 FOR UPDATE`, tokenHash).
+		Scan(&t.ID, &t.Owner.EmployeeID, &t.Owner.CustomerID, &t.Purpose, &t.ExpiresAt, &t.UsedAt, &t.RevokedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -209,10 +223,49 @@ func markAccountTokenUsed(ctx context.Context, q querier, id uuid.UUID, now time
 	return err
 }
 
-func latestAccountTokenCreatedAt(ctx context.Context, q querier, employeeID uuid.UUID, purpose string) (*time.Time, error) {
+// ---- customers (only what their activation link needs) -----------------------------------------
+
+// customerRecord is the part of a customer that activation needs.
+type customerRecord struct {
+	ID             uuid.UUID
+	Email          string
+	DocumentNumber string
+	IsActive       bool
+	ActivatedAt    *time.Time
+}
+
+// findCustomerByID returns (nil, nil) when the customer does not exist.
+func findCustomerByID(ctx context.Context, q querier, id uuid.UUID, forUpdate bool) (*customerRecord, error) {
+	sql := `SELECT id, email, document_number, is_active, activated_at FROM customers WHERE id = $1`
+	if forUpdate {
+		sql += ` FOR UPDATE`
+	}
+	var c customerRecord
+	err := q.QueryRow(ctx, sql, id).Scan(&c.ID, &c.Email, &c.DocumentNumber, &c.IsActive, &c.ActivatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// setCustomerPassword stores a customer's first password and clears the lockout.
+func setCustomerPassword(ctx context.Context, q querier, id uuid.UUID, hash string, now time.Time) error {
+	_, err := q.Exec(ctx, `UPDATE customers
+		SET password_hash = $2, activated_at = COALESCE(activated_at, $3),
+			failed_login_count = 0, first_failed_login_at = NULL, locked_until = NULL, updated_at = $3
+		WHERE id = $1`, id, hash, now)
+	return err
+}
+
+// latestPasswordResetQueuedAt tells when the last reset email was queued for an employee, which is what the
+// once-a-minute limit counts from.
+func latestPasswordResetQueuedAt(ctx context.Context, q querier, employeeID uuid.UUID) (*time.Time, error) {
 	var latest *time.Time
-	err := q.QueryRow(ctx, `SELECT max(created_at) FROM account_tokens
-		WHERE employee_id = $1 AND purpose = $2::text::token_purpose`, employeeID, purpose).Scan(&latest)
+	err := q.QueryRow(ctx, `SELECT max(created_at) FROM notification_logs
+		WHERE recipient_employee_id = $1 AND notification_type = 'password_reset'`, employeeID).Scan(&latest)
 	return latest, err
 }
 
@@ -221,6 +274,7 @@ func latestAccountTokenCreatedAt(ctx context.Context, q querier, employeeID uuid
 type accessLogRow struct {
 	ID             uuid.UUID
 	EmployeeID     *uuid.UUID
+	CustomerID     *uuid.UUID
 	DocumentType   string
 	DocumentNumber string
 	Action         string
@@ -231,13 +285,17 @@ type accessLogRow struct {
 }
 
 func insertAccessLog(ctx context.Context, q querier, row accessLogRow) error {
+	account := "employee"
+	if row.CustomerID != nil {
+		account = "customer"
+	}
 	_, err := q.Exec(ctx, `INSERT INTO access_logs
-		(id, account_type, employee_id, attempted_document_type, attempted_document_number,
+		(id, account_type, employee_id, customer_id, attempted_document_type, attempted_document_number,
 		 action_type, failure_reason, device_info, ip_address, created_at)
-		VALUES ($1, 'employee', $2, $3, $4, $5::text::access_action,
-				$6::text::access_failure_reason, $7, $8, $9)`,
-		row.ID, row.EmployeeID, nilIfEmpty(row.DocumentType), nilIfEmpty(row.DocumentNumber), row.Action,
-		nilIfEmpty(row.FailureReason), nilIfEmpty(row.DeviceInfo), nilIfEmpty(row.IP), row.CreatedAt)
+		VALUES ($1, $2::text::account_type, $3, $4, $5, $6, $7::text::access_action,
+				$8::text::access_failure_reason, $9, $10, $11)`,
+		row.ID, account, row.EmployeeID, row.CustomerID, nilIfEmpty(row.DocumentType), nilIfEmpty(row.DocumentNumber),
+		row.Action, nilIfEmpty(row.FailureReason), nilIfEmpty(row.DeviceInfo), nilIfEmpty(row.IP), row.CreatedAt)
 	return err
 }
 

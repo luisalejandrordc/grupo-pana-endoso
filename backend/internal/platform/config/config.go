@@ -14,8 +14,9 @@ import (
 // Config holds every setting the API needs. It is built once at startup.
 type Config struct {
 	// Application
-	Env        string // local, test, staging or production
-	AppBaseURL string
+	Env           string // local, test, staging or production
+	AppBaseURL    string // employee site
+	PortalBaseURL string // customer site
 
 	// HTTP server
 	HTTPAddr        string
@@ -66,6 +67,7 @@ type Config struct {
 	MailAppsScriptSecret  string
 	MailAllowedRecipients []string      // allowed emails or domains; required in staging
 	MailDispatchInterval  time.Duration // notification dispatch interval
+	MailLogoURL           string        // public address of the logo shown in the email header
 }
 
 // R2Configured reports whether Cloudflare R2 should be used.
@@ -126,13 +128,28 @@ func Load(getenv func(string) string) (Config, error) {
 		problems = append(problems, "JWT_SECRET is required and must be at least 32 characters")
 	}
 
-	cfg.AppBaseURL = strings.TrimRight(getenv("APP_BASE_URL"), "/")
+	cfg.AppBaseURL = strings.TrimRight(strings.TrimSpace(getenv("APP_BASE_URL")), "/")
 	if cfg.AppBaseURL == "" {
 		if cfg.Env == "local" {
 			cfg.AppBaseURL = "http://localhost:5173"
 		} else {
 			problems = append(problems, "APP_BASE_URL is required outside local development (emailed links use it)")
 		}
+	} else if u, err := url.Parse(cfg.AppBaseURL); err != nil || u.Host == "" || u.Path != "" || (u.Scheme != "https" && !(u.Scheme == "http" && cfg.Env == "local")) {
+		problems = append(problems,
+			"APP_BASE_URL must be a site address without a path like https://app.endosoflow.com")
+	}
+
+	cfg.PortalBaseURL = strings.TrimRight(strings.TrimSpace(getenv("PORTAL_BASE_URL")), "/")
+	if cfg.PortalBaseURL == "" {
+		if cfg.Env == "local" {
+			cfg.PortalBaseURL = "http://localhost:5174"
+		} else {
+			problems = append(problems, "PORTAL_BASE_URL is required outside local development (emailed links use it)")
+		}
+	} else if u, err := url.Parse(cfg.PortalBaseURL); err != nil || u.Host == "" || u.Path != "" || (u.Scheme != "https" && !(u.Scheme == "http" && cfg.Env == "local")) {
+		problems = append(problems,
+			"PORTAL_BASE_URL must be a site address without a path like https://portal.endosoflow.com")
 	}
 
 	cfg.CookieSecure = cfg.Env == "staging" || cfg.Env == "production"
@@ -224,6 +241,10 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if cfg.MailAppsScriptURL != "" && cfg.Env == "staging" && len(cfg.MailAllowedRecipients) == 0 {
 		problems = append(problems, "MAIL_ALLOWED_RECIPIENTS is required in staging when email is configured (addresses or @domains, comma separated)")
+	}
+	cfg.MailLogoURL = strings.TrimSpace(valueOr(getenv("MAIL_LOGO_URL"), cfg.PortalBaseURL+"/endosoflow-logo-landscape.png"))
+	if u, err := url.Parse(cfg.MailLogoURL); err != nil || u.Host == "" || (u.Scheme != "https" && !(u.Scheme == "http" && cfg.Env == "local")) {
+		problems = append(problems, "MAIL_LOGO_URL must be a public https address (mail clients cannot load images from localhost)")
 	}
 	intervalText := valueOr(getenv("MAIL_DISPATCH_INTERVAL"), "15s")
 	interval, err := time.ParseDuration(intervalText)

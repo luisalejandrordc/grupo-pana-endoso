@@ -40,13 +40,17 @@ const storageRetryEvery = 10 * time.Minute
 // startJobs starts the background work of the process and returns a function that waits for it to stop. The
 // jobs end when ctx is cancelled; each finishes the item it is working on first.
 //
-//   - The notification dispatcher sends queued emails (only when a delivery service is configured).
+//   - The notification dispatcher sends queued emails (only when a delivery service is configured): at once
+//     when woken by a newly queued notification, and otherwise every MAIL_DISPATCH_INTERVAL.
 //   - The storage retry removes files whose deletion failed the first time.
-func startJobs(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, st stores, sender mailer, logger *slog.Logger) (wait func()) {
+func startJobs(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, st stores, sender mailer,
+	links notifications.LinkIssuer, wake *notifications.Waker, logger *slog.Logger,
+) (wait func()) {
 	var wg sync.WaitGroup
 	if sender.delivers {
 		dispatcher := notifications.NewDispatcher(notifications.DispatcherDeps{
-			DB: pool, Sender: sender.Sender, AppBaseURL: cfg.AppBaseURL, Logger: logger,
+			DB: pool, Sender: sender.Sender, Links: links, Wake: wake, AppBaseURL: cfg.AppBaseURL,
+			PortalBaseURL: cfg.PortalBaseURL, LogoURL: cfg.MailLogoURL, Logger: logger,
 		})
 		wg.Add(1)
 		go func() {

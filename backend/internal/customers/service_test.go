@@ -1,10 +1,12 @@
 package customers
 
 import (
+	"context"
 	"encoding/json"
 	"endosoflow/internal/adapters/codart"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/ids"
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func testDSN(t *testing.T) string {
@@ -45,8 +48,8 @@ func TestCreatePersonKeepsLeadingZerosNormalizesAndAudits(t *testing.T) {
 	if c.LegalName != nil || c.ContactFirstName != nil {
 		t.Fatalf("organization fields must be empty for a person: %+v", c)
 	}
-	if c.PortalStatus != "not_invited" || !c.IsActive || c.Version != 1 {
-		t.Fatalf("lifecycle = %s active=%v version=%d", c.PortalStatus, c.IsActive, c.Version)
+	if c.ActivatedAt != nil || !c.IsActive || c.Version != 1 {
+		t.Fatalf("not activated, active=%v, version=%d", c.IsActive, c.Version)
 	}
 	if e.countAudit(c.ID, "CREATED") != 1 {
 		t.Fatal("expected one CREATED audit entry")
@@ -722,4 +725,101 @@ func TestQuotaPeriodUsesTheLimaMonth(t *testing.T) {
 	if start.Format("2006-01-02") != "2026-10-01" {
 		t.Fatalf("start = %v", start)
 	}
+}
+
+// failingQueuer makes queueing the activation email fail.
+type failingQueuer struct{}
+
+func (failingQueuer) QueueCustomerActivation(context.Context, pgx.Tx, uuid.UUID) error {
+	return errors.New("queue unavailable")
+}
+
+func TestCreateQueuesTheActivationEmailAndDeleteCleansItUp(t *testing.T) {
+	e := newTestEnv(t)
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+
+	c := e.createCustomer(admin.actor(), person())
+	if e.queue.count() != 1 || e.queue.calls[0] != c.Email {
+		t.Fatalf("expected the activation email queued to %q, got %v", c.Email, e.queue.calls)
+	}
+	var queued int
+	if err := e.pool.QueryRow(e.ctx, `SELECT count(*) FROM notification_logs WHERE recipient_customer_id = $1`, c.ID).Scan(&queued); err != nil || queued != 1 {
+		t.Fatalf("queued rows: %d (%v)", queued, err)
+	}
+
+	// The dispatcher mints an activation link when it sends; the customer must still be deletable afterwards.
+	if _, err := e.pool.Exec(e.ctx, `INSERT INTO account_tokens (purpose, customer_id, token_hash, expires_at)
+		VALUES ('activation', $1, $2, now() + interval '1 hour')`, c.ID, "hash-"+ids.NewString()); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.Delete(e.ctx, admin.actor(), c.ID, "Creado por error"); err != nil {
+		t.Fatalf("a customer with an activation email and a link must be deletable: %v", err)
+	}
+	if err := e.pool.QueryRow(e.ctx, `SELECT count(*) FROM notification_logs WHERE recipient_customer_id = $1`, c.ID).Scan(&queued); err != nil || queued != 0 {
+		t.Fatalf("the queued email must go with the customer (%d, %v)", queued, err)
+	}
+}
+
+func TestAFailingQueueRollsBackTheCustomer(t *testing.T) {
+	e := newTestEnv(t, func(d *Deps) { d.Activation = failingQueuer{} })
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+	in := person()
+	if _, err := e.svc.Create(e.ctx, admin.actor(), in); err == nil {
+		t.Fatal("expected the creation to fail")
+	}
+	var n int
+	_ = e.pool.QueryRow(e.ctx, `SELECT count(*) FROM customers WHERE document_number = $1`, in.DocumentNumber).Scan(&n)
+	if n != 0 {
+		t.Fatal("the customer must not exist when its email could not be queued")
+	}
+}
+
+func TestResendActivationQueuesANewEmailForManagersAndAdminsOnly(t *testing.T) {
+	e := newTestEnv(t)
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+	manager := e.insertEmployee(auth.RoleSalesManager, "")
+	advisor := e.insertEmployee(auth.RoleSalesAdvisor, "")
+	c := e.createCustomer(admin.actor(), person())
+
+	for _, who := range []testEmployee{admin, manager} {
+		before := e.queue.count()
+		if err := e.svc.ResendActivation(e.ctx, who.actor(), c.ID); err != nil {
+			t.Fatalf("%s must be able to resend: %v", who.Role, err)
+		}
+		if e.queue.count() != before+1 {
+			t.Fatalf("%s: a resend must queue a new email", who.Role)
+		}
+	}
+	var queued int
+	_ = e.pool.QueryRow(e.ctx, `SELECT count(*) FROM notification_logs WHERE recipient_customer_id = $1`, c.ID).Scan(&queued)
+	if queued != 3 {
+		t.Fatalf("the creation email and two resends must all be queued, got %d", queued)
+	}
+	wantCode(t, e.svc.ResendActivation(e.ctx, advisor.actor(), c.ID), "FORBIDDEN")
+
+	var audited int
+	_ = e.pool.QueryRow(e.ctx, `SELECT count(*) FROM audit_logs WHERE entity_id = $1 AND changes_summary ? 'activationLink'`, c.ID).Scan(&audited)
+	if audited != 2 {
+		t.Fatalf("each resend must be audited, got %d", audited)
+	}
+}
+
+func TestResendActivationIsRefusedWhenItMakesNoSense(t *testing.T) {
+	e := newTestEnv(t)
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+	wantCode(t, e.svc.ResendActivation(e.ctx, admin.actor(), ids.New()), "CUSTOMER_NOT_FOUND")
+
+	c := e.createCustomer(admin.actor(), person())
+	if _, err := e.svc.Deactivate(e.ctx, admin.actor(), c.ID); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, e.svc.ResendActivation(e.ctx, admin.actor(), c.ID), "CUSTOMER_NOT_FOUND") // inactive
+
+	if _, err := e.svc.Reactivate(e.ctx, admin.actor(), c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(e.ctx, `UPDATE customers SET password_hash = 'x', activated_at = now() WHERE id = $1`, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, e.svc.ResendActivation(e.ctx, admin.actor(), c.ID), "CUSTOMER_ALREADY_ACTIVATED")
 }

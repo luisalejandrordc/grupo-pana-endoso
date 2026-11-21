@@ -57,19 +57,47 @@ func TestLoadExplicitAddressWinsOverPort(t *testing.T) {
 }
 
 func TestLoadProductionDefaults(t *testing.T) {
-	cfg, err := Load(env(withBase(map[string]string{"ENV": "production", "APP_BASE_URL": "https://app.example.pe/"})))
+	cfg, err := Load(env(withBase(map[string]string{
+		"ENV":             "production",
+		"APP_BASE_URL":    "https://app.endosoflow.com",
+		"PORTAL_BASE_URL": "https://portal.endosoflow.com",
+	})))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.LogFormat != "json" || !cfg.CookieSecure || !cfg.TrustProxy || cfg.AppBaseURL != "https://app.example.pe" {
+	if cfg.LogFormat != "json" || !cfg.CookieSecure || !cfg.TrustProxy || cfg.AppBaseURL != "https://app.endosoflow.com" ||
+		cfg.PortalBaseURL != "https://portal.endosoflow.com" {
 		t.Fatalf("unexpected production defaults: %+v", cfg)
 	}
 }
 
-func TestLoadRequiresBaseURLOutsideLocal(t *testing.T) {
+func TestLoadRequiresAppBaseURLOutsideLocal(t *testing.T) {
 	_, err := Load(env(withBase(map[string]string{"ENV": "production"})))
 	if err == nil || !strings.Contains(err.Error(), "APP_BASE_URL is required") {
 		t.Fatalf("got %v", err)
+	}
+	// Addresses that cannot work in an emailed link are refused.
+	prod := map[string]string{"ENV": "production", "PORTAL_BASE_URL": "https://portal.endosoflow.com"}
+	for _, bad := range []string{"app.example.pe", "https://app.example.pe/staff", "http://app.example.pe"} {
+		prod["APP_BASE_URL"] = bad
+		if cfg, err := Load(env(withBase(prod))); err == nil || !strings.Contains(err.Error(), "APP_BASE_URL") {
+			t.Errorf("%q must be refused, got %v, %+v", bad, err, cfg)
+		}
+	}
+}
+
+func TestLoadRequiresPortalBaseURLOutsideLocal(t *testing.T) {
+	_, err := Load(env(withBase(map[string]string{"ENV": "production"})))
+	if err == nil || !strings.Contains(err.Error(), "PORTAL_BASE_URL is required") {
+		t.Fatalf("got %v", err)
+	}
+	// Addresses that cannot work in an emailed link are refused.
+	prod := map[string]string{"ENV": "production", "APP_BASE_URL": "https://app.endosoflow.com"}
+	for _, bad := range []string{"portal.example.pe", "https://portal.example.pe/sales", "http://portal.example.pe"} {
+		prod["PORTAL_BASE_URL"] = bad
+		if _, err := Load(env(withBase(prod))); err == nil || !strings.Contains(err.Error(), "PORTAL_BASE_URL") {
+			t.Errorf("%q must be refused, got %v", bad, err)
+		}
 	}
 }
 
@@ -238,9 +266,10 @@ func TestMailConfiguration(t *testing.T) {
 
 	url := good["MAIL_APPS_SCRIPT_URL"]
 	staging := map[string]string{
-		"ENV":           "staging",
-		"APP_BASE_URL":  "https://app.example.pe",
-		"COOKIE_SECURE": "true",
+		"ENV":             "staging",
+		"APP_BASE_URL":    "https://app.endosoflow.com",
+		"PORTAL_BASE_URL": "https://portal.endosoflow.com",
+		"COOKIE_SECURE":   "true",
 	}
 	with := func(extra map[string]string, base map[string]string) map[string]string {
 		out := map[string]string{}
@@ -281,6 +310,11 @@ func TestMailConfiguration(t *testing.T) {
 			"staging without allow-list",
 			"MAIL_ALLOWED_RECIPIENTS is required",
 			with(map[string]string{"MAIL_APPS_SCRIPT_URL": url, "MAIL_APPS_SCRIPT_HMAC_SECRET": secret}, staging),
+		},
+		{
+			"a logo that mail clients cannot load",
+			"MAIL_LOGO_URL",
+			map[string]string{"MAIL_LOGO_URL": "http://localhost:5173/logo.png", "ENV": "staging"},
 		},
 		{
 			"too frequent a dispatcher",

@@ -126,7 +126,6 @@ CREATE TABLE customers (
   contact_last_name text,
   contact_job_title text,
   password_hash text,
-  portal_invited_at timestamptz,
   activated_at timestamptz,
   failed_login_count integer NOT NULL DEFAULT 0,
   first_failed_login_at timestamptz, -- start of the current 15-minute failure window

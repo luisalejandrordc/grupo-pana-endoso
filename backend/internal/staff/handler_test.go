@@ -100,7 +100,7 @@ func TestEmployeeLifecycleOverHTTP(t *testing.T) {
 	}
 	id := created.Employee.ID
 	t.Cleanup(func() { e.cleanup(id) })
-	e.auth.WaitForBackgroundWork()
+	e.dispatch(t)
 
 	path := "/api/v1/employees/" + id.String()
 	if rec := send(router, http.MethodGet, path, "", admin); rec.Code != http.StatusOK {
@@ -131,7 +131,7 @@ func TestEmployeeLifecycleOverHTTP(t *testing.T) {
 	if rec := send(router, http.MethodPost, path+"/resend-activation", "", admin); rec.Code != http.StatusAccepted {
 		t.Fatalf("resend: %d %s", rec.Code, rec.Body.String())
 	}
-	e.auth.WaitForBackgroundWork()
+	e.dispatch(t)
 
 	if rec := send(router, http.MethodDelete, path+"?reason=", "", admin); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("delete without a reason: %d", rec.Code)

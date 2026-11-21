@@ -13,6 +13,9 @@ coverage/
 build/
 *.tsbuildinfo
 
+# Temporary files
+tmp/
+
 # Local media and documents
 backend/var/
 backend/media/

@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"endosoflow/internal/adapters/mail"
+	"endosoflow/internal/auth"
 	"endosoflow/internal/platform/database"
 	"errors"
 	"fmt"
@@ -15,13 +16,25 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// LinkIssuer mints the single-use links that account emails carry (the auth service implements it). The
+// dispatcher asks for each link at the moment it sends, in the same transaction, because a link cannot be
+// rebuilt from what the database stores.
+type LinkIssuer interface {
+	IssueLink(ctx context.Context, tx pgx.Tx, kind auth.LinkKind, to auth.LinkRecipient) (auth.AccountLink, string, error)
+	CancelLinks(ctx context.Context, tx pgx.Tx, kind auth.LinkKind, to auth.LinkRecipient) error
+}
+
 // DispatcherDeps are the dispatcher's dependencies.
 type DispatcherDeps struct {
-	DB         database.TxStarter
-	Sender     mail.Sender
-	AppBaseURL string // the frontend address, used in the links of emails to employees
-	Logger     *slog.Logger
-	Now        func() time.Time // nil means time.Now
+	DB            database.TxStarter
+	Sender        mail.Sender
+	Links         LinkIssuer // needed to send activation, reset and customer welcome emails
+	Wake          *Waker     // when set, Run sends as soon as it is woken instead of waiting for the next tick
+	AppBaseURL    string     // the employee portal's address, used in the links of emails to employees
+	PortalBaseURL string     // the customer portal's address, used in the links of emails to customers
+	LogoURL       string     // public address of the logo in the email header; empty shows the brand name instead
+	Logger        *slog.Logger
+	Now           func() time.Time // nil means time.Now
 
 	// The settings below have defaults suited to the prototype and are only set by tests.
 	MaxAttempts int             // sends of one notification before it is given up as failed (default 5)
@@ -40,17 +53,21 @@ type DispatcherDeps struct {
 // the email left but before the commit, the row is still pending and the email is sent again. For this
 // prototype a rare duplicate is preferred over a lost email.
 type Dispatcher struct {
-	db          database.TxStarter
-	sender      mail.Sender
-	baseURL     string
-	logger      *slog.Logger
-	now         func() time.Time
-	maxAttempts int
-	backoff     []time.Duration
-	quotaPause  time.Duration
-	authPause   time.Duration
-	batch       int
-	sendTimeout time.Duration
+	db            database.TxStarter
+	sender        mail.Sender
+	links         LinkIssuer
+	wake          *Waker
+	appBaseURL    string
+	portalBaseURL string
+	logoURL       string
+	logger        *slog.Logger
+	now           func() time.Time
+	maxAttempts   int
+	backoff       []time.Duration
+	quotaPause    time.Duration
+	authPause     time.Duration
+	batch         int
+	sendTimeout   time.Duration
 
 	mu          sync.Mutex
 	pausedUntil time.Time
@@ -59,7 +76,9 @@ type Dispatcher struct {
 // NewDispatcher builds the dispatcher.
 func NewDispatcher(d DispatcherDeps) *Dispatcher {
 	x := &Dispatcher{
-		db: d.DB, sender: d.Sender, baseURL: strings.TrimRight(d.AppBaseURL, "/"), logger: d.Logger, now: d.Now,
+		db: d.DB, sender: d.Sender, links: d.Links, wake: d.Wake,
+		appBaseURL: strings.TrimRight(d.AppBaseURL, "/"), logoURL: d.LogoURL,
+		portalBaseURL: strings.TrimRight(d.PortalBaseURL, "/"), logger: d.Logger, now: d.Now,
 		maxAttempts: d.MaxAttempts, backoff: d.Backoff, quotaPause: d.QuotaPause, authPause: d.AuthPause,
 		batch: d.BatchSize, sendTimeout: d.SendTimeout,
 	}
@@ -95,9 +114,8 @@ type Summary struct {
 	Sent    int
 	Skipped int
 	Failed  int
-	Retry   int // failed this time, will be tried again later
-	// Paused is set when the run stopped early (or did not start) because sending is paused.
-	Paused bool
+	Retry   int  // failed this time, will be tried again later
+	Paused  bool // set when the run stopped early (or did not start) because sending is paused
 }
 
 type step int
@@ -165,34 +183,42 @@ func (d *Dispatcher) RunOnce(ctx context.Context) (Summary, error) {
 	return sum, nil
 }
 
-// Run calls RunOnce every interval until the context ends. A panic in one run is logged and does not stop it.
+// Run looks for due notifications when it starts, then again every interval and whenever it is woken,
+// until the context ends. A run that fills a whole batch is followed by another at once, so a burst of
+// notifications drains without waiting for the next tick. A panic in one run is logged and does not stop it.
 func (d *Dispatcher) Run(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
-		d.safeRun(ctx)
+		for d.safeRun(ctx) && ctx.Err() == nil {
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+		case <-d.wake.signal():
 		}
 	}
 }
 
-func (d *Dispatcher) safeRun(ctx context.Context) {
+// safeRun does one run and says whether another should follow immediately (the batch was full).
+func (d *Dispatcher) safeRun(ctx context.Context) (more bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			d.logger.Error("the notification dispatcher panicked; it will try again", "panic", fmt.Sprint(r))
+			more = false
 		}
 	}()
 	sum, err := d.RunOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		d.logger.Error("the notification dispatcher could not run", "error", err)
-		return
+		return false
 	}
-	if sum.Sent+sum.Skipped+sum.Failed+sum.Retry > 0 {
+	handled := sum.Sent + sum.Skipped + sum.Failed + sum.Retry
+	if handled > 0 {
 		d.logger.Info("notifications dispatched", "sent", sum.Sent, "skipped", sum.Skipped, "failed", sum.Failed, "retry_later", sum.Retry)
 	}
+	return handled >= d.batch && !sum.Paused
 }
 
 func (d *Dispatcher) paused() time.Time {
@@ -275,8 +301,15 @@ func (d *Dispatcher) deliver(ctx context.Context, tx pgx.Tx, row claimed, now ti
 	case sendErr == nil:
 		return stepSent, d.finish(ctx, tx, row, "sent", "", now)
 	case errors.Is(sendErr, mail.ErrRecipientNotAllowed):
+		// Nobody will ever receive this email, so the link minted for it must not stay valid.
+		if err := d.cancelLink(ctx, tx, row); err != nil {
+			return stepIdle, err
+		}
 		return stepSkipped, d.finish(ctx, tx, row, "skipped", "el destinatario no está en la lista permitida de este entorno", now)
 	case errors.Is(sendErr, mail.ErrRejected):
+		if err := d.cancelLink(ctx, tx, row); err != nil {
+			return stepIdle, err
+		}
 		return stepFailed, d.finish(ctx, tx, row, "failed", truncate(sendErr.Error(), 500), now)
 	case errors.Is(sendErr, mail.ErrQuotaExceeded):
 		// Nothing is wrong with this notification: leave it pending without counting an attempt.
@@ -309,7 +342,10 @@ func (d *Dispatcher) cannotSend(ctx context.Context, tx pgx.Tx, row claimed) (st
 
 // load reads what the template needs. A second return value other than "" says why the email is not needed.
 func (d *Dispatcher) load(ctx context.Context, tx pgx.Tx, row claimed) (emailData, string, error) {
-	data := emailData{Type: row.kind, AppBaseURL: d.baseURL}
+	data := emailData{Type: row.kind, AppBaseURL: d.appBaseURL, PortalBaseURL: d.portalBaseURL, LogoURL: d.logoURL}
+	if isAccountEmail(row.kind) {
+		return d.loadAccount(ctx, tx, row, data)
+	}
 	if row.saleID == nil {
 		return data, "la venta ya no existe", nil
 	}
@@ -317,9 +353,11 @@ func (d *Dispatcher) load(ctx context.Context, tx pgx.Tx, row claimed) (emailDat
 	var createdAt time.Time
 	var model, version, color, advisorFirst, advisorLast string
 	err := tx.QueryRow(ctx, `SELECT s.sale_number, s.created_at, s.customer_legal_name_snapshot, s.vehicle_model_name_snapshot,
-			s.vehicle_version_name_snapshot, s.vehicle_color_name_snapshot, a.first_name, a.last_name, a.business_email, a.business_phone
-		FROM sale_registers s JOIN employees a ON a.id = s.assigned_advisor_id WHERE s.id = $1`, *row.saleID).
-		Scan(&number, &createdAt, &data.CustomerName, &model, &version, &color, &advisorFirst, &advisorLast, &data.AdvisorEmail, &data.AdvisorPhone)
+			s.vehicle_version_name_snapshot, s.vehicle_color_name_snapshot, a.first_name, a.last_name, a.business_email, a.business_phone, a.gender::text
+		FROM sale_registers s
+		JOIN employees a ON a.id = s.assigned_advisor_id
+		WHERE s.id = $1`, *row.saleID).
+		Scan(&number, &createdAt, &data.CustomerName, &model, &version, &color, &advisorFirst, &advisorLast, &data.AdvisorEmail, &data.AdvisorPhone, &data.AdvisorGender)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return data, "la venta ya no existe", nil
 	}
@@ -332,11 +370,50 @@ func (d *Dispatcher) load(ctx context.Context, tx pgx.Tx, row claimed) (emailDat
 	data.AdvisorName = advisorFirst + " " + advisorLast
 	data.GreetingName = data.CustomerName
 	if row.employeeID != nil {
-		if err := tx.QueryRow(ctx, `SELECT first_name FROM employees WHERE id = $1`, *row.employeeID).Scan(&data.GreetingName); err != nil {
+		var gender *string
+		if err := tx.QueryRow(ctx, `SELECT TRIM(CONCAT(first_name, ' ', last_name)), gender::text FROM employees WHERE id = $1`, *row.employeeID).
+			Scan(&data.GreetingName, &gender); err != nil {
 			return data, "", err
 		}
+		data.Gender = deref(gender)
+		return data, "", nil
 	}
-	return data, "", nil
+	// Customer emails: the greeting names the person (a company's contact), and the progress bar is read from the
+	// same view the application uses, so email, portal and reports always agree.
+	if row.customerID != nil {
+		var gender *string
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(
+			NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''),
+			NULLIF(TRIM(CONCAT(contact_first_name, ' ', contact_last_name)), ''),
+			NULLIF(TRIM(legal_name), '')
+			), gender::text FROM customers WHERE id = $1`, *row.customerID).
+			Scan(&data.GreetingName, &gender); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return data, "", err
+		}
+		data.Gender = deref(gender)
+	}
+	data.Milestones, err = loadMilestones(ctx, tx, *row.saleID)
+	return data, "", err
+}
+
+// loadMilestones reads the six milestones of a sale with their names and current state.
+func loadMilestones(ctx context.Context, tx pgx.Tx, saleID uuid.UUID) ([]milestone, error) {
+	rows, err := tx.Query(ctx, `SELECT m.milestone_number, d.name_es, m.state::text
+		FROM v_sale_milestones m JOIN milestone_definitions d ON d.milestone_number = m.milestone_number
+		WHERE m.sale_id = $1 ORDER BY m.milestone_number`, saleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []milestone
+	for rows.Next() {
+		var m milestone
+		if err := rows.Scan(&m.Number, &m.Name, &m.State); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }
 
 // finish records a final outcome (sent, skipped or failed).
@@ -374,6 +451,9 @@ func (d *Dispatcher) retryOrFail(ctx context.Context, tx pgx.Tx, row claimed, ca
 	attempt := row.attempts + 1
 	if attempt >= d.maxAttempts {
 		d.logger.Warn("a notification was given up after its last attempt", "id", row.id, "type", row.kind, "error", cause)
+		if err := d.cancelLink(ctx, tx, row); err != nil {
+			return stepIdle, err
+		}
 		_, err := tx.Exec(ctx, `UPDATE notification_logs SET status = 'failed', attempt_count = $2, last_error = $3 WHERE id = $1`,
 			row.id, attempt, truncate(cause.Error(), 500))
 		return stepFailed, err
@@ -398,4 +478,97 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// linkTarget says which kind of link an account email carries and whose it is.
+func linkTarget(row claimed) (auth.LinkKind, auth.LinkRecipient) {
+	kind := auth.LinkActivation
+	if row.kind == PasswordReset {
+		kind = auth.LinkPasswordReset
+	}
+	return kind, auth.LinkRecipient{EmployeeID: row.employeeID, CustomerID: row.customerID}
+}
+
+// loadAccount prepares an account email: it reads the recipient's name and mints the link. The link is
+// created here, inside the transaction that also sends and records the email, so it is only ever valid if an
+// email carrying it was handed to the mail service in the same step.
+func (d *Dispatcher) loadAccount(ctx context.Context, tx pgx.Tx, row claimed, data emailData) (emailData, string, error) {
+	// The recipient's name and the document they sign in with, which the email tells them.
+	var query string
+	var id uuid.UUID
+	switch {
+	case row.employeeID != nil:
+		query, id = `SELECT TRIM(CONCAT(first_name, ' ', last_name)), document_type::text, document_number, gender::text
+			FROM employees WHERE id = $1`, *row.employeeID
+	case row.customerID != nil:
+		// A company's welcome is addressed to its contact person.
+		query, id = `SELECT COALESCE(
+			NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''),
+			NULLIF(TRIM(CONCAT(contact_first_name, ' ', contact_last_name)), ''),
+			NULLIF(TRIM(legal_name), '')
+		), document_type::text, document_number, gender::text FROM customers WHERE id = $1`, *row.customerID
+	default:
+		return data, "la notificación no tiene destinatario", nil
+	}
+	var docType, docNumber string
+	var gender *string
+	if err := tx.QueryRow(ctx, query, id).Scan(&data.GreetingName, &docType, &docNumber, &gender); errors.Is(err, pgx.ErrNoRows) {
+		return data, "la cuenta ya no existe", nil
+	} else if err != nil {
+		return data, "", err
+	}
+	data.Gender = deref(gender)
+	data.LoginID = documentLabel(docType) + " " + docNumber
+	if !needsLink(row.kind) {
+		return data, "", nil // a confirmation: the recipient's own data is all it says
+	}
+	if d.links == nil {
+		return data, "", errors.New("no hay un emisor de enlaces configurado para enviar este correo")
+	}
+	kind, to := linkTarget(row)
+	link, skipReason, err := d.links.IssueLink(ctx, tx, kind, to)
+	if err != nil || skipReason != "" {
+		return data, skipReason, err
+	}
+	data.Link = link.URL
+	data.LinkValidFor = spanishDuration(link.ExpiresIn)
+	return data, "", nil
+}
+
+// cancelLink revokes the link minted for an account email that will not be delivered. Other notifications
+// have no link, so it does nothing for them.
+func (d *Dispatcher) cancelLink(ctx context.Context, tx pgx.Tx, row claimed) error {
+	if !needsLink(row.kind) || d.links == nil {
+		return nil
+	}
+	kind, to := linkTarget(row)
+	return d.links.CancelLinks(ctx, tx, kind, to)
+}
+
+// spanishDuration writes a link's lifetime for the email ("72 horas", "1 hora").
+func spanishDuration(d time.Duration) string {
+	hours := int(d.Round(time.Hour) / time.Hour)
+	switch {
+	case hours >= 2:
+		return fmt.Sprintf("%d horas", hours)
+	case hours == 1:
+		return "1 hora"
+	}
+	return fmt.Sprintf("%d minutos", max(1, int(d.Round(time.Minute)/time.Minute)))
+}
+
+// documentLabel is how a document type reads in an email.
+func documentLabel(code string) string {
+	if code == "PAS" {
+		return "Pasaporte"
+	}
+	return code
+}
+
+// deref reads an optional text column; a missing value is the empty string.
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

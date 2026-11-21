@@ -15,13 +15,3 @@ Status: the catalog module, the file-storage adapter (Cloudflare R2, local disk,
 | 9   | Versions and colors also get `/unarchive`, and models, versions and colors get an Admin-only `DELETE` with a required reason.                                                                                                                                           | The architecture table listed only archive; reactivation and permanent deletion are in the permission matrix, so the routes had to exist. Deletion is refused while any sale references the entry. |
 | 10  | `GET /catalog/selectable` is a single call for the sale form: active models with their selectable versions (ordered by price) and colors with Main images. A model with nothing to choose is left out.                                                                  | The form should not stitch together several lists or re-implement the selectable rules.                                                                                                            |
 | 11  | Local development and tests keep images in `LOCAL_MEDIA_DIR` and serve them at `/media`; production needs the five `R2_*` values together. Without them, anywhere but local/test, uploads fail with `STORAGE_UNAVAILABLE`.                                              | A missing store must never look like success. A half-set R2 configuration stops the server at startup.                                                                                             |
-
-## Found by running it for real
-
-- Images came back in alphabetical order ("interior" before "main_view") instead of the documented viewpoint order. The cause was `ORDER BY viewpoint` matching the text output column of the same name instead of the enum column. Fixed by naming the table column in the query, with a regression test that fails without the fix.
-
-## Open items
-
-- R2 request signing is checked against AWS's published example and against an independent library (botocore), but it has not run against a real bucket. Do one upload with real credentials before relying on it. The bucket must be publicly readable at `R2_PUBLIC_BASE_URL`.
-- `storagecleanup.RetryOpen` is not scheduled yet. Wire it into the jobs sub-phase (1J) next to the other scheduled work.
-- Images are validated by size and byte signature only. Dimension limits and re-encoding (to strip metadata) can be added if the team uploads photos straight from phones.

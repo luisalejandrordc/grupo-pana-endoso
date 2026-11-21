@@ -20,27 +20,27 @@ const (
 
 // Customer is the customer as the API shows it. Password data never leaves the database.
 type Customer struct {
-	ID               uuid.UUID `json:"id"`
-	CustomerType     string    `json:"customerType"`
-	DocumentType     string    `json:"documentType"`
-	DocumentNumber   string    `json:"documentNumber"`
-	FirstName        *string   `json:"firstName"`
-	LastName         *string   `json:"lastName"`
-	Gender           *string   `json:"gender"`
-	LegalName        *string   `json:"legalName"`
-	DisplayName      string    `json:"displayName"`
-	NameSource       string    `json:"nameSource"`
-	Nationality      string    `json:"nationality"`
-	Phone            string    `json:"phone"`
-	Email            string    `json:"email"`
-	ContactFirstName *string   `json:"contactFirstName"`
-	ContactLastName  *string   `json:"contactLastName"`
-	ContactJobTitle  *string   `json:"contactJobTitle"`
-	PortalStatus     string    `json:"portalStatus"` // not_invited, invited or active
-	IsActive         bool      `json:"isActive"`
-	Version          int       `json:"version"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	ID               uuid.UUID  `json:"id"`
+	CustomerType     string     `json:"customerType"`
+	DocumentType     string     `json:"documentType"`
+	DocumentNumber   string     `json:"documentNumber"`
+	FirstName        *string    `json:"firstName"`
+	LastName         *string    `json:"lastName"`
+	Gender           *string    `json:"gender"`
+	LegalName        *string    `json:"legalName"`
+	DisplayName      string     `json:"displayName"`
+	NameSource       string     `json:"nameSource"`
+	Nationality      string     `json:"nationality"`
+	Phone            string     `json:"phone"`
+	Email            string     `json:"email"`
+	ContactFirstName *string    `json:"contactFirstName"`
+	ContactLastName  *string    `json:"contactLastName"`
+	ContactJobTitle  *string    `json:"contactJobTitle"`
+	ActivatedAt      *time.Time `json:"activatedAt"`
+	IsActive         bool       `json:"isActive"`
+	Version          int        `json:"version"`
+	CreatedAt        time.Time  `json:"createdAt"`
+	UpdatedAt        time.Time  `json:"updatedAt"`
 }
 
 // Brief is what an Advisor sees of a customer who is not in their scope: the legal name and nothing else

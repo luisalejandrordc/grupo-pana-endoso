@@ -95,3 +95,51 @@ func TestWithTxCommitsWhenTheFunctionSucceeds(t *testing.T) {
 		t.Fatalf("expected 1 committed row, got %d", n)
 	}
 }
+
+func TestAfterCommitRunsOnlyOnceTheChangeIsVisible(t *testing.T) {
+	ctx, pool, count := testPool(t)
+	marker := ids.NewString()
+
+	var visibleInHook int
+	ran := 0
+	err := WithTx(ctx, pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, insertAccessLog, marker); err != nil {
+			return err
+		}
+		AfterCommit(tx, func() {
+			ran++
+			visibleInHook = count(countAccessLog, marker) // read from another connection
+		})
+		if ran != 0 {
+			t.Fatal("the hook must not run before the commit")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("WithTx: %v", err)
+	}
+	if ran != 1 || visibleInHook != 1 {
+		t.Fatalf("hook ran %d times and saw %d rows; want once, after the commit", ran, visibleInHook)
+	}
+}
+
+func TestAfterCommitDoesNotRunOnRollback(t *testing.T) {
+	ctx, pool, _ := testPool(t)
+	ran := false
+	_ = WithTx(ctx, pool, func(tx pgx.Tx) error {
+		AfterCommit(tx, func() { ran = true })
+		return errors.New("boom")
+	})
+	if ran {
+		t.Fatal("a rolled back transaction must not run its after-commit hooks")
+	}
+}
+
+func TestAfterCommitRunsAtOnceOutsideATransaction(t *testing.T) {
+	_, pool, _ := testPool(t)
+	ran := false
+	AfterCommit(pool, func() { ran = true }) // statements on the pool commit by themselves
+	if !ran {
+		t.Fatal("the hook must run immediately when there is no transaction to wait for")
+	}
+}

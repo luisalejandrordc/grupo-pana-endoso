@@ -97,7 +97,9 @@ type ListResult struct {
 	Total    int        `json:"total"`
 }
 
-// CreateResult is what a successful create returns.
+// CreateResult is what a successful create returns. ActivationLinkIssued is true once the activation email is
+// queued, which happens in the same transaction as the creation, so it is always true for a created employee.
+// The field stays so existing clients keep working.
 type CreateResult struct {
 	Employee             Employee `json:"employee"`
 	ActivationLinkIssued bool     `json:"activationLinkIssued"`

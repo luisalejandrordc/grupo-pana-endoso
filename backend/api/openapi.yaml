@@ -134,8 +134,13 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/TokenPasswordRequest" }
       responses:
-        "204":
-          description: The password was set. The person can now sign in.
+        "200":
+          description: >-
+            The password was set. accountType says whose link it was: employees can sign in now; the customer portal
+            is not available yet, so a customer only has a password waiting for it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActivationResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -350,7 +355,7 @@ paths:
             schema: { $ref: "#/components/schemas/CreateEmployeeRequest" }
       responses:
         "201":
-          description: Created. activationLinkIssued is false if the link could not be issued; resend it later.
+          description: Created. The activation email is queued in the same transaction (activationLinkIssued is always true) and sent within moments.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CreateEmployeeResult" }
@@ -546,7 +551,7 @@ paths:
       description: |
         A Diplomático (person) needs first name, last name and gender and a DNI, CE, PAS or CDI. An organization
         needs a legal name plus a contact's first name, last name and job title and a RUC. The pair (document type,
-        number) is unique. Fields that do not apply to the type are ignored. The portal status starts as not_invited.
+        number) is unique. Fields that do not apply to the type are ignored. The portal status starts as pending and becomes active when the customer sets a password.
       security:
         - bearerAuth: []
       requestBody:
@@ -676,6 +681,29 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Customer" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /customers/{id}/resend-activation:
+    parameters:
+      - $ref: "#/components/parameters/CustomerId"
+    post:
+      tags: [Customers]
+      operationId: resendCustomerActivation
+      summary: Send the customer a new activation link (Admin, Manager)
+      description: >-
+        Only for customers who have not set a password yet. The email is queued and sent within moments; the
+        previous link stops working when the new one is sent. Customers who are inactive or already activated are
+        refused.
+      security:
+        - bearerAuth: []
+      responses:
+        "202":
+          description: Accepted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Accepted" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -2202,6 +2230,11 @@ components:
         businessPhone: { type: string }
         businessEmail: { type: string }
         role: { $ref: "#/components/schemas/Role" }
+    ActivationResult:
+      type: object
+      required: [accountType]
+      properties:
+        accountType: { type: string, enum: [employee, customer] }
     CreateEmployeeResult:
       type: object
       required: [employee, activationLinkIssued]
@@ -2276,7 +2309,7 @@ components:
         contactFirstName: { type: string, nullable: true }
         contactLastName: { type: string, nullable: true }
         contactJobTitle: { type: string, nullable: true }
-        portalStatus: { type: string, enum: [not_invited, invited, active] }
+        portalStatus: { type: string, enum: [pending, active] }
         isActive: { type: boolean }
         version: { type: integer }
         createdAt: { type: string, format: date-time }

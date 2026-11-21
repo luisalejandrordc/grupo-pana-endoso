@@ -14,7 +14,3 @@ Status: the customers screen runs on the live API. Vehicles (catalog) is next.
 | 8   | Deactivate and reactivate need Manager or Admin; delete needs Admin, a written reason, and fails clearly for a customer with sales. The buttons are hidden for roles that cannot use them, and the API still enforces it.                                          | Permission matrix; the interface follows the rules, it does not replace them.                                            |
 | 9   | Demo mode keeps the original sample-data directory, untouched, as `DemoCustomersPage`.                                                                                                                                                                             | The offline demo and its tests keep working.                                                                             |
 | 10  | React Router is not added yet.                                                                                                                                                                                                                                     | It touches every screen and the sale flow; it is better introduced as its own step once customers and vehicles are live. |
-
-## Open items
-
-- "Nueva venta" from a customer row returns when the sales API exists; today the live directory opens the customer's file instead.

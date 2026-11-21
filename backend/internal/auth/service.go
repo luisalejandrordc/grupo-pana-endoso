@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"endosoflow/internal/adapters/mail"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/ids"
@@ -10,7 +9,6 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,25 +39,37 @@ type Database interface {
 	querier
 }
 
+// Notifier queues the emails that carry account links. It never creates the links: the notification
+// dispatcher mints each one at the moment it sends the email. The rows are written inside the
+// transaction the caller passes, so an email is queued if and only if the change that caused it committed.
+type Notifier interface {
+	EmployeeActivation(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
+	CustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
+	EmployeeActivated(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
+	CustomerActivated(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
+	PasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
+}
+
 // Deps are the service's dependencies.
 type Deps struct {
-	DB         Database
-	JWTSecret  string
-	AppBaseURL string
-	Mail       mail.Sender
-	Logger     *slog.Logger
-	Now        func() time.Time // nil means time.Now; tests inject a controllable clock
+	DB            Database
+	JWTSecret     string
+	AppBaseURL    string
+	PortalBaseURL string
+	Notifier      Notifier
+	Logger        *slog.Logger
+	Now           func() time.Time // nil means time.Now; tests inject a controllable clock
 }
 
 // Service implements the employee authentication use cases.
 type Service struct {
-	db         Database
-	secret     []byte
-	baseURL    string
-	mail       mail.Sender
-	logger     *slog.Logger
-	now        func() time.Time
-	background sync.WaitGroup
+	db            Database
+	secret        []byte
+	baseURL       string
+	portalBaseURL string
+	notifier      Notifier
+	logger        *slog.Logger
+	now           func() time.Time
 }
 
 // NewService builds the service.
@@ -69,17 +79,15 @@ func NewService(d Deps) *Service {
 		now = time.Now
 	}
 	return &Service{
-		db:      d.DB,
-		secret:  []byte(d.JWTSecret),
-		baseURL: strings.TrimRight(d.AppBaseURL, "/"),
-		mail:    d.Mail,
-		logger:  d.Logger,
-		now:     now,
+		db:            d.DB,
+		secret:        []byte(d.JWTSecret),
+		baseURL:       strings.TrimRight(d.AppBaseURL, "/"),
+		notifier:      d.Notifier,
+		portalBaseURL: strings.TrimRight(d.PortalBaseURL, "/"),
+		logger:        d.Logger,
+		now:           now,
 	}
 }
-
-// WaitForBackgroundWork waits for emails still being sent. Called on shutdown and in tests.
-func (s *Service) WaitForBackgroundWork() { s.background.Wait() }
 
 // ClientInfo describes the caller, for the access log.
 type ClientInfo struct {
@@ -165,6 +173,7 @@ func truncate(s string, max int) string {
 
 type accessEntry struct {
 	EmployeeID *uuid.UUID
+	CustomerID *uuid.UUID
 	DocType    string
 	DocNumber  string
 	Action     string
@@ -173,7 +182,7 @@ type accessEntry struct {
 
 func (s *Service) logAccess(ctx context.Context, q querier, e accessEntry, client ClientInfo, now time.Time) error {
 	return insertAccessLog(ctx, q, accessLogRow{
-		ID: ids.New(), EmployeeID: e.EmployeeID,
+		ID: ids.New(), EmployeeID: e.EmployeeID, CustomerID: e.CustomerID,
 		DocumentType: truncate(e.DocType, 16), DocumentNumber: truncate(e.DocNumber, 32),
 		Action: e.Action, FailureReason: e.Failure,
 		DeviceInfo: truncate(client.DeviceInfo, 255), IP: truncate(client.IP, 64), CreatedAt: now,
@@ -434,62 +443,21 @@ func (s *Service) Me(ctx context.Context, id uuid.UUID) (*Profile, error) {
 	return &profile, nil
 }
 
-// IssueActivation creates a single-use activation link for an employee who has not set a password yet,
-// emails it to their business address and returns it (the first-Admin command prints it).
-func (s *Service) IssueActivation(ctx context.Context, employeeID uuid.UUID, createdBy *uuid.UUID) (string, error) {
-	now := s.now()
-	var link string
-	var message mail.Message
-	var failure *apperr.Error
+// AccountType says whose account a link belongs to.
+type AccountType string
 
-	err := database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
-		emp, err := findEmployeeByID(ctx, tx, employeeID, true)
-		if err != nil {
-			return err
-		}
-		if emp == nil || !emp.IsActive || emp.IsSystem {
-			failure = apperr.NotFound("EMPLOYEE_NOT_FOUND", "El empleado no existe o está inactivo.")
-			return nil
-		}
-		if emp.ActivatedAt != nil {
-			failure = apperr.Conflict("EMPLOYEE_ALREADY_ACTIVATED", "La cuenta ya fue activada.")
-			return nil
-		}
-		if err := revokeOpenAccountTokens(ctx, tx, emp.ID, purposeActivation, now); err != nil {
-			return err
-		}
-		plain, hash, err := NewToken()
-		if err != nil {
-			return err
-		}
-		if err := insertAccountToken(ctx, tx, ids.New(), emp.ID, purposeActivation, hash,
-			now.Add(activationTTL), createdBy, now); err != nil {
-			return err
-		}
-		link = s.baseURL + "/activar-cuenta?token=" + plain
-		message = mail.Message{
-			To:      emp.BusinessEmail,
-			Subject: "Active su cuenta de EndosoFlow",
-			Body: fmt.Sprintf("Hola %s,\n\nSe creó su cuenta de EndosoFlow — Grupo Pana. "+
-				"Para definir su contraseña, abra este enlace (vigente por 72 horas):\n\n%s\n\n"+
-				"Si no esperaba este mensaje, ignórelo.\n", emp.FirstName, link),
-		}
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	if failure != nil {
-		return "", failure
-	}
-	s.sendAsync(message)
-	return link, nil
-}
+// The two kinds of account that have links.
+const (
+	AccountEmployee AccountType = "employee"
+	AccountCustomer AccountType = "customer"
+)
 
-// Activate sets the first password from an activation link.
-func (s *Service) Activate(ctx context.Context, plainToken, password string, client ClientInfo) error {
+// Activate sets the first password from an activation link and says whose account it was. Employee and
+// customer links share one endpoint: the link itself knows which of them it belongs to.
+func (s *Service) Activate(ctx context.Context, plainToken, password string, client ClientInfo) (AccountType, error) {
 	now := s.now()
 	var failure *apperr.Error
+	var account AccountType
 
 	err := database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
 		token, err := findAccountTokenByHash(ctx, tx, HashToken(plainToken))
@@ -501,53 +469,100 @@ func (s *Service) Activate(ctx context.Context, plainToken, password string, cli
 			failure = errInvalidLink
 			return nil
 		}
-		emp, err := findEmployeeByID(ctx, tx, token.EmployeeID, true)
-		if err != nil {
-			return err
+		if token.Owner.CustomerID != nil {
+			account = AccountCustomer
+			failure, err = s.activateCustomer(ctx, tx, token, password, client, now)
+		} else {
+			account = AccountEmployee
+			failure, err = s.activateEmployee(ctx, tx, token, password, client, now)
 		}
-		if emp == nil || !emp.IsActive || emp.ActivatedAt != nil {
-			failure = errInvalidLink
-			return nil
-		}
-		if problem := ValidatePassword(password, emp.DocumentNumber); problem != nil {
-			failure = problem // the link stays valid so the person can try another password
-			return nil
-		}
-		hash, err := HashPassword(password)
-		if err != nil {
-			return err
-		}
-		if err := setPassword(ctx, tx, emp.ID, hash, now); err != nil {
-			return err
-		}
-		if err := markAccountTokenUsed(ctx, tx, token.ID, now); err != nil {
-			return err
-		}
-		return s.logAccess(ctx, tx, accessEntry{
-			EmployeeID: &emp.ID, DocType: emp.DocumentType,
-			DocNumber: emp.DocumentNumber, Action: "account_activated",
-		}, client, now)
+		return err
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	if failure != nil {
-		return failure
+		return "", failure
 	}
-	return nil
+	return account, nil
 }
 
-// ForgotPassword emails a reset link when the account exists, is active and has a password. It always
-// succeeds from the caller's point of view, so it cannot be used to discover which documents exist.
+// activateEmployee is Activate for a link that belongs to an employee. It returns the problem to show the
+// caller (nil on success) separately from a database error.
+func (s *Service) activateEmployee(ctx context.Context, tx pgx.Tx, token *accountToken, password string, client ClientInfo, now time.Time) (*apperr.Error, error) {
+	emp, err := findEmployeeByID(ctx, tx, *token.Owner.EmployeeID, true)
+	if err != nil {
+		return nil, err
+	}
+	if emp == nil || !emp.IsActive || emp.ActivatedAt != nil {
+		return errInvalidLink, nil
+	}
+	if problem := ValidatePassword(password, emp.DocumentNumber); problem != nil {
+		return problem, nil
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	if err := setPassword(ctx, tx, emp.ID, hash, now); err != nil {
+		return nil, err
+	}
+	if err := markAccountTokenUsed(ctx, tx, token.ID, now); err != nil {
+		return nil, err
+	}
+	if s.notifier != nil {
+		if err := s.notifier.EmployeeActivated(ctx, tx, emp.ID, emp.BusinessEmail); err != nil {
+			return nil, err
+		}
+	}
+	return nil, s.logAccess(ctx, tx, accessEntry{
+		EmployeeID: &emp.ID, DocType: emp.DocumentType,
+		DocNumber: emp.DocumentNumber, Action: "account_activated",
+	}, client, now)
+}
+
+// activateCustomer is Activate for a link that belongs to a customer. It returns the problem to show the
+// caller (nil on success) separately from a database error.
+func (s *Service) activateCustomer(ctx context.Context, tx pgx.Tx, token *accountToken, password string, client ClientInfo, now time.Time) (*apperr.Error, error) {
+	customer, err := findCustomerByID(ctx, tx, *token.Owner.CustomerID, true)
+	if err != nil {
+		return nil, err
+	}
+	if customer == nil || !customer.IsActive || customer.ActivatedAt != nil {
+		return errInvalidLink, nil
+	}
+	if problem := ValidatePassword(password, customer.DocumentNumber); problem != nil {
+		return problem, nil
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	if err := setCustomerPassword(ctx, tx, customer.ID, hash, now); err != nil {
+		return nil, err
+	}
+	if err := markAccountTokenUsed(ctx, tx, token.ID, now); err != nil {
+		return nil, err
+	}
+	if s.notifier != nil {
+		if err := s.notifier.CustomerActivated(ctx, tx, customer.ID, customer.Email); err != nil {
+			return nil, err
+		}
+	}
+	return nil, s.logAccess(ctx, tx, accessEntry{CustomerID: &customer.ID, Action: "account_activated"}, client, now)
+}
+
+// ForgotPassword queues a reset email when the account exists, is active and has a password. It always
+// succeeds from the caller's point of view, so it cannot be used to discover which documents exist. The email is
+// written to the notification queue inside the transaction, so the answer takes the same time either way.
 func (s *Service) ForgotPassword(ctx context.Context, docType, docNumber string, client ClientInfo) error {
 	docType, docNumber, valid := NormalizeIdentifier(docType, docNumber)
 	if !valid {
 		return nil
 	}
 	now := s.now()
-	var message *mail.Message
 
-	err := database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
+	return database.WithTx(ctx, s.db, func(tx pgx.Tx) error {
 		emp, err := findEmployeeByDocument(ctx, tx, docType, docNumber, true)
 		if err != nil {
 			return err
@@ -555,44 +570,24 @@ func (s *Service) ForgotPassword(ctx context.Context, docType, docNumber string,
 		if emp == nil || !emp.IsActive || emp.PasswordHash == nil {
 			return nil
 		}
-		last, err := latestAccountTokenCreatedAt(ctx, tx, emp.ID, purposePasswordReset)
+		last, err := latestPasswordResetQueuedAt(ctx, tx, emp.ID)
 		if err != nil {
 			return err
 		}
 		if last != nil && now.Sub(*last) < resetCooldown {
 			return nil
 		}
-		if err := revokeOpenAccountTokens(ctx, tx, emp.ID, purposePasswordReset, now); err != nil {
-			return err
+		if s.notifier == nil {
+			return errNoNotifier
 		}
-		plain, hash, err := NewToken()
-		if err != nil {
+		if err := s.notifier.PasswordReset(ctx, tx, emp.ID, emp.BusinessEmail); err != nil {
 			return err
-		}
-		if err := insertAccountToken(ctx, tx, ids.New(), emp.ID, purposePasswordReset, hash,
-			now.Add(resetTTL), nil, now); err != nil {
-			return err
-		}
-		message = &mail.Message{
-			To:      emp.BusinessEmail,
-			Subject: "Restablezca su contraseña de EndosoFlow",
-			Body: fmt.Sprintf("Hola %s,\n\nRecibimos una solicitud para restablecer su contraseña. "+
-				"Abra este enlace (vigente por 1 hora):\n\n%s/restablecer-contrasena?token=%s\n\n"+
-				"Si usted no lo solicitó, ignore este mensaje: su contraseña no cambiará.\n",
-				emp.FirstName, s.baseURL, plain),
 		}
 		return s.logAccess(ctx, tx, accessEntry{
 			EmployeeID: &emp.ID, DocType: docType,
 			DocNumber: docNumber, Action: "password_reset_requested",
 		}, client, now)
 	})
-	if err != nil {
-		return err
-	}
-	if message != nil {
-		s.sendAsync(*message) // in the background, so response time does not reveal whether the account exists
-	}
-	return nil
 }
 
 // ResetPassword sets a new password from a reset link and ends every session of the account.
@@ -606,11 +601,11 @@ func (s *Service) ResetPassword(ctx context.Context, plainToken, password string
 			return err
 		}
 		if token == nil || token.Purpose != purposePasswordReset || token.UsedAt != nil ||
-			token.RevokedAt != nil || !now.Before(token.ExpiresAt) {
+			token.RevokedAt != nil || !now.Before(token.ExpiresAt) || token.Owner.EmployeeID == nil {
 			failure = errInvalidLink
 			return nil
 		}
-		emp, err := findEmployeeByID(ctx, tx, token.EmployeeID, true)
+		emp, err := findEmployeeByID(ctx, tx, *token.Owner.EmployeeID, true)
 		if err != nil {
 			return err
 		}
@@ -710,20 +705,6 @@ func (s *Service) ChangePassword(ctx context.Context, employeeID uuid.UUID, curr
 	return nil
 }
 
-// sendAsync sends an email without blocking the request. Failures are logged without the recipient or
-// the body, because the body can contain a secret link.
-func (s *Service) sendAsync(message mail.Message) {
-	s.background.Add(1)
-	go func() {
-		defer s.background.Done()
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer cancel()
-		if err := s.mail.Send(ctx, message); err != nil {
-			s.logger.Error("sending email failed", "subject", message.Subject, "error", err)
-		}
-	}()
-}
-
 // RevokeAccess ends every session and cancels every open activation or reset link of an employee.
 // Staff management calls it inside its own transaction when an account is deactivated.
 func (s *Service) RevokeAccess(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, reason string, now time.Time) error {
@@ -736,11 +717,16 @@ func (s *Service) RevokeAccess(ctx context.Context, tx pgx.Tx, employeeID uuid.U
 	return revokeOpenAccountTokens(ctx, tx, employeeID, purposePasswordReset, now)
 }
 
-// PurgeTokens deletes every token of an employee who is about to be deleted.
+// PurgeTokens deletes every token of an employee who is about to be deleted, and the account emails (activation,
+// reset) still queued or already sent to them, which would otherwise keep the employee row referenced.
 func (s *Service) PurgeTokens(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID) error {
 	if _, err := tx.Exec(ctx, `DELETE FROM employee_refresh_tokens WHERE employee_id = $1`, employeeID); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, `DELETE FROM account_tokens WHERE employee_id = $1`, employeeID)
+	if _, err := tx.Exec(ctx, `DELETE FROM account_tokens WHERE employee_id = $1`, employeeID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `DELETE FROM notification_logs
+		WHERE recipient_employee_id = $1 AND notification_type IN ('employee_activation', 'password_reset')`, employeeID)
 	return err
 }

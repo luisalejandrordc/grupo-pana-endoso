@@ -15,8 +15,3 @@ Status: customers, existence lookup and Codart lookup are implemented and tested
 | 9   | Every identity lookup failure uses a distinct code (`IDENTITY_NOT_FOUND` 404, `LOOKUP_QUOTA_EXHAUSTED` 409, `RATE_LIMITED` 429, `LOOKUP_UNAVAILABLE` 503). The frontend unlocks manual entry on any of them. | FR-023 manual fallback.                                                                                         |
 | 10  | Without `CODART_TOKEN` the server starts, logs a warning and answers `LOOKUP_UNAVAILABLE`.                                                                                                                   | Local development and tests never need the real provider.                                                       |
 | 11  | Deactivating a customer blocks new sales and portal access later; it does not revoke sessions yet because customer sessions arrive with the portal (Phase 2).                                                | Nothing to revoke before then.                                                                                  |
-
-## Open items
-
-- Creating a sale must reject inactive customers. That belongs to sub-phase 1G.
-- Customer portal invitation (`portalStatus` moving to `invited`) arrives with Phase 2.

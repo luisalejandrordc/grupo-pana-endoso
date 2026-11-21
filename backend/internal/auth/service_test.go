@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"endosoflow/internal/adapters/mail"
 	"endosoflow/internal/platform/apperr"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/ids"
@@ -20,6 +19,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -43,22 +43,78 @@ func (c *fakeClock) Advance(d time.Duration) {
 	c.now = c.now.Add(d)
 }
 
-type captureMail struct {
-	mu       sync.Mutex
-	messages []mail.Message
+// queueRecorder stands in for the notifications writer: it records what was queued and writes a real
+// notification_logs row, which is what the reset cooldown counts. (The auth package cannot import the real
+// writer, which depends on it.)
+type queueRecorder struct {
+	mu     sync.Mutex
+	queued []queuedEmail
 }
 
-func (c *captureMail) Send(_ context.Context, m mail.Message) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.messages = append(c.messages, m)
-	return nil
+type queuedEmail struct {
+	Kind       string // employee_activation or password_reset
+	EmployeeID uuid.UUID
+	Email      string
 }
 
-func (c *captureMail) All() []mail.Message {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([]mail.Message(nil), c.messages...)
+func (q *queueRecorder) add(ctx context.Context, tx pgx.Tx, kind string, id uuid.UUID, email string) error {
+	q.mu.Lock()
+	q.queued = append(q.queued, queuedEmail{kind, id, email})
+	q.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs
+		(id, notification_type, recipient_employee_id, recipient_email, dedupe_key)
+		VALUES ($1, $2::text::notification_type, $3, $4, $5)`, ids.New(), kind, id, email, kind+":"+ids.NewString())
+	return err
+}
+
+func (q *queueRecorder) EmployeeActivation(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	return q.add(ctx, tx, "employee_activation", id, email)
+}
+
+func (q *queueRecorder) CustomerActivation(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	q.mu.Lock()
+	q.queued = append(q.queued, queuedEmail{"customer_activation", id, email})
+	q.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs
+		(id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
+		VALUES ($1, 'customer_activation', $2, $3, $4)`, ids.New(), id, email, "customer_activation:"+ids.NewString())
+	return err
+}
+
+func (q *queueRecorder) EmployeeActivated(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	return q.add(ctx, tx, "employee_activated", id, email)
+}
+
+func (q *queueRecorder) CustomerActivated(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	q.mu.Lock()
+	q.queued = append(q.queued, queuedEmail{"customer_activated", id, email})
+	q.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs
+		(id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
+		VALUES ($1, 'customer_activated', $2, $3, $4)`, ids.New(), id, email, "customer_activated:"+id.String())
+	return err
+}
+
+func (q *queueRecorder) PasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	return q.add(ctx, tx, "password_reset", id, email)
+}
+
+func (q *queueRecorder) of(kind string, id uuid.UUID) []queuedEmail {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	var out []queuedEmail
+	for _, e := range q.queued {
+		if e.Kind == kind && e.EmployeeID == id {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func (q *queueRecorder) total() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return len(q.queued)
 }
 
 type testEnv struct {
@@ -66,7 +122,7 @@ type testEnv struct {
 	pool  *pgxpool.Pool
 	svc   *Service
 	clock *fakeClock
-	mail  *captureMail
+	queue *queueRecorder
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -83,12 +139,12 @@ func newTestEnv(t *testing.T) *testEnv {
 	t.Cleanup(pool.Close)
 
 	clock := &fakeClock{now: time.Now().UTC().Truncate(time.Second)}
-	captured := &captureMail{}
+	queue := &queueRecorder{}
 	svc := NewService(Deps{
-		DB: pool, JWTSecret: string(testSecret), AppBaseURL: "http://app.test", Mail: captured,
-		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: clock.Now,
+		DB: pool, JWTSecret: string(testSecret), AppBaseURL: "http://app.test", PortalBaseURL: "http://portal.test",
+		Notifier: queue, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: clock.Now,
 	})
-	return &testEnv{ctx: ctx, pool: pool, svc: svc, clock: clock, mail: captured}
+	return &testEnv{ctx: ctx, pool: pool, svc: svc, clock: clock, queue: queue}
 }
 
 type testEmployee struct {
@@ -133,6 +189,7 @@ func (e *testEnv) createEmployee(t *testing.T, role Role, password string) testE
 		ctx := context.Background()
 		_, _ = e.pool.Exec(ctx, `DELETE FROM employee_refresh_tokens WHERE employee_id = $1`, id)
 		_, _ = e.pool.Exec(ctx, `DELETE FROM account_tokens WHERE employee_id = $1`, id)
+		_, _ = e.pool.Exec(ctx, `DELETE FROM notification_logs WHERE recipient_employee_id = $1`, id)
 		_, _ = e.pool.Exec(ctx, `DELETE FROM employees WHERE id = $1`, id)
 	})
 	return emp
@@ -190,14 +247,25 @@ func tokenFrom(t *testing.T, text string) string {
 	return match[1]
 }
 
-func (e *testEnv) mailTo(address string) []mail.Message {
-	var out []mail.Message
-	for _, m := range e.mail.All() {
-		if m.To == address {
-			out = append(out, m)
-		}
+// issueLink does what the dispatcher does just before sending: mint the link of an account email.
+func (e *testEnv) issueLink(t *testing.T, kind LinkKind, empID uuid.UUID) (AccountLink, string) {
+	t.Helper()
+	var link AccountLink
+	var skipped string
+	err := database.WithTx(e.ctx, e.pool, func(tx pgx.Tx) error {
+		var err error
+		link, skipped, err = e.svc.IssueLink(e.ctx, tx, kind, LinkRecipient{EmployeeID: &empID})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("issue link: %v", err)
 	}
-	return out
+	return link, skipped
+}
+
+// queueActivation queues an activation email the way staff management does.
+func (e *testEnv) queueActivation(empID uuid.UUID) error {
+	return database.WithTx(e.ctx, e.pool, func(tx pgx.Tx) error { return e.svc.QueueActivation(e.ctx, tx, empID) })
 }
 
 // ---- login -------------------------------------------------------------------------------------
@@ -447,46 +515,71 @@ func TestActivationFlow(t *testing.T) {
 	env := newTestEnv(t)
 	emp := env.createEmployee(t, RoleSalesAdvisor, "")
 
-	link, err := env.svc.IssueActivation(env.ctx, emp.ID, nil)
-	if err != nil {
-		t.Fatalf("issue activation: %v", err)
+	if err := env.queueActivation(emp.ID); err != nil {
+		t.Fatalf("queue activation: %v", err)
 	}
-	parsed, err := url.Parse(link)
-	if err != nil || parsed.Path != "/activar-cuenta" {
-		t.Fatalf("unexpected link %q", link)
+	if got := env.queue.of("employee_activation", emp.ID); len(got) != 1 || got[0].Email != emp.Email {
+		t.Fatalf("expected one activation email queued to the business address, got %+v", got)
+	}
+
+	link, skipped := env.issueLink(t, LinkActivation, emp.ID)
+	if skipped != "" {
+		t.Fatalf("a link must be issued, skipped: %s", skipped)
+	}
+	parsed, err := url.Parse(link.URL)
+	if err != nil || parsed.Path != "/activate-account" || link.ExpiresIn != activationTTL {
+		t.Fatalf("unexpected link %+v", link)
 	}
 	token := parsed.Query().Get("token")
 
-	env.svc.WaitForBackgroundWork()
-	if sent := env.mailTo(emp.Email); len(sent) != 1 || !strings.Contains(sent[0].Body, link) {
-		t.Fatalf("expected one email containing the link, got %+v", sent)
-	}
-
-	err = env.svc.Activate(env.ctx, token, "corta1", ClientInfo{})
+	_, err = env.svc.Activate(env.ctx, token, "corta1", ClientInfo{})
 	wantCode(t, err, "PASSWORD_TOO_WEAK") // the link must survive a weak password
-	if err := env.svc.Activate(env.ctx, token, goodPassword, ClientInfo{}); err != nil {
-		t.Fatalf("activate: %v", err)
+	if n := len(env.queue.of("employee_activated", emp.ID)); n != 0 {
+		t.Fatalf("a rejected password must not confirm anything, got %d", n)
+	}
+	account, err := env.svc.Activate(env.ctx, token, goodPassword, ClientInfo{})
+	if err != nil || account != AccountEmployee {
+		t.Fatalf("activate: %v (account %q)", err, account)
+	}
+	if got := env.queue.of("employee_activated", emp.ID); len(got) != 1 || got[0].Email != emp.Email {
+		t.Fatalf("activating must queue one confirmation to the business address, got %+v", got)
 	}
 	if _, err := env.login(emp, goodPassword, false); err != nil {
 		t.Fatalf("login after activation: %v", err)
 	}
-	wantCode(t, env.svc.Activate(env.ctx, token, goodPassword, ClientInfo{}), "INVALID_LINK") // single use
+	_, err = env.svc.Activate(env.ctx, token, goodPassword, ClientInfo{})
+	wantCode(t, err, "INVALID_LINK") // single use
+	if n := len(env.queue.of("employee_activated", emp.ID)); n != 1 {
+		t.Fatalf("a second attempt with the same link must not confirm again, got %d", n)
+	}
 
-	_, err = env.svc.IssueActivation(env.ctx, emp.ID, nil)
-	wantCode(t, err, "EMPLOYEE_ALREADY_ACTIVATED")
+	wantCode(t, env.queueActivation(emp.ID), "EMPLOYEE_ALREADY_ACTIVATED")
+	if _, skipped := env.issueLink(t, LinkActivation, emp.ID); skipped == "" {
+		t.Fatal("no link may be minted for an account that is already active")
+	}
+}
+
+func TestANewLinkReplacesTheOpenOne(t *testing.T) {
+	env := newTestEnv(t)
+	emp := env.createEmployee(t, RoleSalesAdvisor, "")
+	first, _ := env.issueLink(t, LinkActivation, emp.ID)
+	second, _ := env.issueLink(t, LinkActivation, emp.ID) // a retry or a resend
+
+	_, err := env.svc.Activate(env.ctx, tokenFrom(t, first.URL), goodPassword, ClientInfo{})
+	wantCode(t, err, "INVALID_LINK")
+	if _, err := env.svc.Activate(env.ctx, tokenFrom(t, second.URL), goodPassword, ClientInfo{}); err != nil {
+		t.Fatalf("the newest link must work: %v", err)
+	}
 }
 
 func TestAnExpiredActivationLinkIsRejected(t *testing.T) {
 	env := newTestEnv(t)
 	emp := env.createEmployee(t, RoleSalesAdvisor, "")
-	link, err := env.svc.IssueActivation(env.ctx, emp.ID, nil)
-	if err != nil {
-		t.Fatalf("issue activation: %v", err)
-	}
-	env.svc.WaitForBackgroundWork()
+	link, _ := env.issueLink(t, LinkActivation, emp.ID)
 
 	env.clock.Advance(activationTTL + time.Second)
-	wantCode(t, env.svc.Activate(env.ctx, tokenFrom(t, link), goodPassword, ClientInfo{}), "INVALID_LINK")
+	_, err := env.svc.Activate(env.ctx, tokenFrom(t, link.URL), goodPassword, ClientInfo{})
+	wantCode(t, err, "INVALID_LINK")
 }
 
 func TestPasswordResetFlow(t *testing.T) {
@@ -497,12 +590,17 @@ func TestPasswordResetFlow(t *testing.T) {
 	if err := env.svc.ForgotPassword(env.ctx, emp.DocType, emp.DocNumber, ClientInfo{}); err != nil {
 		t.Fatalf("forgot password: %v", err)
 	}
-	env.svc.WaitForBackgroundWork()
-	sent := env.mailTo(emp.Email)
-	if len(sent) != 1 {
-		t.Fatalf("expected one reset email, got %d", len(sent))
+	if got := env.queue.of("password_reset", emp.ID); len(got) != 1 || got[0].Email != emp.Email {
+		t.Fatalf("expected one reset email queued, got %+v", got)
 	}
-	token := tokenFrom(t, sent[0].Body)
+	link, skipped := env.issueLink(t, LinkPasswordReset, emp.ID)
+	if skipped != "" || link.ExpiresIn != resetTTL {
+		t.Fatalf("unexpected link %+v (skipped %q)", link, skipped)
+	}
+	token := tokenFrom(t, link.URL)
+	if !strings.Contains(link.URL, "/reset-password?token=") {
+		t.Fatalf("unexpected reset address %q", link.URL)
+	}
 
 	const newPassword = "Another-Strong-Pass-7"
 	if err := env.svc.ResetPassword(env.ctx, token, newPassword, ClientInfo{}); err != nil {
@@ -518,7 +616,19 @@ func TestPasswordResetFlow(t *testing.T) {
 	wantCode(t, env.svc.ResetPassword(env.ctx, token, newPassword, ClientInfo{}), "INVALID_LINK") // single use
 }
 
-func TestForgotPasswordForAnUnknownAccountSendsNothingAndDoesNotFail(t *testing.T) {
+func TestAResetLinkCannotActivateAnAccountAndViceVersa(t *testing.T) {
+	env := newTestEnv(t)
+	active := env.createEmployee(t, RoleSalesAdvisor, goodPassword)
+	reset, _ := env.issueLink(t, LinkPasswordReset, active.ID)
+	_, err := env.svc.Activate(env.ctx, tokenFrom(t, reset.URL), goodPassword, ClientInfo{})
+	wantCode(t, err, "INVALID_LINK")
+
+	pending := env.createEmployee(t, RoleSalesAdvisor, "")
+	activation, _ := env.issueLink(t, LinkActivation, pending.ID)
+	wantCode(t, env.svc.ResetPassword(env.ctx, tokenFrom(t, activation.URL), goodPassword, ClientInfo{}), "INVALID_LINK")
+}
+
+func TestForgotPasswordForAnUnknownAccountQueuesNothingAndDoesNotFail(t *testing.T) {
 	env := newTestEnv(t)
 	if err := env.svc.ForgotPassword(env.ctx, "DNI", "00000000", ClientInfo{}); err != nil {
 		t.Fatalf("must succeed silently: %v", err)
@@ -526,9 +636,8 @@ func TestForgotPasswordForAnUnknownAccountSendsNothingAndDoesNotFail(t *testing.
 	if err := env.svc.ForgotPassword(env.ctx, "XXX", "not a document", ClientInfo{}); err != nil {
 		t.Fatalf("must succeed silently: %v", err)
 	}
-	env.svc.WaitForBackgroundWork()
-	if n := len(env.mail.All()); n != 0 {
-		t.Fatalf("no email must be sent, got %d", n)
+	if n := env.queue.total(); n != 0 {
+		t.Fatalf("nothing must be queued, got %d", n)
 	}
 }
 
@@ -541,16 +650,14 @@ func TestForgotPasswordHasACooldown(t *testing.T) {
 			t.Fatalf("forgot password: %v", err)
 		}
 	}
-	env.svc.WaitForBackgroundWork()
-	if n := len(env.mailTo(emp.Email)); n != 1 {
+	if n := len(env.queue.of("password_reset", emp.ID)); n != 1 {
 		t.Fatalf("expected a single email inside the cooldown, got %d", n)
 	}
 	env.clock.Advance(resetCooldown + time.Second)
 	if err := env.svc.ForgotPassword(env.ctx, emp.DocType, emp.DocNumber, ClientInfo{}); err != nil {
 		t.Fatalf("forgot password: %v", err)
 	}
-	env.svc.WaitForBackgroundWork()
-	if n := len(env.mailTo(emp.Email)); n != 2 {
+	if n := len(env.queue.of("password_reset", emp.ID)); n != 2 {
 		t.Fatalf("expected a second email after the cooldown, got %d", n)
 	}
 }
@@ -573,5 +680,80 @@ func TestChangePassword(t *testing.T) {
 	}
 	if n := env.countAccessLogs(t, emp.ID, "password_changed"); n != 1 {
 		t.Fatalf("expected 1 password_changed row, got %d", n)
+	}
+}
+
+// ---- the customer equivalent of QueueActivation -------------------------------------------------
+
+func (e *testEnv) insertCustomer(t *testing.T) (id uuid.UUID, email string) {
+	t.Helper()
+	id = ids.New()
+	email = "cliente-" + id.String() + "@test.pe"
+	if _, err := e.pool.Exec(e.ctx, `INSERT INTO customers (id, customer_type, document_type, document_number, first_name, last_name, gender,
+			nationality, phone, email, created_by)
+		VALUES ($1, 'diplomatico', 'DNI', $2, 'Lucía', 'Quispe', 'F', 'Peruana', '999111222', $3, $4)`,
+		id, fmt.Sprintf("%08d", rand.IntN(100_000_000)), email, SystemActorID); err != nil {
+		t.Fatalf("insert customer: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = e.pool.Exec(ctx, `DELETE FROM account_tokens WHERE customer_id = $1`, id)
+		_, _ = e.pool.Exec(ctx, `DELETE FROM notification_logs WHERE recipient_customer_id = $1`, id)
+		_, _ = e.pool.Exec(ctx, `DELETE FROM access_logs WHERE customer_id = $1`, id)
+		_, _ = e.pool.Exec(ctx, `DELETE FROM customers WHERE id = $1`, id)
+	})
+	return id, email
+}
+
+func (e *testEnv) queueCustomerActivation(id uuid.UUID) error {
+	return database.WithTx(e.ctx, e.pool, func(tx pgx.Tx) error { return e.svc.QueueCustomerActivation(e.ctx, tx, id) })
+}
+
+func TestQueueCustomerActivationMirrorsTheEmployeeOne(t *testing.T) {
+	env := newTestEnv(t)
+	id, email := env.insertCustomer(t)
+
+	// Sent, and sent again: each call queues an email.
+	for i := 1; i <= 2; i++ {
+		if err := env.queueCustomerActivation(id); err != nil {
+			t.Fatalf("queue %d: %v", i, err)
+		}
+		if got := env.queue.of("customer_activation", id); len(got) != i || got[i-1].Email != email {
+			t.Fatalf("after %d call(s): %+v", i, got)
+		}
+	}
+
+	// Its link opens in the customer portal, whose address can differ from the employees'.
+	svc := NewService(Deps{DB: env.pool, JWTSecret: string(testSecret), AppBaseURL: "http://app.test", PortalBaseURL: "https://portal.test", Notifier: env.queue})
+	var link AccountLink
+	if err := database.WithTx(env.ctx, env.pool, func(tx pgx.Tx) error {
+		var err error
+		link, _, err = svc.IssueLink(env.ctx, tx, LinkActivation, LinkRecipient{CustomerID: &id})
+		return err
+	}); err != nil || !strings.HasPrefix(link.URL, "https://portal.test/activate-account?token=") {
+		t.Fatalf("a customer's link must open in the customer portal: %q (%v)", link.URL, err)
+	}
+
+	// Once activated the customer is told their account is active.
+	if _, err := svc.Activate(env.ctx, tokenFrom(t, link.URL), goodPassword, ClientInfo{}); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	if got := env.queue.of("customer_activated", id); len(got) != 1 || got[0].Email != email {
+		t.Fatalf("activating must queue one confirmation to the customer, got %+v", got)
+	}
+	wantCode(t, env.queueCustomerActivation(id), "CUSTOMER_ALREADY_ACTIVATED")
+}
+
+func TestQueueCustomerActivationRefusesWhatCannotBeActivated(t *testing.T) {
+	env := newTestEnv(t)
+	wantCode(t, env.queueCustomerActivation(ids.New()), "CUSTOMER_NOT_FOUND")
+
+	id, _ := env.insertCustomer(t)
+	if _, err := env.pool.Exec(env.ctx, `UPDATE customers SET is_active = false, deactivated_at = now(), deactivated_by = created_by WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, env.queueCustomerActivation(id), "CUSTOMER_NOT_FOUND")
+	if env.queue.total() != 0 {
+		t.Fatal("nothing may be queued for a customer who cannot be activated")
 	}
 }

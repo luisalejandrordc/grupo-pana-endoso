@@ -10,7 +10,7 @@ TEST_DB := $(firstword $(subst ?, ,$(notdir $(TEST_DATABASE_URL))))
 MIGRATIONS  := backend/db/migrations
 VERIFY_SQL  := backend/db/verify/constraints.sql
 
-.PHONY: help db-create db-drop db-reset migrate-up migrate-status db-verify tidy fmt build vet test run bootstrap-admin seed
+.PHONY: help db-create db-drop db-reset migrate-up migrate-status db-verify tidy fmt build vet test run bootstrap-admin seed email-preview
 
 help:
 	@echo "db-create       create the dev and test databases"
@@ -27,6 +27,7 @@ help:
 	@echo "run             start the API on http://localhost:8080"
 	@echo "bootstrap-admin create the first System Admin (see README)"
 	@echo "seed            populate the database with initial data"
+	@echo "email-preview   render every email template to backend/tmp/email-previews (open index.html)"
 
 db-create:
 	-createdb $(DEV_DB)
@@ -77,3 +78,6 @@ bootstrap-admin:
 
 seed:
 	cd backend && ENV=local DATABASE_URL="${DATABASE_URL}" go run ./cmd/seed
+
+email-preview:
+	cd backend && go run ./cmd/email-preview -out tmp/email-previews

@@ -148,7 +148,11 @@ CREATE TYPE revoked_reason AS ENUM(
 CREATE TYPE notification_status AS ENUM('pending', 'sent', 'failed', 'skipped');
 
 CREATE TYPE notification_type AS ENUM(
-  'customer_account_created',
+  'employee_activation',
+  'employee_activated',
+  'customer_activation',
+  'customer_activated',
+  'password_reset',
   'sale_created',
   'milestone_task_1',
   'milestone_task_3',
@@ -160,8 +164,6 @@ CREATE TYPE notification_type AS ENUM(
   'customer_advisor_changed', -- to the customer when the advisor on their sale changes
   'sale_assigned', -- to the advisor who receives a sale (created for them or reassigned)
   'sale_unassigned', -- to the previous advisor when a sale is reassigned
-  'employee_activation',
-  'password_reset',
   'sla_warning',
   'sla_overdue_reminder'
 );
