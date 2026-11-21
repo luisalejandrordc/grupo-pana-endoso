@@ -149,7 +149,9 @@ CREATE TYPE notification_status AS ENUM('pending', 'sent', 'failed', 'skipped');
 
 CREATE TYPE notification_type AS ENUM(
   'employee_activation',
+  'employee_activated',
   'customer_activation',
+  'customer_activated',
   'password_reset',
   'sale_created',
   'milestone_task_1',

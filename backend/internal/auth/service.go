@@ -45,6 +45,8 @@ type Database interface {
 type Notifier interface {
 	EmployeeActivation(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
 	CustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
+	EmployeeActivated(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
+	CustomerActivated(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
 	PasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
 }
 
@@ -496,6 +498,13 @@ func (s *Service) Activate(ctx context.Context, plainToken, password string, cli
 		if err := markAccountTokenUsed(ctx, tx, token.ID, now); err != nil {
 			return err
 		}
+		// Tell the person (and so warn them, should it not have been them). Queued in this transaction,
+		// so the news goes out if and only if the account really was activated.
+		if s.notifier != nil {
+			if err := s.notifier.EmployeeActivated(ctx, tx, emp.ID, emp.BusinessEmail); err != nil {
+				return err
+			}
+		}
 		return s.logAccess(ctx, tx, accessEntry{
 			EmployeeID: &emp.ID, DocType: emp.DocumentType,
 			DocNumber: emp.DocumentNumber, Action: "account_activated",
@@ -532,6 +541,11 @@ func (s *Service) activateCustomer(ctx context.Context, tx pgx.Tx, token *accoun
 	}
 	if err := markAccountTokenUsed(ctx, tx, token.ID, now); err != nil {
 		return nil, err
+	}
+	if s.notifier != nil {
+		if err := s.notifier.CustomerActivated(ctx, tx, customer.ID, customer.Email); err != nil {
+			return nil, err
+		}
 	}
 	return nil, s.logAccess(ctx, tx, accessEntry{CustomerID: &customer.ID, Action: "account_activated"}, client, now)
 }

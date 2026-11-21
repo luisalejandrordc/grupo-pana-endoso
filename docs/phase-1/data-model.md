@@ -129,7 +129,7 @@ A model is available for new sales only when the model, the chosen version and t
 
 **`customers`**
 
-- Columns: `id`, `customer_type`, `document_type`, `document_number`, `first_name`, `last_name`, `gender`, `legal_name`, `display_name` (generated column for search), `name_source`, `nationality`, `phone`, `email` (required, not unique), `contact_first_name`, `contact_last_name`, `contact_job_title`, `password_hash` (nullable), `portal_invited_at`, `activated_at`, `failed_login_count`, `locked_until`, lifecycle, `row_version`, provenance.
+- Columns: `id`, `customer_type`, `document_type`, `document_number`, `first_name`, `last_name`, `gender`, `legal_name`, `display_name` (generated column for search), `name_source`, `nationality`, `phone`, `email` (required, not unique), `contact_first_name`, `contact_last_name`, `contact_job_title`, `password_hash` (nullable), `activated_at`, `failed_login_count`, `locked_until`, lifecycle, `row_version`, provenance.
 - Constraints: unique on `(document_type, document_number)`; a CHECK on shape: _Diplomático_ needs first name, last name and gender, forbids legal name and contact fields, and allows DNI, CE, PAS or CDI; every other type needs legal name and the three contact fields, forbids the personal name fields, and requires RUC; format CHECKs: DNI 8 digits, RUC 11 digits, CE 9 alphanumeric, PAS 6–12, CDI 8–12.
 - Indexes: `created_by` (advisor scope), trigram on the normalized name, `(is_active)`.
 

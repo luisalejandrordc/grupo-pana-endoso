@@ -99,10 +99,7 @@ func (s *Service) IssueLink(ctx context.Context, tx pgx.Tx, kind LinkKind, to Li
 			return AccountLink{}, "el cliente ya activó su cuenta", nil
 		}
 		link, err := s.mint(ctx, tx, kind, owner, now)
-		if err != nil {
-			return AccountLink{}, "", err
-		}
-		return link, "", markCustomerInvited(ctx, tx, customer.ID, now)
+		return link, "", err
 	}
 
 	emp, err := findEmployeeByID(ctx, tx, *owner.EmployeeID, true)

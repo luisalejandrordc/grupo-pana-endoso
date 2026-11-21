@@ -81,6 +81,20 @@ func (q *queueRecorder) CustomerActivation(ctx context.Context, tx pgx.Tx, id uu
 	return err
 }
 
+func (q *queueRecorder) EmployeeActivated(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	return q.add(ctx, tx, "employee_activated", id, email)
+}
+
+func (q *queueRecorder) CustomerActivated(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	q.mu.Lock()
+	q.queued = append(q.queued, queuedEmail{"customer_activated", id, email})
+	q.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs
+		(id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
+		VALUES ($1, 'customer_activated', $2, $3, $4)`, ids.New(), id, email, "customer_activated:"+id.String())
+	return err
+}
+
 func (q *queueRecorder) PasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
 	return q.add(ctx, tx, "password_reset", id, email)
 }
@@ -520,15 +534,24 @@ func TestActivationFlow(t *testing.T) {
 
 	_, err = env.svc.Activate(env.ctx, token, "corta1", ClientInfo{})
 	wantCode(t, err, "PASSWORD_TOO_WEAK") // the link must survive a weak password
+	if n := len(env.queue.of("employee_activated", emp.ID)); n != 0 {
+		t.Fatalf("a rejected password must not confirm anything, got %d", n)
+	}
 	account, err := env.svc.Activate(env.ctx, token, goodPassword, ClientInfo{})
 	if err != nil || account != AccountEmployee {
 		t.Fatalf("activate: %v (account %q)", err, account)
+	}
+	if got := env.queue.of("employee_activated", emp.ID); len(got) != 1 || got[0].Email != emp.Email {
+		t.Fatalf("activating must queue one confirmation to the business address, got %+v", got)
 	}
 	if _, err := env.login(emp, goodPassword, false); err != nil {
 		t.Fatalf("login after activation: %v", err)
 	}
 	_, err = env.svc.Activate(env.ctx, token, goodPassword, ClientInfo{})
 	wantCode(t, err, "INVALID_LINK") // single use
+	if n := len(env.queue.of("employee_activated", emp.ID)); n != 1 {
+		t.Fatalf("a second attempt with the same link must not confirm again, got %d", n)
+	}
 
 	wantCode(t, env.queueActivation(emp.ID), "EMPLOYEE_ALREADY_ACTIVATED")
 	if _, skipped := env.issueLink(t, LinkActivation, emp.ID); skipped == "" {
@@ -711,9 +734,12 @@ func TestQueueCustomerActivationMirrorsTheEmployeeOne(t *testing.T) {
 		t.Fatalf("a customer's link must open in the customer portal: %q (%v)", link.URL, err)
 	}
 
-	// Once activated there is nothing to send.
+	// Once activated the customer is told their account is active.
 	if _, err := svc.Activate(env.ctx, tokenFrom(t, link.URL), goodPassword, ClientInfo{}); err != nil {
 		t.Fatalf("activate: %v", err)
+	}
+	if got := env.queue.of("customer_activated", id); len(got) != 1 || got[0].Email != email {
+		t.Fatalf("activating must queue one confirmation to the customer, got %+v", got)
 	}
 	wantCode(t, env.queueCustomerActivation(id), "CUSTOMER_ALREADY_ACTIVATED")
 }

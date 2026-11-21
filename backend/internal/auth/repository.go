@@ -251,13 +251,6 @@ func findCustomerByID(ctx context.Context, q querier, id uuid.UUID, forUpdate bo
 	return &c, nil
 }
 
-// markCustomerInvited records that a portal invitation went out. row_version is left alone: it guards the
-// fields staff edit, and an invitation changes none of them.
-func markCustomerInvited(ctx context.Context, q querier, id uuid.UUID, now time.Time) error {
-	_, err := q.Exec(ctx, `UPDATE customers SET portal_invited_at = $2 WHERE id = $1`, id, now)
-	return err
-}
-
 // setCustomerPassword stores a customer's first password and clears the lockout.
 func setCustomerPassword(ctx context.Context, q querier, id uuid.UUID, hash string, now time.Time) error {
 	_, err := q.Exec(ctx, `UPDATE customers
