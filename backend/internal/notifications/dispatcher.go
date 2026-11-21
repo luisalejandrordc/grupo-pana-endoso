@@ -519,6 +519,9 @@ func (d *Dispatcher) loadAccount(ctx context.Context, tx pgx.Tx, row claimed, da
 	}
 	data.Gender = deref(gender)
 	data.LoginID = documentLabel(docType) + " " + docNumber
+	if !needsLink(row.kind) {
+		return data, "", nil // a confirmation: the recipient's own data is all it says
+	}
 	if d.links == nil {
 		return data, "", errors.New("no hay un emisor de enlaces configurado para enviar este correo")
 	}
@@ -535,7 +538,7 @@ func (d *Dispatcher) loadAccount(ctx context.Context, tx pgx.Tx, row claimed, da
 // cancelLink revokes the link minted for an account email that will not be delivered. Other notifications
 // have no link, so it does nothing for them.
 func (d *Dispatcher) cancelLink(ctx context.Context, tx pgx.Tx, row claimed) error {
-	if !isAccountEmail(row.kind) || d.links == nil {
+	if !needsLink(row.kind) || d.links == nil {
 		return nil
 	}
 	kind, to := linkTarget(row)

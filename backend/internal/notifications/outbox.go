@@ -19,13 +19,22 @@ const (
 	SaleUnassigned         = "sale_unassigned"
 	CustomerAdvisorChanged = "customer_advisor_changed"
 	EmployeeActivation     = "employee_activation"
+	EmployeeActivated      = "employee_activated"
 	PasswordReset          = "password_reset"
 	CustomerActivation     = "customer_activation"
+	CustomerActivated      = "customer_activated"
 )
 
-// isAccountEmail says whether a notification type carries a single-use account link.
-func isAccountEmail(kind string) bool {
+// needsLink says whether a notification type carries a single-use account link, which the dispatcher mints when
+// it sends.
+func needsLink(kind string) bool {
 	return kind == EmployeeActivation || kind == PasswordReset || kind == CustomerActivation
+}
+
+// isAccountEmail says whether a notification type is about an account rather than a sale: the recipient's own
+// data is all it needs.
+func isAccountEmail(kind string) bool {
+	return needsLink(kind) || kind == EmployeeActivated || kind == CustomerActivated
 }
 
 // MilestoneTaskType returns the notification type sent when a milestone task completes, or "" for the tasks

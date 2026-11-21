@@ -11,8 +11,8 @@ type Preview struct {
 
 // previewTypes lists every notification type that has a template, in the order they are shown.
 var previewTypes = []string{
-	EmployeeActivation, PasswordReset, CustomerActivation, SaleCreated,
-	"milestone_task_1", "milestone_task_3", "milestone_task_6", "milestone_task_7",
+	EmployeeActivation, EmployeeActivated, PasswordReset, CustomerActivation, CustomerActivated,
+	SaleCreated, "milestone_task_1", "milestone_task_3", "milestone_task_6", "milestone_task_7",
 	"milestone_task_10", "milestone_task_11", "milestone_task_13",
 	CustomerAdvisorChanged, SaleAssigned, SaleUnassigned,
 }

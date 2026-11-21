@@ -185,6 +185,31 @@ func render(d emailData) (rendered, bool) {
 			},
 		}.withLogo(d.LogoURL).build("Active su cuenta de EndosoFlow"), true
 
+	case d.Type == EmployeeActivated:
+		return content{
+			preheader:  "Su cuenta de EndosoFlow ya está activa.",
+			eyebrow:    "Cuenta activada",
+			title:      "Ya puede ingresar a EndosoFlow",
+			greeting:   "Hola " + d.GreetingName + ",",
+			paragraphs: []string{"Definió su contraseña y su cuenta quedó activa. A partir de ahora ingresa con su documento de identidad y esa contraseña."},
+			facts:      []fact{userFact},
+			button:     &button{"Iniciar sesión", d.AppBaseURL + "/"},
+			notes:      []string{"Si usted no realizó esta activación, comuníquese de inmediato con el administrador del sistema."},
+		}.withLogo(d.LogoURL).build("Su cuenta de EndosoFlow está activa"), true
+
+	case d.Type == CustomerActivated:
+		return content{
+			preheader:  "Su cuenta de Grupo Pana ya está activa.",
+			eyebrow:    "Cuenta activada",
+			title:      "Su cuenta está activa",
+			greeting:   greeting,
+			paragraphs: []string{"Definió su contraseña y su cuenta quedó activa. Desde su portal de seguimiento podrá ver el avance de cada una de sus compras."},
+			facts:      []fact{userFact},
+			button:     &button{"Ir a mi portal", d.PortalBaseURL + "/"},
+			notes:      []string{"Si usted no realizó esta activación, comuníquese de inmediato con Grupo Pana."},
+			toCustomer: true,
+		}.withLogo(d.LogoURL).build("Su cuenta de Grupo Pana está activa"), true
+
 	case d.Type == PasswordReset:
 		return content{
 			preheader:  "Cree una nueva contraseña para su cuenta de EndosoFlow.",

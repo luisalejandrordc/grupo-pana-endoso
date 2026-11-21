@@ -68,6 +68,7 @@ func TestEmailsEscapeWhatPeopleTyped(t *testing.T) {
 // The nine customer notifications of the specification (the seven task emails, creation and welcome)
 var specSubjects = map[string]string{
 	CustomerActivation:     "Bienvenida a Grupo Pana: acceso a su portal de seguimiento", // the sample customer is a woman
+	CustomerActivated:      "Su cuenta de Grupo Pana está activa",
 	SaleCreated:            "Hemos registrado su nueva solicitud de vehículo",
 	"milestone_task_1":     "Su cotización oficial está lista para revisión",
 	"milestone_task_3":     "Siguiente paso: su vehículo ha sido asignado",
@@ -269,7 +270,7 @@ func TestGreetingsAndWelcomesAgreeWithTheRecipientsGender(t *testing.T) {
 		if gender == "M" {
 			name = "Carlos"
 		}
-		for _, kind := range []string{CustomerActivation, SaleCreated, "milestone_task_6", CustomerAdvisorChanged} {
+		for _, kind := range []string{CustomerActivation, CustomerActivated, SaleCreated, "milestone_task_6", CustomerAdvisorChanged} {
 			d := sampleData(kind, "https://app.test", "https://portal.test", "")
 			d.Gender, d.GreetingName = gender, name
 			r, _ := render(d)
@@ -373,6 +374,7 @@ func (c *captureSender) to(address string) []mail.Message {
 }
 
 type accountFixture struct {
+	auth   *auth.Service // the one that activates the accounts, so it queues the confirmations
 	env    *testkit.Env
 	sender *captureSender
 	waker  *Waker
@@ -388,8 +390,9 @@ func newAccountFixture(t *testing.T, tweak func(*DispatcherDeps)) *accountFixtur
 	// Its own auth service, so customer links can use an address different from the employees'.
 	links := auth.NewService(auth.Deps{
 		DB: env.Pool, JWTSecret: "0123456789abcdef0123456789abcdef",
-		AppBaseURL: "http://app.test", PortalBaseURL: "https://portal.test", Logger: env.Logger,
+		AppBaseURL: "http://app.test", PortalBaseURL: "https://portal.test", Notifier: f.writer, Logger: env.Logger,
 	})
+	f.auth = links
 	deps := DispatcherDeps{
 		DB: env.Pool, Sender: f.sender, Links: links, Wake: f.waker, AppBaseURL: "http://app.test",
 		PortalBaseURL: "https://portal.test", LogoURL: "https://cdn.test/logo.png", Logger: env.Logger,
@@ -497,9 +500,25 @@ func TestTheActivationEmailCarriesALinkThatWorks(t *testing.T) {
 	if st, _ := f.status(t, email); st != "sent" {
 		t.Fatalf("status = %s", st)
 	}
-	account, err := f.env.Auth.Activate(f.env.Ctx, match[1], testkit.Password, auth.ClientInfo{})
+	account, err := f.auth.Activate(f.env.Ctx, match[1], testkit.Password, auth.ClientInfo{})
 	if err != nil || account != auth.AccountEmployee {
 		t.Fatalf("activate: %v (%q)", err, account)
+
+		// Setting the first password queues a confirmation, which the dispatcher sends: no link, a way in, and a
+		// warning for whoever did not do it.
+		if _, err := f.disp.RunOnce(f.env.Ctx); err != nil {
+			t.Fatal(err)
+		}
+		sent = f.sender.to(email)
+		if len(sent) != 2 {
+			t.Fatalf("the activation email and then its confirmation, got %d", len(sent))
+		}
+		done := sent[1]
+		if done.Subject != "Su cuenta de EndosoFlow está activa" || strings.Contains(done.Body, "token=") ||
+			!strings.Contains(done.Body, "Su usuario de ingreso: DNI ") || !strings.Contains(done.Body, "no realizó esta activación") ||
+			!strings.Contains(done.HTMLBody, `href="http://app.test/"`) {
+			t.Fatalf("unexpected confirmation:\n%s %s", done.Subject, done.Body)
+		}
 	}
 }
 
@@ -607,15 +626,26 @@ func TestCustomerWelcomeEmailActivatesTheCustomer(t *testing.T) {
 		if _, err := f.env.Auth.Activate(f.env.Ctx, oldLink[1], testkit.Password, auth.ClientInfo{}); err == nil {
 			t.Fatal("the link of the first email must stop working once the resend went out")
 		}
-		account, err := f.env.Auth.Activate(f.env.Ctx, newLink[1], testkit.Password, auth.ClientInfo{})
+		account, err := f.auth.Activate(f.env.Ctx, newLink[1], testkit.Password, auth.ClientInfo{})
 		if err != nil || account != auth.AccountCustomer {
 			t.Fatalf("activate: %v (%q)", err, account)
 		}
-		var invited, activated bool
-		if err := f.env.Pool.QueryRow(f.env.Ctx, `SELECT portal_invited_at IS NOT NULL, password_hash IS NOT NULL AND activated_at IS NOT NULL FROM customers WHERE id = $1`, customerID).Scan(&invited, &activated); err != nil || !invited || !activated {
-			t.Fatalf("invited=%v activated=%v (%v)", invited, activated, err)
+		if _, err := f.disp.RunOnce(f.env.Ctx); err != nil {
+			t.Fatal(err)
 		}
-		if _, err := f.env.Auth.Activate(f.env.Ctx, newLink[1], testkit.Password, auth.ClientInfo{}); err == nil {
+		sent = f.sender.to(email)
+		if len(sent) != 3 {
+			t.Fatalf("the welcome, the resend and the confirmation, got %d", len(sent))
+		}
+		if c := sent[2]; c.Subject != "Su cuenta de Grupo Pana está activa" || !strings.Contains(c.Body, greeting) ||
+			!strings.Contains(c.HTMLBody, `href="https://portal.test/"`) || strings.Contains(c.Body, "token=") {
+			t.Fatalf("a customer's confirmation greets them and opens the customer portal:\n%s\n%s", c.Subject, c.Body)
+		}
+		var activated bool
+		if err := f.env.Pool.QueryRow(f.env.Ctx, `SELECT password_hash IS NOT NULL AND activated_at IS NOT NULL FROM customers WHERE id = $1`, customerID).Scan(&activated); err != nil || !activated {
+			t.Fatalf("activated=%v (%v)", activated, err)
+		}
+		if _, err := f.auth.Activate(f.env.Ctx, newLink[1], testkit.Password, auth.ClientInfo{}); err == nil {
 			t.Fatal("the link is single use")
 		}
 	}
