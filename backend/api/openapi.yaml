@@ -551,7 +551,7 @@ paths:
       description: |
         A Diplomático (person) needs first name, last name and gender and a DNI, CE, PAS or CDI. An organization
         needs a legal name plus a contact's first name, last name and job title and a RUC. The pair (document type,
-        number) is unique. Fields that do not apply to the type are ignored. The portal status starts as not_invited.
+        number) is unique. Fields that do not apply to the type are ignored. The portal status starts as pending and becomes active when the customer sets a password.
       security:
         - bearerAuth: []
       requestBody:
@@ -2309,7 +2309,7 @@ components:
         contactFirstName: { type: string, nullable: true }
         contactLastName: { type: string, nullable: true }
         contactJobTitle: { type: string, nullable: true }
-        portalStatus: { type: string, enum: [not_invited, invited, active] }
+        portalStatus: { type: string, enum: [pending, active] }
         isActive: { type: boolean }
         version: { type: integer }
         createdAt: { type: string, format: date-time }
