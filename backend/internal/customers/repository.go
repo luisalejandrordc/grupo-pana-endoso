@@ -23,25 +23,21 @@ type querier interface {
 const customerColumns = `c.id, c.customer_type::text, c.document_type::text, c.document_number,
 	c.first_name, c.last_name, c.gender::text, c.legal_name, c.display_name, c.name_source::text,
 	c.nationality, c.phone, c.email, c.contact_first_name, c.contact_last_name, c.contact_job_title,
-	c.portal_invited_at, c.activated_at, c.is_active, c.row_version, c.created_at, c.updated_at`
+	c.activated_at, c.is_active, c.row_version, c.created_at, c.updated_at`
 
 func scanCustomer(row pgx.Row) (*Customer, error) {
 	var c Customer
-	var invitedAt, activatedAt *time.Time
+	var activatedAt *time.Time
 	err := row.Scan(&c.ID, &c.CustomerType, &c.DocumentType, &c.DocumentNumber,
 		&c.FirstName, &c.LastName, &c.Gender, &c.LegalName, &c.DisplayName, &c.NameSource,
 		&c.Nationality, &c.Phone, &c.Email, &c.ContactFirstName, &c.ContactLastName, &c.ContactJobTitle,
-		&invitedAt, &activatedAt, &c.IsActive, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+		&activatedAt, &c.IsActive, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	switch {
-	case activatedAt != nil:
+	c.PortalStatus = "pending"
+	if activatedAt != nil {
 		c.PortalStatus = "active"
-	case invitedAt != nil:
-		c.PortalStatus = "invited"
-	default:
-		c.PortalStatus = "not_invited"
 	}
 	return &c, nil
 }

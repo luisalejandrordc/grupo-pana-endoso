@@ -36,7 +36,7 @@ type Customer struct {
 	ContactFirstName *string   `json:"contactFirstName"`
 	ContactLastName  *string   `json:"contactLastName"`
 	ContactJobTitle  *string   `json:"contactJobTitle"`
-	PortalStatus     string    `json:"portalStatus"` // not_invited, invited or active
+	PortalStatus     string    `json:"portalStatus"` // pending or active
 	IsActive         bool      `json:"isActive"`
 	Version          int       `json:"version"`
 	CreatedAt        time.Time `json:"createdAt"`

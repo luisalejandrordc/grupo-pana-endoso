@@ -305,6 +305,14 @@ func (a *activationRecorder) EmployeeActivation(context.Context, pgx.Tx, uuid.UU
 	return errors.New("not used by customer tests")
 }
 
+func (a *activationRecorder) EmployeeActivated(context.Context, pgx.Tx, uuid.UUID, string) error {
+	return errors.New("not used by customer tests")
+}
+
+func (a *activationRecorder) CustomerActivated(context.Context, pgx.Tx, uuid.UUID, string) error {
+	return nil // the confirmation is not what these tests are about
+}
+
 func (a *activationRecorder) PasswordReset(context.Context, pgx.Tx, uuid.UUID, string) error {
 	return errors.New("not used by customer tests")
 }
