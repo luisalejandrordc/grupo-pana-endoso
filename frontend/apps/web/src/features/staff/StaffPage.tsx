@@ -73,6 +73,7 @@ export function StaffPage({
     },
     isAdmin,
   );
+  console.log(list.data);
   const deactivate = useDeactivateEmployee();
   const reactivate = useReactivateEmployee();
   const resend = useResendActivation();

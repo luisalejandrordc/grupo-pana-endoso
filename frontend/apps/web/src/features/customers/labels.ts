@@ -13,12 +13,6 @@ export const customerTypeLabels: Record<CustomerType, string> = {
 
 export const customerTypes = Object.keys(customerTypeLabels) as CustomerType[];
 
-export const portalStatusLabels = {
-  not_invited: "Sin invitar",
-  invited: "Invitado",
-  active: "Activo",
-} as const;
-
 export const documentTypeLabels: Record<CustomerDocumentType, string> = {
   DNI: "DNI",
   CE: "Carné de extranjería",

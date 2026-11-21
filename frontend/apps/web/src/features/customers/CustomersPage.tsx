@@ -13,11 +13,7 @@ import {
 import type { Role } from "../../shared/types";
 import type { ApiCustomer } from "./api";
 import { CustomerFormModal, type FormMode } from "./CustomerFormModal";
-import {
-  customerTypeLabels,
-  customerTypes,
-  portalStatusLabels,
-} from "./labels";
+import { customerTypeLabels, customerTypes } from "./labels";
 import { useCustomerList } from "./queries";
 
 const PAGE_SIZE = 20;
@@ -238,17 +234,8 @@ function CustomerRow({
         </div>
       </td>
       <td>
-        <Badge
-          plain
-          tone={
-            customer.portalStatus === "active"
-              ? "done"
-              : customer.portalStatus === "invited"
-                ? "warn"
-                : "neutral"
-          }
-        >
-          {portalStatusLabels[customer.portalStatus]}
+        <Badge plain tone={customer.activatedAt ? "done" : "warn"}>
+          {customer.activatedAt ? "Activada" : "Pendiente"}
         </Badge>
       </td>
       <td className="cell-aside">

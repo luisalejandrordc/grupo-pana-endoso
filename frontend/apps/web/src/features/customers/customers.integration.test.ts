@@ -70,7 +70,7 @@ describe.skipIf(!enabled)("customers against the real backend", () => {
         "nameSource",
         "nationality",
         "phone",
-        "portalStatus",
+        "activatedAt",
         "updatedAt",
         "version",
       ].sort(),
@@ -79,7 +79,7 @@ describe.skipIf(!enabled)("customers against the real backend", () => {
       documentNumber: `00${tag}`,
       version: 1,
       isActive: true,
-      portalStatus: "not_invited",
+      activatedAt: null,
     });
 
     const list = await customersApi.list({

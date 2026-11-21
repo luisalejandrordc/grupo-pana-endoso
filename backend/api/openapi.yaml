@@ -2285,7 +2285,6 @@ components:
           nationality,
           phone,
           email,
-          portalStatus,
           isActive,
           version,
           createdAt,
@@ -2309,8 +2308,14 @@ components:
         contactFirstName: { type: string, nullable: true }
         contactLastName: { type: string, nullable: true }
         contactJobTitle: { type: string, nullable: true }
-        portalStatus: { type: string, enum: [pending, active] }
         isActive: { type: boolean }
+        activatedAt:
+          {
+            type: string,
+            format: date-time,
+            nullable: true,
+            description: Null until the person sets a password.,
+          }
         version: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }

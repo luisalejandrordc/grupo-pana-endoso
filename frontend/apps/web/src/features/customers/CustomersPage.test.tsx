@@ -25,7 +25,6 @@ const person = (over: Partial<ApiCustomer> = {}): ApiCustomer => ({
   contactFirstName: null,
   contactLastName: null,
   contactJobTitle: null,
-  portalStatus: "not_invited",
   isActive: true,
   version: 1,
   createdAt: "2026-01-01T00:00:00Z",
@@ -49,7 +48,7 @@ const embassy = (): ApiCustomer =>
     contactJobTitle: "Agregado",
     email: "japon@test.pe",
     isActive: false,
-    portalStatus: "invited",
+    activatedAt: "2023-03-02T10:00:00Z",
   });
 
 interface Call {
@@ -182,7 +181,7 @@ describe("listing", () => {
     expect(
       within(screen.getByRole("table")).getByText("Embajada"),
     ).toBeInTheDocument(); // type label, not the raw key
-    expect(screen.getByText("Invitado")).toBeInTheDocument();
+    expect(screen.getByText("Pendiente")).toBeInTheDocument();
     expect(screen.getByText("2 registros")).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByText(/Mostrando/)).toHaveTextContent("1–2 de 2"),

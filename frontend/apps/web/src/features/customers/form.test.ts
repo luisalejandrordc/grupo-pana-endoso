@@ -29,7 +29,7 @@ const person: ApiCustomer = {
   contactFirstName: null,
   contactLastName: null,
   contactJobTitle: null,
-  portalStatus: "not_invited",
+  activatedAt: "2023-03-02T10:00:00Z",
   isActive: true,
   version: 3,
   createdAt: "2026-01-01T00:00:00Z",

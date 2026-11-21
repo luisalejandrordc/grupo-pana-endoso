@@ -360,7 +360,7 @@ export interface paths {
      * Create a customer
      * @description A Diplomático (person) needs first name, last name and gender and a DNI, CE, PAS or CDI. An organization
      *     needs a legal name plus a contact's first name, last name and job title and a RUC. The pair (document type,
-     *     number) is unique. Fields that do not apply to the type are ignored. The portal status starts as not_invited.
+     *     number) is unique. Fields that do not apply to the type are ignored. The portal status starts as pending and becomes active when the customer sets a password.
      */
     post: operations["createCustomer"];
     delete?: never;
@@ -438,6 +438,28 @@ export interface paths {
      * @description An inactive customer cannot receive new sales or portal access. History is kept.
      */
     post: operations["deactivateCustomer"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/customers/{id}/resend-activation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["CustomerId"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Send the customer a new activation link (Admin, Manager)
+     * @description Only for customers who have not set a password yet. The email is queued and sent within moments; the previous link stops working when the new one is sent. Customers who are inactive or already activated are refused.
+     */
+    post: operations["resendCustomerActivation"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1401,6 +1423,10 @@ export interface components {
       businessEmail?: string;
       role?: components["schemas"]["Role"];
     };
+    ActivationResult: {
+      /** @enum {string} */
+      accountType: "employee" | "customer";
+    };
     CreateEmployeeResult: {
       employee: components["schemas"]["Employee"];
       activationLinkIssued: boolean;
@@ -1449,9 +1475,12 @@ export interface components {
       contactFirstName?: string | null;
       contactLastName?: string | null;
       contactJobTitle?: string | null;
-      /** @enum {string} */
-      portalStatus: "not_invited" | "invited" | "active";
       isActive: boolean;
+      /**
+       * Format: date-time
+       * @description Null until the person sets a password.
+       */
+      activatedAt?: string | null;
       version: number;
       /** Format: date-time */
       createdAt: string;
@@ -2412,12 +2441,14 @@ export interface operations {
       };
     };
     responses: {
-      /** @description The password was set. The person can now sign in. */
-      204: {
+      /** @description The password was set. accountType says whose link it was: employees can sign in now; the customer portal is not available yet, so a customer only has a password waiting for it. */
+      200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["ActivationResult"];
+        };
       };
       400: components["responses"]["BadRequest"];
       422: components["responses"]["Unprocessable"];
@@ -2673,7 +2704,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Created. activationLinkIssued is false if the link could not be issued; resend it later. */
+      /** @description Created. The activation email is queued in the same transaction (activationLinkIssued is always true) and sent within moments. */
       201: {
         headers: {
           [name: string]: unknown;
@@ -3064,6 +3095,32 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Customer"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      409: components["responses"]["Conflict"];
+    };
+  };
+  resendCustomerActivation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["CustomerId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Accepted. */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Accepted"];
         };
       };
       401: components["responses"]["Unauthorized"];
