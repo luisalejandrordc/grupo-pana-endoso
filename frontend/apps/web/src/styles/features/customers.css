@@ -33,31 +33,6 @@
   background: var(--warn-wash);
 }
 
-/* Dangerous or administrative actions live apart, below a dashed rule. */
-.admin-zone {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 6px;
-  padding-top: 15px;
-  border-top: 1px dashed var(--line-strong);
-}
-
-.admin-zone-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  color: var(--ink-2);
-  font-size: var(--text-sm);
-}
-
-.admin-zone-row strong {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--ink);
-}
-
 @media (max-width: 760px) {
   .document-row {
     grid-template-columns: 1fr;

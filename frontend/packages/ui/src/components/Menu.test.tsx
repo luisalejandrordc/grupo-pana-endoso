@@ -140,23 +140,4 @@ describe("Menu", () => {
     await user.click(screen.getByRole("menuitem", { name: "Desactivar" }));
     expect(never).not.toHaveBeenCalled();
   });
-
-  it("can be a quiet icon button named by its label, for a row of a table", async () => {
-    const user = userEvent.setup();
-    render(
-      <Menu
-        variant="icon"
-        label="Acciones de Ana Rojas"
-        items={[{ label: "Editar", onSelect: vi.fn() }]}
-      />,
-    );
-    const button = screen.getByRole("button", {
-      name: "Acciones de Ana Rojas",
-    });
-    expect(button).toHaveTextContent("");
-    await user.click(button);
-    expect(
-      screen.getByRole("menu", { name: "Acciones de Ana Rojas" }),
-    ).toBeVisible();
-  });
 });

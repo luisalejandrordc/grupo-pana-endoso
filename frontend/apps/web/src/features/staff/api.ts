@@ -31,6 +31,11 @@ export const staffApi = {
     api.request<Employee>(`/employees/${id}/deactivate`, { method: "POST" }),
   reactivate: (id: string) =>
     api.request<Employee>(`/employees/${id}/reactivate`, { method: "POST" }),
+  /** Permanent. Only for someone who never signed in or acted; the reason goes to the audit trail. */
+  remove: (id: string, reason: string) =>
+    api.request<void>(`/employees/${id}${queryString({ reason })}`, {
+      method: "DELETE",
+    }),
   /** A new activation link, for someone who has not set a password yet. */
   resendActivation: (id: string) =>
     api.request<{ status: "accepted" }>(`/employees/${id}/resend-activation`, {

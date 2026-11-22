@@ -156,16 +156,13 @@ const lastList = () => {
 const rowOf = async (name: string) =>
   (await screen.findByText(name)).closest("tr") as HTMLElement;
 
-async function openMenu(
+async function openRecord(
   user: ReturnType<typeof userEvent.setup>,
   name: string,
 ) {
-  await screen.findByText(name);
-  await user.click(screen.getByRole("button", { name: `Acciones de ${name}` }));
-  return screen.getByRole("menu");
+  await user.click(await screen.findByRole("button", { name }));
+  return within(screen.getByRole("dialog", { name: "Ficha del colaborador" }));
 }
-const itemsOf = () =>
-  screen.getAllByRole("menuitem").map((item) => item.textContent);
 
 describe("StaffPage", () => {
   describe("the list", () => {
@@ -230,50 +227,26 @@ describe("StaffPage", () => {
     });
   });
 
-  describe("the actions menu", () => {
-    it("offers each person only what applies to them", async () => {
-      const { user } = setup();
-
-      await openMenu(user, "Ana Rojas");
-      expect(itemsOf()).toEqual(["Editar", "Desactivar"]);
-      await user.keyboard("{Escape}");
-
-      await openMenu(user, "Carlos Mendoza");
-      expect(itemsOf()).toEqual([
-        "Editar",
-        "Reenviar activación",
-        "Desactivar",
-      ]);
-      await user.keyboard("{Escape}");
-
-      await openMenu(user, "Lucía Paredes");
-      expect(itemsOf()).toEqual(["Editar", "Reactivar"]);
+  describe("opening a person", () => {
+    it("has no actions menu on the rows: a person is opened to be managed", async () => {
+      setup();
+      await screen.findByText("Ana Rojas");
+      expect(screen.queryByRole("button", { name: /^Acciones de/ })).toBeNull();
+      expect(screen.queryByRole("menu")).toBeNull();
     });
 
-    it("never lets administrators deactivate themselves", async () => {
+    it("opens the person's record from the name or from anywhere on the row", async () => {
       const { user } = setup();
-      await openMenu(user, "Diego Ramírez");
-      expect(itemsOf()).toEqual(["Editar"]);
-    });
+      const record = await openRecord(user, "Ana Rojas");
+      expect(record.getByText("Ana Rojas · DNI 40123000")).toBeVisible();
+      await user.click(record.getByRole("button", { name: "Cancelar" }));
 
-    it("opens the editor from the name or from the row, but not from the menu button", async () => {
-      const { user } = setup();
       await user.click(
-        await screen.findByRole("button", { name: "Ana Rojas" }),
+        within(await rowOf("Carlos Mendoza")).getByText("Asesor"),
       );
       expect(
-        screen.getByRole("dialog", { name: "Editar colaborador" }),
+        screen.getByRole("dialog", { name: "Ficha del colaborador" }),
       ).toBeVisible();
-      await user.click(screen.getByRole("button", { name: "Cancelar" }));
-
-      await user.click(within(await rowOf("Ana Rojas")).getByText("Asesor"));
-      expect(
-        screen.getByRole("dialog", { name: "Editar colaborador" }),
-      ).toBeVisible();
-      await user.click(screen.getByRole("button", { name: "Cancelar" }));
-
-      await openMenu(user, "Carlos Mendoza");
-      expect(screen.queryByRole("dialog")).toBeNull();
     });
   });
 
@@ -283,7 +256,7 @@ describe("StaffPage", () => {
       name = "Ana Rojas",
     ) {
       await user.click(await screen.findByRole("button", { name }));
-      return screen.getByRole("dialog", { name: "Editar colaborador" });
+      return screen.getByRole("dialog", { name: "Ficha del colaborador" });
     }
 
     it("starts with the person's data and nothing to save", async () => {
@@ -446,124 +419,325 @@ describe("StaffPage", () => {
     });
   });
 
-  describe("deactivating", () => {
-    it("asks first, and does nothing if the person backs out", async () => {
+  describe("the administrative actions at the end of the record", () => {
+    it("offers each person only what applies to them", async () => {
       const { user } = setup();
-      await openMenu(user, "Ana Rojas");
-      await user.click(screen.getByRole("menuitem", { name: "Desactivar" }));
 
-      const dialog = within(
-        screen.getByRole("dialog", { name: "Desactivar a Ana Rojas" }),
-      );
-      expect(
-        dialog.getByText(/Se cerrarán sus sesiones activas/),
-      ).toBeVisible();
-      await user.click(dialog.getByRole("button", { name: "Cancelar" }));
-      expect(screen.queryByRole("dialog")).toBeNull();
-      expect(calling("POST", "/employees/ana/deactivate")).toHaveLength(0);
+      let record = await openRecord(user, "Ana Rojas");
+      expect(record.getByText("Desactivar colaborador")).toBeVisible();
+      expect(record.getByText("Eliminar colaborador")).toBeVisible();
+      expect(record.queryByText("Reenviar activación")).toBeNull();
+      expect(record.queryByText("Reactivar colaborador")).toBeNull();
+      await user.click(record.getByRole("button", { name: "Cancelar" }));
+
+      record = await openRecord(user, "Carlos Mendoza");
+      expect(record.getByText("Reenviar activación")).toBeVisible();
+      expect(record.getByText("Desactivar colaborador")).toBeVisible();
+      expect(record.getByText("Eliminar colaborador")).toBeVisible();
+      await user.click(record.getByRole("button", { name: "Cancelar" }));
+
+      record = await openRecord(user, "Lucía Paredes");
+      expect(record.getByText("Reactivar colaborador")).toBeVisible();
+      expect(record.getByText("Eliminar colaborador")).toBeVisible();
+      expect(record.queryByText("Reenviar activación")).toBeNull();
+      expect(record.queryByText("Desactivar colaborador")).toBeNull();
     });
 
-    it("deactivates on confirmation, says so, and refreshes the list", async () => {
-      answers["POST /employees/ana/deactivate"] = () =>
-        json({ ...ana, isActive: false });
+    it("never lets administrators deactivate or delete themselves", async () => {
       const { user } = setup();
-      await openMenu(user, "Ana Rojas");
-      await user.click(screen.getByRole("menuitem", { name: "Desactivar" }));
-      const listCalls = calling("GET", "/employees").length;
-      await user.click(
-        within(screen.getByRole("dialog")).getByRole("button", {
-          name: "Desactivar",
-        }),
-      );
-
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      expect(calling("POST", "/employees/ana/deactivate")).toHaveLength(1);
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Colaborador desactivado",
-          message: "Ana Rojas ya no puede iniciar sesión.",
-        }),
-      );
-      await waitFor(() =>
-        expect(calling("GET", "/employees").length).toBeGreaterThan(listCalls),
-      );
+      const record = await openRecord(user, "Diego Ramírez");
+      expect(record.queryByText("Desactivar colaborador")).toBeNull();
+      expect(record.queryByText("Eliminar colaborador")).toBeNull();
+      expect(record.queryByText("Reenviar activación")).toBeNull();
     });
 
-    it("when the server refuses, says why inside the dialog and stays open", async () => {
-      answers["POST /employees/ana/deactivate"] = () =>
-        failure(
-          409,
-          "CONFLICT",
+    describe("deactivating", () => {
+      it("asks first, and does nothing if the person backs out", async () => {
+        const { user } = setup();
+        const record = await openRecord(user, "Ana Rojas");
+        await user.click(record.getByRole("button", { name: "Desactivar" }));
+
+        const confirm = within(
+          screen.getByRole("dialog", { name: "Desactivar colaborador" }),
+        );
+        expect(confirm.getByText("Ana Rojas")).toBeVisible();
+        expect(
+          confirm.getByText(/se cierran sus sesiones activas/),
+        ).toBeVisible();
+        await user.click(confirm.getByRole("button", { name: "Cancelar" }));
+
+        expect(
+          screen.queryByRole("dialog", { name: "Desactivar colaborador" }),
+        ).toBeNull();
+        expect(
+          screen.getByRole("dialog", { name: "Ficha del colaborador" }),
+        ).toBeVisible();
+        expect(calling("POST", "/employees/ana/deactivate")).toHaveLength(0);
+      });
+
+      it("deactivates on confirmation, says so, refreshes the list and leaves the record open showing the new state", async () => {
+        answers["POST /employees/ana/deactivate"] = () =>
+          json({ ...ana, isActive: false, version: 4 });
+        const { user } = setup();
+        const record = await openRecord(user, "Ana Rojas");
+        const listCalls = calling("GET", "/employees").length;
+        await user.click(record.getByRole("button", { name: "Desactivar" }));
+        await user.click(
+          within(
+            screen.getByRole("dialog", { name: "Desactivar colaborador" }),
+          ).getByRole("button", { name: "Desactivar" }),
+        );
+
+        await waitFor(() =>
+          expect(
+            screen.queryByRole("dialog", { name: "Desactivar colaborador" }),
+          ).toBeNull(),
+        );
+        expect(calling("POST", "/employees/ana/deactivate")).toHaveLength(1);
+        expect(toast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "Colaborador desactivado",
+            message: "Ana Rojas ya no puede iniciar sesión.",
+          }),
+        );
+        expect(record.getByText("Inactivo")).toBeVisible();
+        expect(record.getByText("Reactivar colaborador")).toBeVisible();
+        expect(record.queryByText("Desactivar colaborador")).toBeNull();
+        await waitFor(() =>
+          expect(calling("GET", "/employees").length).toBeGreaterThan(
+            listCalls,
+          ),
+        );
+      });
+
+      it("keeps what was typed in the record, and saves it against the new version", async () => {
+        answers["POST /employees/ana/deactivate"] = () =>
+          json({ ...ana, isActive: false, version: 4 });
+        answers["PATCH /employees/ana"] = () =>
+          json({
+            ...ana,
+            isActive: false,
+            businessPhone: "+51 1 555 0199",
+            version: 5,
+          });
+        const { user } = setup();
+        const record = await openRecord(user, "Ana Rojas");
+        const phone = record.getByLabelText("Teléfono corporativo");
+        await user.clear(phone);
+        await user.type(phone, "+51 1 555 0199");
+
+        await user.click(record.getByRole("button", { name: "Desactivar" }));
+        await user.click(
+          within(
+            screen.getByRole("dialog", { name: "Desactivar colaborador" }),
+          ).getByRole("button", { name: "Desactivar" }),
+        );
+        await waitFor(() => expect(record.getByText("Inactivo")).toBeVisible());
+        expect(phone).toHaveValue("+51 1 555 0199");
+
+        await user.click(
+          record.getByRole("button", { name: "Guardar cambios" }),
+        );
+        await waitFor(() =>
+          expect(calling("PATCH", "/employees/ana")).toHaveLength(1),
+        );
+        expect(calling("PATCH", "/employees/ana")[0].body).toEqual({
+          version: 4,
+          businessPhone: "+51 1 555 0199",
+        });
+      });
+
+      it("when the server refuses, says why inside the dialog and stays open", async () => {
+        answers["POST /employees/ana/deactivate"] = () =>
+          failure(
+            409,
+            "CONFLICT",
+            "No se puede desactivar al último administrador.",
+          );
+        const { user } = setup();
+        const record = await openRecord(user, "Ana Rojas");
+        await user.click(record.getByRole("button", { name: "Desactivar" }));
+        const confirm = within(
+          screen.getByRole("dialog", { name: "Desactivar colaborador" }),
+        );
+        await user.click(confirm.getByRole("button", { name: "Desactivar" }));
+
+        expect(await confirm.findByRole("alert")).toHaveTextContent(
           "No se puede desactivar al último administrador.",
         );
-      const { user } = setup();
-      await openMenu(user, "Ana Rojas");
-      await user.click(screen.getByRole("menuitem", { name: "Desactivar" }));
-      const dialog = within(screen.getByRole("dialog"));
-      await user.click(dialog.getByRole("button", { name: "Desactivar" }));
+        expect(toast).not.toHaveBeenCalled();
+      });
 
-      expect(await dialog.findByRole("alert")).toHaveTextContent(
-        "No se puede desactivar al último administrador.",
-      );
-      expect(screen.getByRole("dialog")).toBeVisible();
-      expect(toast).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("reactivating and resending", () => {
-    it("reactivates an inactive person in one step", async () => {
-      answers["POST /employees/lucia/reactivate"] = () =>
-        json({ ...lucia, isActive: true });
-      const { user } = setup();
-      await openMenu(user, "Lucía Paredes");
-      await user.click(screen.getByRole("menuitem", { name: "Reactivar" }));
-      await waitFor(() =>
-        expect(calling("POST", "/employees/lucia/reactivate")).toHaveLength(1),
-      );
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Colaborador reactivado",
-          tone: "success",
-        }),
-      );
-    });
-
-    it("resends the activation link and says where it went", async () => {
-      answers["POST /employees/carlos/resend-activation"] = () =>
-        json({ status: "accepted" }, 202);
-      const { user } = setup();
-      await openMenu(user, "Carlos Mendoza");
-      await user.click(
-        screen.getByRole("menuitem", { name: "Reenviar activación" }),
-      );
-      await waitFor(() =>
+      it("closes only the confirmation on Escape, leaving the record and what was typed in it", async () => {
+        const { user } = setup();
+        const record = await openRecord(user, "Ana Rojas");
+        await user.type(record.getByLabelText("Nombres"), "ita");
+        await user.click(record.getByRole("button", { name: "Desactivar" }));
         expect(
-          calling("POST", "/employees/carlos/resend-activation"),
-        ).toHaveLength(1),
-      );
-      expect(toast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Enlace de activación enviado",
-          message: "Se envió a carlos@grupopana.pe.",
-        }),
-      );
+          screen.getByRole("dialog", { name: "Desactivar colaborador" }),
+        ).toBeVisible();
+
+        await user.keyboard("{Escape}");
+        expect(
+          screen.queryByRole("dialog", { name: "Desactivar colaborador" }),
+        ).toBeNull();
+        expect(
+          screen.getByRole("dialog", { name: "Ficha del colaborador" }),
+        ).toBeVisible();
+        expect(record.getByLabelText("Nombres")).toHaveValue("Anaita");
+      });
     });
 
-    it("reports a refusal as an error notification", async () => {
-      answers["POST /employees/carlos/resend-activation"] = () =>
-        failure(409, "CONFLICT", "Esta cuenta ya fue activada.");
-      const { user } = setup();
-      await openMenu(user, "Carlos Mendoza");
-      await user.click(
-        screen.getByRole("menuitem", { name: "Reenviar activación" }),
-      );
-      await waitFor(() =>
-        expect(toast).toHaveBeenCalledWith({
-          title: "No se pudo reenviar la activación",
-          message: "Esta cuenta ya fue activada.",
-          tone: "error",
-        }),
-      );
+    describe("reactivating", () => {
+      it("reactivates an inactive person after a confirmation, and the record shows it", async () => {
+        answers["POST /employees/lucia/reactivate"] = () =>
+          json({ ...lucia, isActive: true, version: 4 });
+        const { user } = setup();
+        const record = await openRecord(user, "Lucía Paredes");
+        await user.click(record.getByRole("button", { name: "Reactivar" }));
+        const confirm = within(
+          screen.getByRole("dialog", { name: "Reactivar colaborador" }),
+        );
+        await user.click(confirm.getByRole("button", { name: "Reactivar" }));
+
+        await waitFor(() =>
+          expect(calling("POST", "/employees/lucia/reactivate")).toHaveLength(
+            1,
+          ),
+        );
+        expect(toast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "Colaborador reactivado",
+            tone: "success",
+          }),
+        );
+        await waitFor(() =>
+          expect(record.getByText("Desactivar colaborador")).toBeVisible(),
+        );
+        expect(record.queryByText("Reactivar colaborador")).toBeNull();
+      });
+    });
+
+    describe("resending the activation link", () => {
+      it("resends it and says where it went", async () => {
+        answers["POST /employees/carlos/resend-activation"] = () =>
+          json({ status: "accepted" }, 202);
+        const { user } = setup();
+        const record = await openRecord(user, "Carlos Mendoza");
+        await user.click(
+          record.getByRole("button", { name: "Reenviar enlace" }),
+        );
+        await waitFor(() =>
+          expect(
+            calling("POST", "/employees/carlos/resend-activation"),
+          ).toHaveLength(1),
+        );
+        expect(toast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "Enlace de activación enviado",
+            message: "Se envió a carlos@grupopana.pe.",
+          }),
+        );
+        // the record stays open: sending a link is not the end of managing a person
+        expect(
+          screen.getByRole("dialog", { name: "Ficha del colaborador" }),
+        ).toBeVisible();
+      });
+
+      it("reports a refusal as an error notification", async () => {
+        answers["POST /employees/carlos/resend-activation"] = () =>
+          failure(409, "CONFLICT", "Esta cuenta ya fue activada.");
+        const { user } = setup();
+        const record = await openRecord(user, "Carlos Mendoza");
+        await user.click(
+          record.getByRole("button", { name: "Reenviar enlace" }),
+        );
+        await waitFor(() =>
+          expect(toast).toHaveBeenCalledWith({
+            title: "No se pudo reenviar la activación",
+            message: "Esta cuenta ya fue activada.",
+            tone: "error",
+          }),
+        );
+      });
+    });
+
+    describe("deleting", () => {
+      async function openDelete(user: ReturnType<typeof userEvent.setup>) {
+        const record = await openRecord(user, "Ana Rojas");
+        await user.click(record.getByRole("button", { name: "Eliminar…" }));
+        return within(
+          screen.getByRole("dialog", { name: "Eliminar colaborador" }),
+        );
+      }
+
+      it("says what it means, and will not go on without a reason", async () => {
+        const { user } = setup();
+        const confirm = await openDelete(user);
+        expect(
+          confirm.getByText(/nunca inició sesión ni realizó acciones/),
+        ).toBeVisible();
+        await user.click(
+          confirm.getByRole("button", { name: "Eliminar definitivamente" }),
+        );
+        expect(
+          await confirm.findByText("Escribe el motivo de la eliminación."),
+        ).toBeVisible();
+        expect(calling("DELETE", "/employees/ana")).toHaveLength(0);
+      });
+
+      it("deletes with the reason, says so, closes both windows and refreshes the list", async () => {
+        answers["DELETE /employees/ana"] = () =>
+          new Response(null, { status: 204 });
+        const { user } = setup();
+        const confirm = await openDelete(user);
+        const listCalls = calling("GET", "/employees").length;
+        await user.type(
+          confirm.getByLabelText("Motivo"),
+          "  cuenta creada por error ",
+        );
+        await user.click(
+          confirm.getByRole("button", { name: "Eliminar definitivamente" }),
+        );
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        expect(calling("DELETE", "/employees/ana")).toHaveLength(1);
+        expect(
+          calling("DELETE", "/employees/ana")[0].params.get("reason"),
+        ).toBe("cuenta creada por error");
+        expect(toast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "Colaborador eliminado",
+            tone: "success",
+          }),
+        );
+        await waitFor(() =>
+          expect(calling("GET", "/employees").length).toBeGreaterThan(
+            listCalls,
+          ),
+        );
+      });
+
+      it("for someone with history, says they cannot be deleted and points to deactivating", async () => {
+        answers["DELETE /employees/ana"] = () =>
+          failure(409, "CONFLICT", "El colaborador tiene historial.");
+        const { user } = setup();
+        const confirm = await openDelete(user);
+        await user.type(confirm.getByLabelText("Motivo"), "duplicado");
+        await user.click(
+          confirm.getByRole("button", { name: "Eliminar definitivamente" }),
+        );
+
+        expect(
+          await confirm.findByText(
+            /ya tiene historial y no puede eliminarse. Desactívalo en su lugar/,
+          ),
+        ).toBeVisible();
+        expect(
+          screen.getByRole("dialog", { name: "Eliminar colaborador" }),
+        ).toBeVisible();
+        expect(toast).not.toHaveBeenCalled();
+      });
     });
   });
 

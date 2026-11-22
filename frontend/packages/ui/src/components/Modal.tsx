@@ -1,12 +1,18 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Icon } from "./Icon";
 
+/** The dialogs that are open, oldest first. A dialog opened over another (a confirmation over a form) is on top. */
+const openDialogs: symbol[] = [];
+
 const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /**
  * A dialog. Escape and a click on the backdrop close it, focus moves inside when it opens and goes back to
  * where it was when it closes, Tab stays inside it, and the page behind does not scroll.
+ *
+ * Dialogs can be stacked: only the one on top answers the keyboard, so Escape on a confirmation closes the
+ * confirmation and leaves the form under it (and what was typed there) alone.
  */
 export function Modal({
   title,
@@ -34,6 +40,8 @@ export function Modal({
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const node = dialog.current;
+    const me = Symbol("dialog");
+    openDialogs.push(me);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     // Focus the first field when there is one, otherwise the first control.
@@ -44,6 +52,7 @@ export function Modal({
     first?.focus();
 
     function onKey(event: KeyboardEvent) {
+      if (openDialogs[openDialogs.length - 1] !== me) return;
       if (event.key === "Escape") {
         event.stopPropagation();
         close.current();
@@ -64,6 +73,7 @@ export function Modal({
     }
     document.addEventListener("keydown", onKey);
     return () => {
+      openDialogs.splice(openDialogs.indexOf(me), 1);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = overflow;
       previous?.focus?.();

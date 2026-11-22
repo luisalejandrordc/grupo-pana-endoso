@@ -1,17 +1,14 @@
 import { errorText } from "@endosoflow/api";
 import {
   Badge,
-  ConfirmDialog,
   EmptyState,
   ErrorState,
   formatDate,
   Icon,
-  Menu,
   PageHeader,
   Pagination,
   SearchField,
   useDebounced,
-  type MenuItem,
   type Toast,
 } from "@endosoflow/ui";
 import { useState } from "react";
@@ -21,12 +18,7 @@ import { Avatar } from "../../shared/ui/Avatar";
 import type { Employee } from "./api";
 import { EmployeeFormModal, type EmployeeFormMode } from "./EmployeeFormModal";
 import { roleTone } from "./labels";
-import {
-  useDeactivateEmployee,
-  useEmployeeList,
-  useReactivateEmployee,
-  useResendActivation,
-} from "./queries";
+import { useEmployeeList } from "./queries";
 
 const PAGE_SIZE = 20;
 
@@ -50,8 +42,6 @@ export function StaffPage({
   const [role, setRole] = useState<Role | "all">("all");
   const [page, setPage] = useState(1);
   const [form, setForm] = useState<EmployeeFormMode | null>(null);
-  const [deactivating, setDeactivating] = useState<Employee | null>(null);
-  const [deactivateError, setDeactivateError] = useState<string | null>(null);
   const search = useDebounced(query.trim());
   const isAdmin = user.role === "system_admin";
 
@@ -73,96 +63,9 @@ export function StaffPage({
     },
     isAdmin,
   );
-  const deactivate = useDeactivateEmployee();
-  const reactivate = useReactivateEmployee();
-  const resend = useResendActivation();
 
   const total = list.data?.total ?? 0;
   const filtering = search !== "" || status !== "all" || role !== "all";
-
-  async function confirmDeactivate() {
-    if (!deactivating) return;
-    setDeactivateError(null);
-    try {
-      await deactivate.mutateAsync(deactivating.id);
-      toast({
-        title: "Colaborador desactivado",
-        message: `${fullName(deactivating)} ya no puede iniciar sesión.`,
-        tone: "success",
-      });
-      setDeactivating(null);
-    } catch (error) {
-      setDeactivateError(errorText(error));
-    }
-  }
-
-  async function reactivateEmployee(employee: Employee) {
-    try {
-      await reactivate.mutateAsync(employee.id);
-      toast({
-        title: "Colaborador reactivado",
-        message: `${fullName(employee)} puede volver a iniciar sesión.`,
-        tone: "success",
-      });
-    } catch (error) {
-      toast({
-        title: "No se pudo reactivar",
-        message: errorText(error),
-        tone: "error",
-      });
-    }
-  }
-
-  async function resendActivation(employee: Employee) {
-    try {
-      await resend.mutateAsync(employee.id);
-      toast({
-        title: "Enlace de activación enviado",
-        message: `Se envió a ${employee.businessEmail}.`,
-        tone: "success",
-      });
-    } catch (error) {
-      toast({
-        title: "No se pudo reenviar la activación",
-        message: errorText(error),
-        tone: "error",
-      });
-    }
-  }
-
-  /** What can be done to this person depends on their state: and nobody can lock themselves out. */
-  function actionsFor(employee: Employee): MenuItem[] {
-    const items: MenuItem[] = [
-      {
-        label: "Editar",
-        icon: "edit",
-        onSelect: () => setForm({ kind: "edit", employee }),
-      },
-    ];
-    if (employee.isActive && !employee.activatedAt)
-      items.push({
-        label: "Reenviar activación",
-        icon: "mail",
-        onSelect: () => resendActivation(employee),
-      });
-    if (!employee.isActive)
-      items.push({
-        label: "Reactivar",
-        icon: "refresh",
-        onSelect: () => reactivateEmployee(employee),
-      });
-    else if (employee.id !== user.id)
-      items.push({
-        label: "Desactivar",
-        icon: "circle-x",
-        danger: true,
-        onSelect: () => {
-          setDeactivateError(null);
-          setDeactivating(employee);
-        },
-      });
-    return items;
-  }
 
   if (!isAdmin)
     return (
@@ -248,16 +151,13 @@ export function StaffPage({
                   <th>Correo corporativo</th>
                   <th>Estado</th>
                   <th>Activación</th>
-                  <th>
-                    <span className="sr-only">Acciones</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {list.isPending &&
                   Array.from({ length: 5 }, (_, i) => (
                     <tr key={i} aria-hidden="true">
-                      {Array.from({ length: 7 }, (_, j) => (
+                      {Array.from({ length: 6 }, (_, j) => (
                         <td key={j}>
                           <span className="skeleton-line" />
                         </td>
@@ -269,7 +169,6 @@ export function StaffPage({
                     key={employee.id}
                     employee={employee}
                     isSelf={employee.id === user.id}
-                    actions={actionsFor(employee)}
                     onEdit={() => setForm({ kind: "edit", employee })}
                   />
                 ))}
@@ -313,24 +212,6 @@ export function StaffPage({
           }}
         />
       )}
-
-      {deactivating && (
-        <ConfirmDialog
-          title={`Desactivar a ${fullName(deactivating)}`}
-          confirmLabel="Desactivar"
-          tone="danger"
-          busy={deactivate.isPending}
-          error={deactivateError}
-          onConfirm={confirmDeactivate}
-          onClose={() => setDeactivating(null)}
-        >
-          <p>
-            Se cerrarán sus sesiones activas y no podrá iniciar sesión mientras
-            esté inactivo. Su historial se conserva y puedes reactivarlo cuando
-            quieras.
-          </p>
-        </ConfirmDialog>
-      )}
     </div>
   );
 }
@@ -338,12 +219,10 @@ export function StaffPage({
 function EmployeeRow({
   employee,
   isSelf,
-  actions,
   onEdit,
 }: {
   employee: Employee;
   isSelf: boolean;
-  actions: MenuItem[];
   onEdit: () => void;
 }) {
   const name = fullName(employee);
@@ -363,7 +242,7 @@ function EmployeeRow({
           <div>
             <button
               className="cell-title"
-              title="Editar colaborador"
+              title="Ver y editar la ficha"
               onClick={(event) => {
                 event.stopPropagation();
                 onEdit();
@@ -405,10 +284,6 @@ function EmployeeRow({
         <Badge plain tone={employee.activatedAt ? "done" : "warn"}>
           {employee.activatedAt ? "Activada" : "Pendiente"}
         </Badge>
-      </td>
-      {/* A click inside the menu (which React sees as inside this cell) must not also open the row. */}
-      <td className="cell-actions" onClick={(event) => event.stopPropagation()}>
-        <Menu variant="icon" label={`Acciones de ${name}`} items={actions} />
       </td>
     </tr>
   );

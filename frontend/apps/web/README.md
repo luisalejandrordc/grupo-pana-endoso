@@ -58,10 +58,10 @@ Tests describe behavior through roles and visible text, not class names, so a re
 
 - **Edit sends only what changed** plus the `version` it started from (`employeeForm.ts`, unit-tested). A personal contact is cleared by sending it empty. The name's source is never sent: the backend marks an edited name as manual.
 - **A stale version** (`VERSION_CONFLICT`) does not lose the person's work silently: the form says someone else saved first and offers "Cargar datos actuales", which reloads the server's copy and saves against its version.
-- **What the menu offers depends on the person's state:** edit always; resend activation only for an active account that has not set a password; deactivate only for an active person other than yourself; reactivate only for an inactive one.
-- **Deactivating asks first** (it ends the person's sessions); reactivating and resending do not.
-- An administrator who edits their own record refreshes the session (`onSelfUpdated`), so the sidebar shows the new name; and cannot change their own role from this screen.
-- The contract also has `DELETE /employees/{id}` for an employee who never signed in or acted. It is deliberately not in the UI: deactivating is the normal way to remove access.
+- **Administrative actions sit at the end of the record**, in the same dashed zone as the customer's, and only those that apply to the person's state: _reenviar activación_ (an active account that has not set its password), _desactivar_ / _reactivar_, and _eliminar_. Deactivate, reactivate and delete each ask for confirmation in a dialog opened over the record (`EmployeeDialogs.tsx`).
+- **Deactivating** ends the person's sessions. The record stays open and shows the new state; whatever was typed in the form is kept and is saved against the server's new version.
+- **Deleting** is permanent and requires a reason (kept in the audit trail). The server refuses it for anyone who ever signed in or acted: the dialog then says so and points to deactivating.
+- **Nobody can lock themselves out:** the signed-in administrator's own record offers neither deactivating nor deleting, and its role field is locked. If they edit their own data the session is refreshed (`onSelfUpdated`) so the sidebar shows the new name.
 
 ## Public pages: the links in the emails
 

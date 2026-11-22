@@ -85,4 +85,46 @@ describe("Modal", () => {
     await user.keyboard("{Escape}");
     expect(document.body.style.overflow).toBe("");
   });
+
+  it("when one dialog is opened over another, Escape closes only the one on top", async () => {
+    const user = userEvent.setup();
+    const closeForm = vi.fn();
+    const closeConfirm = vi.fn();
+    render(
+      <>
+        <Modal title="Ficha" onClose={closeForm}>
+          <input aria-label="Nombre" />
+        </Modal>
+        <Modal title="Confirmar" onClose={closeConfirm}>
+          <p>¿Seguro?</p>
+        </Modal>
+      </>,
+    );
+    await user.keyboard("{Escape}");
+    expect(closeConfirm).toHaveBeenCalledOnce();
+    expect(closeForm).not.toHaveBeenCalled();
+  });
+
+  it("gives the keyboard back to the dialog underneath once the top one is gone", async () => {
+    const user = userEvent.setup();
+    const closeForm = vi.fn();
+    function Stack({ top }: { top: boolean }) {
+      return (
+        <>
+          <Modal title="Ficha" onClose={closeForm}>
+            <input aria-label="Nombre" />
+          </Modal>
+          {top && (
+            <Modal title="Confirmar" onClose={() => undefined}>
+              <p>¿Seguro?</p>
+            </Modal>
+          )}
+        </>
+      );
+    }
+    const { rerender } = render(<Stack top />);
+    rerender(<Stack top={false} />);
+    await user.keyboard("{Escape}");
+    expect(closeForm).toHaveBeenCalledOnce();
+  });
 });

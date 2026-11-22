@@ -64,6 +64,15 @@ export function useReactivateEmployee() {
   });
 }
 
+export function useDeleteEmployee() {
+  const refresh = useRefreshList();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      staffApi.remove(id, reason),
+    onSuccess: refresh,
+  });
+}
+
 export function useResendActivation() {
   return useMutation({
     mutationFn: (id: string) => staffApi.resendActivation(id),

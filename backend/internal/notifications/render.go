@@ -191,7 +191,7 @@ func render(d emailData) (rendered, bool) {
 			eyebrow:    "Cuenta activada",
 			title:      "Ya puede ingresar a EndosoFlow",
 			greeting:   "Hola " + d.GreetingName + ",",
-			paragraphs: []string{"Definió su contraseña y su cuenta quedó activa. A partir de ahora ingresa con su documento de identidad y esa contraseña."},
+			paragraphs: []string{"Definió su contraseña y su cuenta quedó activa. A partir de ahora puede ingresar con su documento de identidad y esa contraseña."},
 			facts:      []fact{userFact},
 			button:     &button{"Iniciar sesión", d.AppBaseURL + "/"},
 			notes:      []string{"Si usted no realizó esta activación, comuníquese de inmediato con el administrador del sistema."},

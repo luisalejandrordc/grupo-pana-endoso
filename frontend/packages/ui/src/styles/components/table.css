@@ -75,11 +75,6 @@
   box-shadow: inset 3px 0 0 var(--brand);
 }
 
-.table .cell-actions {
-  width: 1%;
-  text-align: right;
-}
-
 /* A deactivated person stays in the list, quietly. */
 .table tr.is-inactive td {
   color: var(--ink-3);
@@ -282,14 +277,6 @@ button.cell-title:hover {
   .table-cards td.cell-aside {
     grid-column: 2;
     grid-row: 1;
-  }
-
-  /* The actions menu sits at the top right of the card, where .cell-aside would go. */
-  .table-cards td.cell-actions {
-    grid-column: 2;
-    grid-row: 1;
-    width: auto;
-    text-align: right;
   }
 
   .table-cards tr.is-link:hover td {

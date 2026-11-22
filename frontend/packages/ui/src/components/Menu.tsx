@@ -27,19 +27,15 @@ const GAP = 6;
  *
  * The list is drawn on the page, not inside the button's container, so a menu in the last row of a table
  * is never cut off by the table's scrolling. It opens upward when there is no room below.
- *
- * `variant="icon"` is a quiet "⋯" button for a row of a table; `label` is then its accessible name.
  */
 export function Menu({
   label,
   items,
   children,
-  variant = "button",
 }: {
   label: string;
   items: MenuItem[];
-  children?: ReactNode;
-  variant?: "button" | "icon";
+  children: ReactNode;
 }) {
   const [position, setPosition] = useState<Position | null>(null);
   const open = position !== null;
@@ -116,22 +112,14 @@ export function Menu({
     <div className="menu">
       <button
         ref={trigger}
-        className={
-          variant === "icon" ? "icon-button" : "button button-secondary"
-        }
+        className="button button-secondary"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
         onClick={() => (open ? setPosition(null) : openMenu())}
       >
-        {variant === "icon" ? (
-          <Icon name="dots" size={18} />
-        ) : (
-          <>
-            {children}
-            <Icon name="chevron-down" size={15} />
-          </>
-        )}
+        {children}
+        <Icon name="chevron-down" size={15} />
       </button>
       {open &&
         createPortal(
