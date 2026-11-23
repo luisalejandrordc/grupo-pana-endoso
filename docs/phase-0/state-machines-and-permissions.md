@@ -176,6 +176,8 @@ It is recalculated every time the task is completed, using the preserved `due_da
 
 A successfully sent milestone notification is never re-sent when a task is reverted and completed again. Failed attempts may be retried under a defined policy. Employees get activation links by email at their business address.
 
+**How account links are delivered.** Only the hash of a link token is stored, so a plaintext link cannot be rebuilt later. Creating an employee, resending an activation, asking for a password reset and creating a customer therefore queue a notification that carries no token (in the same transaction as the change that caused it). The dispatcher mints the link at the moment it sends, in the same transaction as the send, cancelling any open link of that account first. The link's validity (72 h for activation, 1 h for reset) counts from the send, a retry always carries a fresh link, and a link whose email can never be delivered is revoked. The dispatcher is woken as soon as the queuing transaction commits, so these emails normally leave within a second; the periodic run (`MAIL_DISPATCH_INTERVAL`) remains the safety net and the retry clock.
+
 ## 7. Role × action permission matrix
 
 "Own" means sales where the user is the **current** `assigned_advisor_id`. Access never derives from `created_by`. Every cell is enforced on the backend.
