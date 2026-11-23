@@ -44,10 +44,11 @@ type Database interface {
 // transaction the caller passes, so an email is queued if and only if the change that caused it committed.
 type Notifier interface {
 	EmployeeActivation(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
-	CustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
 	EmployeeActivated(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
+	EmployeePasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
+	CustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
 	CustomerActivated(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
-	PasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error
+	CustomerPasswordReset(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error
 }
 
 // Deps are the service's dependencies.
@@ -580,7 +581,7 @@ func (s *Service) ForgotPassword(ctx context.Context, docType, docNumber string,
 		if s.notifier == nil {
 			return errNoNotifier
 		}
-		if err := s.notifier.PasswordReset(ctx, tx, emp.ID, emp.BusinessEmail); err != nil {
+		if err := s.notifier.EmployeePasswordReset(ctx, tx, emp.ID, emp.BusinessEmail); err != nil {
 			return err
 		}
 		return s.logAccess(ctx, tx, accessEntry{
@@ -590,7 +591,8 @@ func (s *Service) ForgotPassword(ctx context.Context, docType, docNumber string,
 	})
 }
 
-// ResetPassword sets a new password from a reset link and ends every session of the account.
+// ResetPassword sets a new password from a reset link (an employee's or a customer's) and ends every session of
+// the account.
 func (s *Service) ResetPassword(ctx context.Context, plainToken, password string, client ClientInfo) error {
 	now := s.now()
 	var failure *apperr.Error
@@ -601,9 +603,13 @@ func (s *Service) ResetPassword(ctx context.Context, plainToken, password string
 			return err
 		}
 		if token == nil || token.Purpose != purposePasswordReset || token.UsedAt != nil ||
-			token.RevokedAt != nil || !now.Before(token.ExpiresAt) || token.Owner.EmployeeID == nil {
+			token.RevokedAt != nil || !now.Before(token.ExpiresAt) {
 			failure = errInvalidLink
 			return nil
+		}
+		if token.Owner.CustomerID != nil { // the link itself knows whose it is, as with activation
+			failure, err = s.resetCustomerPassword(ctx, tx, token, password, client, now)
+			return err
 		}
 		emp, err := findEmployeeByID(ctx, tx, *token.Owner.EmployeeID, true)
 		if err != nil {

@@ -25,9 +25,10 @@ const (
 
 // HandlerConfig holds the settings the HTTP layer needs.
 type HandlerConfig struct {
-	AppBaseURL   string
-	CookieSecure bool
-	TrustProxy   bool
+	AppBaseURL    string
+	PortalBaseURL string
+	CookieSecure  bool
+	TrustProxy    bool
 }
 
 // Handler serves the authentication routes and provides the Authenticate middleware.
@@ -37,22 +38,27 @@ type Handler struct {
 	cookieSecure    bool
 	trustProxy      bool
 	allowedOrigin   string
+	customerOrigin  string
 	loginLimiter    *httpx.RateLimiter
 	recoveryLimiter *httpx.RateLimiter
 }
 
 // NewHandler builds the handler.
 func NewHandler(svc *Service, logger *slog.Logger, cfg HandlerConfig) *Handler {
-	origin := cfg.AppBaseURL
-	if u, err := url.Parse(cfg.AppBaseURL); err == nil && u.Scheme != "" && u.Host != "" {
-		origin = u.Scheme + "://" + u.Host
-	}
 	return &Handler{
 		svc: svc, logger: logger, cookieSecure: cfg.CookieSecure, trustProxy: cfg.TrustProxy,
-		allowedOrigin:   origin,
+		allowedOrigin: originOf(cfg.AppBaseURL), customerOrigin: originOf(cfg.PortalBaseURL),
 		loginLimiter:    httpx.NewRateLimiter(10, time.Minute), // 10 login attempts per minute per address
 		recoveryLimiter: httpx.NewRateLimiter(5, time.Minute),  // 5 activation or recovery calls per minute
 	}
+}
+
+// originOf reduces a site address to its origin (scheme and host), which is what a browser sends in Origin.
+func originOf(address string) string {
+	if u, err := url.Parse(address); err == nil && u.Scheme != "" && u.Host != "" {
+		return u.Scheme + "://" + u.Host
+	}
+	return address
 }
 
 // Mount registers the routes under the given router (already under /api/v1).
@@ -67,6 +73,14 @@ func (h *Handler) Mount(r chi.Router) {
 		r.With(recovery).Post("/activate", h.activate)
 		r.With(recovery).Post("/forgot-password", h.forgotPassword)
 		r.With(recovery).Post("/reset-password", h.resetPassword)
+
+		// The customer portal's own sign-in, with its own cookie and the customer portal's origin.
+		r.Route("/customer", func(r chi.Router) {
+			r.With(login).Post("/login", h.customerLogin)
+			r.With(h.sameSite(h.customerOrigin)).Post("/refresh", h.customerRefresh)
+			r.With(h.sameSite(h.customerOrigin)).Post("/logout", h.customerLogout)
+			r.With(recovery).Post("/forgot-password", h.customerForgotPassword)
+		})
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.Authenticate)
@@ -124,17 +138,25 @@ func RequireRoles(logger *slog.Logger, roles ...Role) func(http.Handler) http.Ha
 }
 
 func (h *Handler) requireSameSite(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(csrfHeader) != csrfValue {
-			httpx.WriteError(w, r, h.logger, apperr.Forbidden("CSRF_REJECTED", "Solicitud no permitida."))
-			return
-		}
-		if origin := r.Header.Get("Origin"); origin != "" && origin != h.allowedOrigin {
-			httpx.WriteError(w, r, h.logger, apperr.Forbidden("CSRF_REJECTED", "Solicitud no permitida."))
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+	return h.sameSite(h.allowedOrigin)(next)
+}
+
+// sameSite protects the cookie routes of one portal: the custom header (which a form on another site cannot send)
+// and, when the browser sends one, an Origin equal to that portal's.
+func (h *Handler) sameSite(allowedOrigin string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get(csrfHeader) != csrfValue {
+				httpx.WriteError(w, r, h.logger, apperr.Forbidden("CSRF_REJECTED", "Solicitud no permitida."))
+				return
+			}
+			if origin := r.Header.Get("Origin"); origin != "" && origin != allowedOrigin {
+				httpx.WriteError(w, r, h.logger, apperr.Forbidden("CSRF_REJECTED", "Solicitud no permitida."))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // ---- cookies -----------------------------------------------------------------------------------

@@ -83,9 +83,6 @@ func (s *Service) IssueLink(ctx context.Context, tx pgx.Tx, kind LinkKind, to Li
 	now := s.now()
 
 	if owner.CustomerID != nil {
-		if kind != LinkActivation {
-			return AccountLink{}, "", errors.New("auth: customers only have activation links")
-		}
 		customer, err := findCustomerByID(ctx, tx, *owner.CustomerID, true)
 		if err != nil {
 			return AccountLink{}, "", err
@@ -95,8 +92,10 @@ func (s *Service) IssueLink(ctx context.Context, tx pgx.Tx, kind LinkKind, to Li
 			return AccountLink{}, "el cliente ya no existe", nil
 		case !customer.IsActive:
 			return AccountLink{}, "el cliente está desactivado", nil
-		case customer.ActivatedAt != nil:
+		case kind == LinkActivation && customer.ActivatedAt != nil:
 			return AccountLink{}, "el cliente ya activó su cuenta", nil
+		case kind == LinkPasswordReset && customer.ActivatedAt == nil:
+			return AccountLink{}, "el cliente todavía no tiene contraseña", nil
 		}
 		link, err := s.mint(ctx, tx, kind, owner, now)
 		return link, "", err

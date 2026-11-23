@@ -95,7 +95,17 @@ func (q *queueRecorder) CustomerActivated(ctx context.Context, tx pgx.Tx, id uui
 	return err
 }
 
-func (q *queueRecorder) PasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+func (q *queueRecorder) CustomerPasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	q.mu.Lock()
+	q.queued = append(q.queued, queuedEmail{"customer_password_reset", id, email})
+	q.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs
+		(id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
+		VALUES ($1, 'customer_password_reset', $2, $3, $4)`, ids.New(), id, email, "customer_password_reset:"+ids.NewString())
+	return err
+}
+
+func (q *queueRecorder) EmployeePasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
 	return q.add(ctx, tx, "password_reset", id, email)
 }
 
