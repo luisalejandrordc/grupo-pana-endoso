@@ -210,7 +210,7 @@ func render(d emailData) (rendered, bool) {
 			toCustomer: true,
 		}.withLogo(d.LogoURL).build("Su cuenta de Grupo Pana está activa"), true
 
-	case d.Type == PasswordReset:
+	case d.Type == EmployeePasswordReset:
 		return content{
 			preheader:  "Cree una nueva contraseña para su cuenta de EndosoFlow.",
 			eyebrow:    "Seguridad de la cuenta",
@@ -278,7 +278,7 @@ func render(d emailData) (rendered, bool) {
 			replyToAdvisor: true,
 		}.withLogo(d.LogoURL).build(st.subject), true
 
-	case d.Type == CustomerAdvisorChanged:
+	case d.Type == AdvisorChanged:
 		return content{
 			preheader:      "A partir de ahora puede comunicarse con su " + newAdvisor(d.AdvisorGender) + ".",
 			eyebrow:        "Cambio de asesor",

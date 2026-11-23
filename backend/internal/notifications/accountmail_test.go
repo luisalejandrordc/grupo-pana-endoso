@@ -39,7 +39,7 @@ func TestEveryTemplateRendersBothVersions(t *testing.T) {
 }
 
 func TestAccountEmailsCarryTheLinkInBothVersions(t *testing.T) {
-	for _, kind := range []string{EmployeeActivation, PasswordReset, CustomerActivation} {
+	for _, kind := range []string{EmployeeActivation, EmployeePasswordReset, CustomerActivation} {
 		d := sampleData(kind, "https://app.test", "https://portal.test", "https://cdn.test/logo.png")
 		d.Link = "https://app.test/activate-account?token=abc_DEF-123"
 		r, ok := render(d)
@@ -67,17 +67,17 @@ func TestEmailsEscapeWhatPeopleTyped(t *testing.T) {
 
 // The nine customer notifications of the specification (the seven task emails, creation and welcome)
 var specSubjects = map[string]string{
-	CustomerActivation:     "Bienvenida a Grupo Pana: acceso a su portal de seguimiento", // the sample customer is a woman
-	CustomerActivated:      "Su cuenta de Grupo Pana está activa",
-	SaleCreated:            "Hemos registrado su nueva solicitud de vehículo",
-	"milestone_task_1":     "Su cotización oficial está lista para revisión",
-	"milestone_task_3":     "Siguiente paso: su vehículo ha sido asignado",
-	"milestone_task_6":     "Sus comprobantes de pago han sido emitidos",
-	"milestone_task_7":     "Iniciamos los trámites aduaneros de su vehículo",
-	"milestone_task_10":    "¡Su vehículo ya cuenta con placa oficial!",
-	"milestone_task_11":    "Su vehículo está en fase de preparación final",
-	"milestone_task_13":    "¡Felicidades por su nuevo vehículo! Gracias por confiar en Grupo Pana",
-	CustomerAdvisorChanged: "Ha cambiado el asesor de su compra",
+	CustomerActivation:  "Bienvenida a Grupo Pana: acceso a su portal de seguimiento", // the sample customer is a woman
+	CustomerActivated:   "Su cuenta de Grupo Pana está activa",
+	SaleCreated:         "Hemos registrado su nueva solicitud de vehículo",
+	"milestone_task_1":  "Su cotización oficial está lista para revisión",
+	"milestone_task_3":  "Siguiente paso: su vehículo ha sido asignado",
+	"milestone_task_6":  "Sus comprobantes de pago han sido emitidos",
+	"milestone_task_7":  "Iniciamos los trámites aduaneros de su vehículo",
+	"milestone_task_10": "¡Su vehículo ya cuenta con placa oficial!",
+	"milestone_task_11": "Su vehículo está en fase de preparación final",
+	"milestone_task_13": "¡Felicidades por su nuevo vehículo! Gracias por confiar en Grupo Pana",
+	AdvisorChanged:      "Ha cambiado el asesor de su compra",
 }
 
 func TestCustomerEmailsHaveTheSpecifiedSubjects(t *testing.T) {
@@ -166,7 +166,7 @@ func TestProgressEmailsCarryNoRecordedDataBecauseThePortalIsTheSourceOfTruth(t *
 func TestEveryPurchaseEmailShowsTheAdvisorAndTheWelcomeDoesNot(t *testing.T) {
 	// The advisor can change, but then a new email tells the customer (Notification 10), so the card stays right.
 	for kind, shows := range map[string]bool{
-		SaleCreated: true, CustomerAdvisorChanged: true,
+		SaleCreated: true, AdvisorChanged: true,
 		"milestone_task_1": true, "milestone_task_6": true, "milestone_task_13": true,
 		CustomerActivation: false, // no sale yet, so no advisor
 	} {
@@ -201,7 +201,7 @@ func TestTheProgressBarShowsTheSixMilestonesAndTheirState(t *testing.T) {
 	if !strings.Contains(r.HTML, "Etapa 3 de 6 · Facturación Oficial") {
 		t.Fatal("the headline names the milestone the email belongs to")
 	}
-	advisorChange, _ := render(sampleData(CustomerAdvisorChanged, "https://app.test", "https://portal.test", "https://cdn.test/logo.png"))
+	advisorChange, _ := render(sampleData(AdvisorChanged, "https://app.test", "https://portal.test", "https://cdn.test/logo.png"))
 	if strings.Contains(advisorChange.HTML, "etapas completadas") {
 		t.Fatal("an advisor change is not about progress")
 	}
@@ -240,7 +240,7 @@ func TestTheAdvisorCardOffersWhatsApp(t *testing.T) {
 
 func TestOnlyEmailsFromAnAdvisorAreRepliedToTheAdvisor(t *testing.T) {
 	for kind, want := range map[string]bool{
-		SaleCreated: true, "milestone_task_3": true, CustomerAdvisorChanged: true,
+		SaleCreated: true, "milestone_task_3": true, AdvisorChanged: true,
 		CustomerActivation: false, EmployeeActivation: false, SaleAssigned: false,
 	} {
 		if r, _ := render(sampleData(kind, "https://app.test", "https://portal.test", "https://cdn.test/logo.png")); r.ReplyToAdvisor != want {
@@ -270,7 +270,7 @@ func TestGreetingsAndWelcomesAgreeWithTheRecipientsGender(t *testing.T) {
 		if gender == "M" {
 			name = "Carlos"
 		}
-		for _, kind := range []string{CustomerActivation, CustomerActivated, SaleCreated, "milestone_task_6", CustomerAdvisorChanged} {
+		for _, kind := range []string{CustomerActivation, CustomerActivated, SaleCreated, "milestone_task_6", AdvisorChanged} {
 			d := sampleData(kind, "https://app.test", "https://portal.test", "")
 			d.Gender, d.GreetingName = gender, name
 			r, _ := render(d)
@@ -310,7 +310,7 @@ func TestAdvisorWordingAgreesWithTheAdvisorsGender(t *testing.T) {
 		r, _ := render(d)
 		return r
 	}
-	for _, kind := range []string{SaleCreated, "milestone_task_6", "milestone_task_11", CustomerAdvisorChanged} {
+	for _, kind := range []string{SaleCreated, "milestone_task_6", "milestone_task_11", AdvisorChanged} {
 		w, m := woman(kind), man(kind)
 		for _, want := range []string{"Su asesora: Carla Mendoza", "Correo de la asesora:", "Teléfono de la asesora:", "WhatsApp de la asesora:", "directamente a su asesora"} {
 			if !strings.Contains(w.Text, want) && !strings.Contains(w.HTML, want) {
@@ -327,7 +327,7 @@ func TestAdvisorWordingAgreesWithTheAdvisorsGender(t *testing.T) {
 	if !strings.Contains(woman("milestone_task_11").Text, "su asesora está a su disposición") {
 		t.Fatal("the advisor in a sentence agrees too")
 	}
-	if !strings.Contains(woman(CustomerAdvisorChanged).HTML, "su nueva asesora") { // in the preview line
+	if !strings.Contains(woman(AdvisorChanged).HTML, "su nueva asesora") { // in the preview line
 		t.Fatal("\"nuevo\" becomes \"nueva\" with the advisor")
 	}
 	if !strings.Contains(woman(SaleUnassigned).Text, "Nueva asesora: Carla Mendoza") {

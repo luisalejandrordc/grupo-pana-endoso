@@ -727,6 +727,6 @@ func (s *Service) PurgeTokens(ctx context.Context, tx pgx.Tx, employeeID uuid.UU
 		return err
 	}
 	_, err := tx.Exec(ctx, `DELETE FROM notification_logs
-		WHERE recipient_employee_id = $1 AND notification_type IN ('employee_activation', 'password_reset')`, employeeID)
+		WHERE recipient_employee_id = $1 AND notification_type IN ('employee_activation', 'employee_password_reset')`, employeeID)
 	return err
 }

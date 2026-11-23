@@ -483,7 +483,7 @@ func truncate(s string, n int) string {
 // linkTarget says which kind of link an account email carries and whose it is.
 func linkTarget(row claimed) (auth.LinkKind, auth.LinkRecipient) {
 	kind := auth.LinkActivation
-	if row.kind == PasswordReset {
+	if row.kind == EmployeePasswordReset {
 		kind = auth.LinkPasswordReset
 	}
 	return kind, auth.LinkRecipient{EmployeeID: row.employeeID, CustomerID: row.customerID}

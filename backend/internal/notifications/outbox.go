@@ -14,21 +14,21 @@ import (
 
 // Notification types accepted by the notification_type enum.
 const (
-	SaleCreated            = "sale_created"
-	SaleAssigned           = "sale_assigned"
-	SaleUnassigned         = "sale_unassigned"
-	CustomerAdvisorChanged = "customer_advisor_changed"
-	EmployeeActivation     = "employee_activation"
-	EmployeeActivated      = "employee_activated"
-	PasswordReset          = "password_reset"
-	CustomerActivation     = "customer_activation"
-	CustomerActivated      = "customer_activated"
+	SaleCreated           = "sale_created"
+	SaleAssigned          = "sale_assigned"
+	SaleUnassigned        = "sale_unassigned"
+	AdvisorChanged        = "advisor_changed"
+	EmployeeActivation    = "employee_activation"
+	EmployeeActivated     = "employee_activated"
+	EmployeePasswordReset = "employee_password_reset"
+	CustomerActivation    = "customer_activation"
+	CustomerActivated     = "customer_activated"
 )
 
 // needsLink says whether a notification type carries a single-use account link, which the dispatcher mints when
 // it sends.
 func needsLink(kind string) bool {
-	return kind == EmployeeActivation || kind == PasswordReset || kind == CustomerActivation
+	return kind == EmployeeActivation || kind == EmployeePasswordReset || kind == CustomerActivation
 }
 
 // isAccountEmail says whether a notification type is about an account rather than a sale: the recipient's own

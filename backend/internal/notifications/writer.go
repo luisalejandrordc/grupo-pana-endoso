@@ -132,7 +132,7 @@ func (w Writer) AdvisorChanged(ctx context.Context, q tasks.Querier, saleID uuid
 	// Each change gets its own key, so reassigning back and forth notifies every time.
 	stamp := ids.New().String()
 	if err := w.enqueue(ctx, q, Notification{
-		Type:       CustomerAdvisorChanged,
+		Type:       AdvisorChanged,
 		DedupeKey:  "advisor_changed:" + saleID.String() + ":" + stamp,
 		SaleID:     &saleID,
 		CustomerID: &customer.ID,
@@ -187,8 +187,8 @@ func (w Writer) EmployeeActivation(ctx context.Context, tx pgx.Tx, employeeID uu
 // PasswordReset queues a password reset email for an employee.
 func (w Writer) PasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error {
 	return w.enqueue(ctx, tx, Notification{
-		Type:       PasswordReset,
-		DedupeKey:  PasswordReset + ":" + employeeID.String() + ":" + ids.New().String(),
+		Type:       EmployeePasswordReset,
+		DedupeKey:  EmployeePasswordReset + ":" + employeeID.String() + ":" + ids.New().String(),
 		EmployeeID: &employeeID,
 		Email:      email,
 	})
