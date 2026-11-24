@@ -52,7 +52,7 @@ type queueRecorder struct {
 }
 
 type queuedEmail struct {
-	Kind       string // employee_activation or password_reset
+	Kind       string
 	EmployeeID uuid.UUID
 	Email      string
 }
@@ -106,7 +106,7 @@ func (q *queueRecorder) CustomerPasswordReset(ctx context.Context, tx pgx.Tx, id
 }
 
 func (q *queueRecorder) EmployeePasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
-	return q.add(ctx, tx, "password_reset", id, email)
+	return q.add(ctx, tx, "employee_password_reset", id, email)
 }
 
 func (q *queueRecorder) of(kind string, id uuid.UUID) []queuedEmail {

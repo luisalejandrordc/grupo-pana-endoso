@@ -32,8 +32,7 @@ type emailData struct {
 // brand is the sender name shown in every email.
 const brand = "EndosoFlow | Grupo Pana"
 
-// SaleCode builds the human-friendly sale number: the year the sale was created (Lima time) and its sequence
-// number. The sales module builds the same text for its own responses.
+// SaleCode builds the human-friendly sale number: the year the sale was created (Lima time) and its sequence number.
 func SaleCode(createdAt time.Time, number int64) string {
 	lima := time.FixedZone("America/Lima", -5*60*60)
 	return fmt.Sprintf("EF-%d-%05d", createdAt.In(lima).Year(), number)

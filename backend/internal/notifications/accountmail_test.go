@@ -766,7 +766,7 @@ func TestACustomerWhoForgotTheirPasswordGetsALinkToTheCustomerPortalThatWorks(t 
 		t.Fatalf("one reset email, got %d", len(sent))
 	}
 	mail := sent[0]
-	if mail.Subject != "Restablezca su contraseña de Grupo Pana" || !strings.Contains(mail.Body, "Estimada Lucía,") ||
+	if mail.Subject != "Restablezca su contraseña de Grupo Pana" || !strings.Contains(mail.Body, "Estimada Lucía Quispe,") ||
 		!strings.Contains(mail.Body, "https://portal.test/reset-password?token=") || mail.ReplyTo != "" {
 		t.Fatalf("a customer's reset email, in usted, with their gender, to the customer portal:\n%s\n%s", mail.Subject, mail.Body)
 	}
