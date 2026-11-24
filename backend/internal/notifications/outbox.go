@@ -23,12 +23,14 @@ const (
 	EmployeePasswordReset = "employee_password_reset"
 	CustomerActivation    = "customer_activation"
 	CustomerActivated     = "customer_activated"
+	CustomerPasswordReset = "customer_password_reset"
 )
 
 // needsLink says whether a notification type carries a single-use account link, which the dispatcher mints when
 // it sends.
 func needsLink(kind string) bool {
-	return kind == EmployeeActivation || kind == EmployeePasswordReset || kind == CustomerActivation
+	return kind == EmployeeActivation || kind == EmployeePasswordReset ||
+		kind == CustomerActivation || kind == CustomerPasswordReset
 }
 
 // isAccountEmail says whether a notification type is about an account rather than a sale: the recipient's own

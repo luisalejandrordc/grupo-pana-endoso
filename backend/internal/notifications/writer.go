@@ -184,8 +184,17 @@ func (w Writer) EmployeeActivation(ctx context.Context, tx pgx.Tx, employeeID uu
 	})
 }
 
+// EmployeeActivated queues the confirmation that an employee's account is now active. An account is activated once,
+// so the dedupe key makes a repeated call a no-op.
+func (w Writer) EmployeeActivated(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error {
+	return w.enqueue(ctx, tx, Notification{
+		Type: EmployeeActivated, DedupeKey: EmployeeActivated + ":" + employeeID.String(),
+		EmployeeID: &employeeID, Email: email,
+	})
+}
+
 // PasswordReset queues a password reset email for an employee.
-func (w Writer) PasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error {
+func (w Writer) EmployeePasswordReset(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error {
 	return w.enqueue(ctx, tx, Notification{
 		Type:       EmployeePasswordReset,
 		DedupeKey:  EmployeePasswordReset + ":" + employeeID.String() + ":" + ids.New().String(),
@@ -205,20 +214,21 @@ func (w Writer) CustomerActivation(ctx context.Context, tx pgx.Tx, customerID uu
 	})
 }
 
-// EmployeeActivated queues the confirmation that an employee's account is now active. An account is activated once,
-// so the dedupe key makes a repeated call a no-op.
-func (w Writer) EmployeeActivated(ctx context.Context, tx pgx.Tx, employeeID uuid.UUID, email string) error {
-	return w.enqueue(ctx, tx, Notification{
-		Type: EmployeeActivated, DedupeKey: EmployeeActivated + ":" + employeeID.String(),
-		EmployeeID: &employeeID, Email: email,
-	})
-}
-
 // CustomerActivated queues the confirmation that a customer's account is now active.
 func (w Writer) CustomerActivated(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error {
 	return w.enqueue(ctx, tx, Notification{
 		Type: CustomerActivated, DedupeKey: CustomerActivated + ":" + customerID.String(),
 		CustomerID: &customerID, Email: email,
+	})
+}
+
+// CustomerPasswordReset queues a password reset email for a customer who asked for one in the portal.
+func (w Writer) CustomerPasswordReset(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, email string) error {
+	return w.enqueue(ctx, tx, Notification{
+		Type:       CustomerPasswordReset,
+		DedupeKey:  CustomerPasswordReset + ":" + customerID.String() + ":" + ids.New().String(),
+		CustomerID: &customerID,
+		Email:      email,
 	})
 }
 

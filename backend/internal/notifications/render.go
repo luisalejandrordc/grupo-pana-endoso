@@ -191,24 +191,11 @@ func render(d emailData) (rendered, bool) {
 			eyebrow:    "Cuenta activada",
 			title:      "Ya puede ingresar a EndosoFlow",
 			greeting:   "Hola " + d.GreetingName + ",",
-			paragraphs: []string{"Definió su contraseña y su cuenta quedó activa. A partir de ahora puede ingresar con su documento de identidad y esa contraseña."},
+			paragraphs: []string{"Definió su contraseña y su cuenta quedó activa. A partir de ahora puede ingresar con su documento de identidad y dicha contraseña."},
 			facts:      []fact{userFact},
 			button:     &button{"Iniciar sesión", d.AppBaseURL + "/"},
 			notes:      []string{"Si usted no realizó esta activación, comuníquese de inmediato con el administrador del sistema."},
 		}.withLogo(d.LogoURL).build("Su cuenta de EndosoFlow está activa"), true
-
-	case d.Type == CustomerActivated:
-		return content{
-			preheader:  "Su cuenta de Grupo Pana ya está activa.",
-			eyebrow:    "Cuenta activada",
-			title:      "Su cuenta está activa",
-			greeting:   greeting,
-			paragraphs: []string{"Definió su contraseña y su cuenta quedó activa. Desde su portal de seguimiento podrá ver el avance de cada una de sus compras."},
-			facts:      []fact{userFact},
-			button:     &button{"Ir a mi portal", d.PortalBaseURL + "/"},
-			notes:      []string{"Si usted no realizó esta activación, comuníquese de inmediato con Grupo Pana."},
-			toCustomer: true,
-		}.withLogo(d.LogoURL).build("Su cuenta de Grupo Pana está activa"), true
 
 	case d.Type == EmployeePasswordReset:
 		return content{
@@ -241,6 +228,35 @@ func render(d emailData) (rendered, bool) {
 			},
 			toCustomer: true,
 		}.withLogo(d.LogoURL).build(welcome(d.Gender) + " a Grupo Pana: acceso a su portal de seguimiento"), true
+
+	case d.Type == CustomerActivated:
+		return content{
+			preheader:  "Su cuenta de Grupo Pana ya está activa.",
+			eyebrow:    "Cuenta activada",
+			title:      "Su cuenta está activa",
+			greeting:   greeting,
+			paragraphs: []string{"Definió su contraseña y su cuenta quedó activa. Desde su portal de seguimiento podrá ver el avance de cada una de sus compras."},
+			facts:      []fact{userFact},
+			button:     &button{"Ir a mi portal", d.PortalBaseURL + "/"},
+			notes:      []string{"Si usted no realizó esta activación, comuníquese de inmediato con Grupo Pana."},
+			toCustomer: true,
+		}.withLogo(d.LogoURL).build("Su cuenta de Grupo Pana está activa"), true
+
+	case d.Type == CustomerPasswordReset:
+		return content{
+			preheader:  "Cree una nueva contraseña para su cuenta de Grupo Pana.",
+			eyebrow:    "Seguridad de la cuenta",
+			title:      "Restablezca su contraseña",
+			greeting:   greeting,
+			paragraphs: []string{"Recibimos una solicitud para restablecer la contraseña de su cuenta del portal de seguimiento. Al cambiarla se cerrarán todas sus sesiones abiertas."},
+			button:     &button{"Crear nueva contraseña", d.Link},
+			showLink:   true,
+			notes: []string{
+				"Este enlace es de un solo uso y vence en " + d.LinkValidFor + ".",
+				"Si usted no lo solicitó, ignore este mensaje: su contraseña no cambiará.",
+			},
+			toCustomer: true,
+		}.withLogo(d.LogoURL).build("Restablezca su contraseña de Grupo Pana"), true
 
 	case d.Type == SaleCreated:
 		return content{

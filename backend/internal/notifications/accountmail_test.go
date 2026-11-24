@@ -374,7 +374,7 @@ func (c *captureSender) to(address string) []mail.Message {
 }
 
 type accountFixture struct {
-	auth   *auth.Service // the one that activates the accounts, so it queues the confirmations
+	auth   *auth.Service // the one that activates accounts, so it queues the confirmations
 	env    *testkit.Env
 	sender *captureSender
 	waker  *Waker
@@ -503,22 +503,21 @@ func TestTheActivationEmailCarriesALinkThatWorks(t *testing.T) {
 	account, err := f.auth.Activate(f.env.Ctx, match[1], testkit.Password, auth.ClientInfo{})
 	if err != nil || account != auth.AccountEmployee {
 		t.Fatalf("activate: %v (%q)", err, account)
-
-		// Setting the first password queues a confirmation, which the dispatcher sends: no link, a way in, and a
-		// warning for whoever did not do it.
-		if _, err := f.disp.RunOnce(f.env.Ctx); err != nil {
-			t.Fatal(err)
-		}
-		sent = f.sender.to(email)
-		if len(sent) != 2 {
-			t.Fatalf("the activation email and then its confirmation, got %d", len(sent))
-		}
-		done := sent[1]
-		if done.Subject != "Su cuenta de EndosoFlow está activa" || strings.Contains(done.Body, "token=") ||
-			!strings.Contains(done.Body, "Su usuario de ingreso: DNI ") || !strings.Contains(done.Body, "no realizó esta activación") ||
-			!strings.Contains(done.HTMLBody, `href="http://app.test/"`) {
-			t.Fatalf("unexpected confirmation:\n%s %s", done.Subject, done.Body)
-		}
+	}
+	// Setting the first password queues a confirmation, which the dispatcher sends: no link, a way in, and a
+	// warning for whoever did not do it.
+	if _, err := f.disp.RunOnce(f.env.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	sent = f.sender.to(email)
+	if len(sent) != 2 {
+		t.Fatalf("the activation email and then its confirmation, got %d", len(sent))
+	}
+	done := sent[1]
+	if done.Subject != "Su cuenta de EndosoFlow está activa" || strings.Contains(done.Body, "token=") ||
+		!strings.Contains(done.Body, "Su usuario de ingreso: DNI ") || !strings.Contains(done.Body, "no realizó esta activación") ||
+		!strings.Contains(done.HTMLBody, `href="http://app.test/"`) {
+		t.Fatalf("unexpected confirmation:\n%s %s", done.Subject, done.Body)
 	}
 }
 
@@ -739,5 +738,50 @@ func TestAWakerCollapsesManyWakesAndIsSafeWhenNil(t *testing.T) {
 	}
 	if got != 1 {
 		t.Fatalf("ten wakes must collapse into one pending signal, got %d", got)
+	}
+}
+
+func TestACustomerWhoForgotTheirPasswordGetsALinkToTheCustomerPortalThatWorks(t *testing.T) {
+	f := newAccountFixture(t, nil)
+	admin := f.env.Employee(auth.RoleSystemAdmin, false)
+	customerID := f.env.Customer(admin.ID, false)
+	hash, err := auth.HashPassword(testkit.Password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var email, docNumber string
+	if err := f.env.Pool.QueryRow(f.env.Ctx, `UPDATE customers SET password_hash = $2, activated_at = now() WHERE id = $1
+		RETURNING email, document_number`, customerID, hash).Scan(&email, &docNumber); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f.auth.CustomerForgotPassword(f.env.Ctx, "DNI", docNumber, auth.ClientInfo{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.disp.RunOnce(f.env.Ctx); err != nil {
+		t.Fatal(err)
+	}
+	sent := f.sender.to(email)
+	if len(sent) != 1 {
+		t.Fatalf("one reset email, got %d", len(sent))
+	}
+	mail := sent[0]
+	if mail.Subject != "Restablezca su contraseña de Grupo Pana" || !strings.Contains(mail.Body, "Estimada Lucía,") ||
+		!strings.Contains(mail.Body, "https://portal.test/reset-password?token=") || mail.ReplyTo != "" {
+		t.Fatalf("a customer's reset email, in usted, with their gender, to the customer portal:\n%s\n%s", mail.Subject, mail.Body)
+	}
+	if !strings.Contains(mail.HTMLBody, "Crear nueva contraseña") {
+		t.Fatal("the HTML version has the button")
+	}
+
+	token := tokenIn.FindStringSubmatch(mail.Body)
+	if token == nil {
+		t.Fatal("no link in the email")
+	}
+	if err := f.auth.ResetPassword(f.env.Ctx, token[1], "Another-Strong-Pass-7", auth.ClientInfo{}); err != nil {
+		t.Fatalf("the emailed link must reset the password: %v", err)
+	}
+	if _, err := f.auth.CustomerLogin(f.env.Ctx, auth.LoginRequest{DocumentType: "DNI", DocumentNumber: docNumber, Password: "Another-Strong-Pass-7"}, auth.ClientInfo{}); err != nil {
+		t.Fatalf("sign in with the new password: %v", err)
 	}
 }
