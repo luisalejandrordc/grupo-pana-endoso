@@ -15,12 +15,10 @@ import (
 
 type querier = tasks.Querier
 
-// limaZone is fixed because Peru has no daylight saving time.
-var limaZone = time.FixedZone("America/Lima", -5*60*60)
-
-// SaleCode is the human-friendly number: the year the sale was created (Lima time) and its sequence number.
-func SaleCode(createdAt time.Time, number int64) string {
-	return fmt.Sprintf("EF-%d-%05d", createdAt.In(limaZone).Year(), number)
+// saleCode builds the human-friendly sale number: the year the sale was created (Lima time) and its sequence number.
+func saleCode(createdAt time.Time, number int64) string {
+	lima := time.FixedZone("America/Lima", -5*60*60)
+	return fmt.Sprintf("EF-%d-%05d", createdAt.In(lima).Year(), number)
 }
 
 // saleRow is one sale as stored, joined with the people and the image the detail shows.
