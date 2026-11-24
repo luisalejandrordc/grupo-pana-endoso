@@ -12,6 +12,7 @@ import (
 	"endosoflow/internal/platform/config"
 	"endosoflow/internal/platform/database"
 	"endosoflow/internal/platform/logging"
+	"endosoflow/internal/portal"
 	"endosoflow/internal/sales"
 	"endosoflow/internal/staff"
 	"endosoflow/internal/tasks"
@@ -55,7 +56,7 @@ func run() error {
 		DB: pool, JWTSecret: cfg.JWTSecret, AppBaseURL: cfg.AppBaseURL, PortalBaseURL: cfg.PortalBaseURL, Notifier: notificationWriter, Logger: logger,
 	})
 	authHandler := auth.NewHandler(authService, logger, auth.HandlerConfig{
-		AppBaseURL: cfg.AppBaseURL, CookieSecure: cfg.CookieSecure, TrustProxy: cfg.TrustProxy,
+		AppBaseURL: cfg.AppBaseURL, PortalBaseURL: cfg.PortalBaseURL, CookieSecure: cfg.CookieSecure, TrustProxy: cfg.TrustProxy,
 	})
 
 	st := newStores(cfg, logger) // the three buckets: catalog (public), documents and avatars (private)
@@ -72,7 +73,7 @@ func run() error {
 	} else {
 		logger.Warn("CODART_TOKEN is not set: automatic DNI/RUC name lookup is off")
 	}
-	customersService := customers.NewService(customers.Deps{DB: pool, Activation: authService, Identity: identity, Logger: logger})
+	customersService := customers.NewService(customers.Deps{DB: pool, Activation: authService, Access: authService, Identity: identity, Logger: logger})
 	customersHandler := customers.NewHandler(customersService, authHandler, logger)
 
 	// Object storage: public catalog images and private documents and photos, each in its own bucket.
@@ -92,8 +93,12 @@ func run() error {
 	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: salesGate, Documents: documentsService, Notifier: notificationWriter, Logger: logger})
 	tasksHandler := tasks.NewHandler(tasksService, authHandler, logger)
 
+	// The customer portal's read API: it only composes what the modules above expose for customers.
+	portalService := portal.NewService(portal.Deps{DB: pool, Vehicles: catalogService, Documents: documentsService, Logger: logger})
+	portalHandler := portal.NewHandler(portalService, authHandler, logger)
+
 	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount,
-		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount)
+		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount, portalHandler.Mount)
 	if localStore != nil {
 		mux := http.NewServeMux()
 		mux.Handle("/media/", http.StripPrefix("/media/", localStore.Handler()))
