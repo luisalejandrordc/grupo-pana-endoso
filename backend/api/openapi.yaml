@@ -45,6 +45,7 @@ tags:
   - name: Sales
   - name: Tasks
   - name: Documents
+  - name: Portal
 paths:
   /health:
     get:
@@ -1916,6 +1917,198 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /auth/customer/login:
+    post:
+      tags: [Portal]
+      operationId: customerLogin
+      summary: Sign in to the customer portal
+      description: >-
+        Document and password of a customer whose account is activated. Every failure (unknown account, wrong password,
+        locked, inactive, not yet activated) answers INVALID_CREDENTIALS. Customers sign in with any of their document
+        types (DNI, CE, PAS, CDI, RUC).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerLoginRequest" }
+      responses:
+        "200":
+          description: Signed in. The refresh token is set as an HttpOnly cookie.
+          headers:
+            Set-Cookie:
+              description: The refresh cookie (ef_customer_refresh), scoped to /api/v1/auth/customer.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerSessionResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/customer/refresh:
+    post:
+      tags: [Portal]
+      operationId: customerRefreshSession
+      summary: Rotate the customer's refresh token and get a new access token
+      security:
+        - customerRefreshCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: A new access token. The cookie is rotated, except inside the 10-second grace window.
+          headers:
+            Set-Cookie:
+              description: The rotated refresh cookie.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerSessionResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /auth/customer/logout:
+    post:
+      tags: [Portal]
+      operationId: customerLogout
+      summary: End the customer's session
+      security:
+        - customerRefreshCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "204":
+          description: The session ended and the cookie was cleared. It never fails for an unknown token.
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /auth/customer/forgot-password:
+    post:
+      tags: [Portal]
+      operationId: customerForgotPassword
+      summary: Ask for a password reset email
+      description: >-
+        Always answers 202, whether or not the document belongs to a customer with an activated account, so it cannot
+        be used to discover which documents exist. The reset link opens in the customer portal and is completed with
+        POST /auth/reset-password.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForgotPasswordRequest" }
+      responses:
+        "202":
+          description: Accepted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Accepted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /portal/me:
+    get:
+      tags: [Portal]
+      operationId: portalMe
+      summary: The signed-in customer's profile
+      security:
+        - customerBearerAuth: []
+      responses:
+        "200":
+          description: The profile.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomerProfile" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /portal/me/password:
+    put:
+      tags: [Portal]
+      operationId: portalChangePassword
+      summary: Change the signed-in customer's password
+      description: Every session of the account ends, including this one.
+      security:
+        - customerBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChangePasswordRequest" }
+      responses:
+        "204":
+          description: The password was changed and the cookie cleared.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /portal/sales:
+    get:
+      tags: [Portal]
+      operationId: portalListSales
+      summary: The signed-in customer's purchases, newest first
+      description: Each with its vehicle and its six milestones. Never anyone else's.
+      security:
+        - customerBearerAuth: []
+      responses:
+        "200":
+          description: The purchases.
+          headers:
+            Cache-Control:
+              description: no-store
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalSaleList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /portal/sales/{id}:
+    parameters:
+      - $ref: "#/components/parameters/SaleId"
+    get:
+      tags: [Portal]
+      operationId: portalGetSale
+      summary: One of the customer's purchases in full
+      description: |
+        Sections appear only for COMPLETED tasks and carry only the fields and files the specification marks as
+        customer-visible. A reopened or restarted task disappears and its milestone moves back. A cancelled purchase
+        is shown as cancelled, without the reason. A purchase that belongs to someone else, or does not exist,
+        answers 404 SALE_NOT_FOUND in exactly the same way.
+      security:
+        - customerBearerAuth: []
+      responses:
+        "200":
+          description: The purchase.
+          headers:
+            Cache-Control:
+              description: no-store
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalSaleDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /portal/documents/{id}/download-url:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Portal]
+      operationId: portalGetDocumentDownloadUrl
+      summary: A short-lived signed address to download one of the customer's files
+      description: |
+        Issued only for a file of the customer's own purchase, in a customer-visible slot, whose task is completed.
+        Any other file (someone else's, internal, or of a task that was reopened) answers 404 DOCUMENT_NOT_FOUND,
+        exactly like a file that does not exist.
+      security:
+        - customerBearerAuth: []
+      responses:
+        "200":
+          description: The signed address.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDownload" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503":
+          description: File storage is not available (STORAGE_UNAVAILABLE).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 components:
   securitySchemes:
     bearerAuth:
@@ -1926,6 +2119,15 @@ components:
       type: apiKey
       in: cookie
       name: ef_employee_refresh
+    customerBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: The access token of a customer (the account type claim is "customer"). An employee's token is refused here, and this one is refused everywhere else.
+    customerRefreshCookie:
+      type: apiKey
+      in: cookie
+      name: ef_customer_refresh
   parameters:
     SaleId:
       name: id
@@ -2043,6 +2245,182 @@ components:
               type: array
               items: { $ref: "#/components/schemas/FieldError" }
             requestId: { type: string }
+    CustomerLoginRequest:
+      type: object
+      required: [documentType, documentNumber, password]
+      properties:
+        documentType: { type: string, enum: [DNI, CE, PAS, CDI, RUC] }
+        documentNumber: { type: string }
+        password: { type: string }
+        rememberMe: { type: boolean }
+    CustomerProfile:
+      type: object
+      required: [id, displayName, documentType, documentNumber, email, phone]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        documentType: { type: string, enum: [DNI, CE, PAS, CDI, RUC] }
+        documentNumber: { type: string }
+        email: { type: string }
+        phone: { type: string }
+    CustomerSessionResponse:
+      type: object
+      required: [accessToken, expiresAt, customer]
+      properties:
+        accessToken: { type: string }
+        expiresAt: { type: string, format: date-time }
+        customer: { $ref: "#/components/schemas/CustomerProfile" }
+    PortalMilestone:
+      type: object
+      required: [number, name, description, state]
+      properties:
+        number: { type: integer, minimum: 1, maximum: 6 }
+        name: { type: string }
+        description: { type: string }
+        state: { type: string, enum: [pending, in_progress, completed] }
+    PortalAdvisor:
+      type: object
+      description: The business contact of the person in charge. Nothing personal is shared.
+      required: [name, email, phone, gender]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        gender: { type: string, enum: [M, F] }
+    PortalVehicleSummary:
+      type: object
+      required: [model, version, color, mainImageUrl]
+      properties:
+        model: { type: string }
+        version: { type: string }
+        color: { type: string }
+        mainImageUrl:
+          {
+            type: string,
+            description: "A public address, or empty when the color has no main photo.",
+          }
+    PortalSaleSummary:
+      type: object
+      required: [id, code, state, createdAt, vehicle, milestones]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, example: EF-2026-00042 }
+        state: { type: string, enum: [active, completed, cancelled] }
+        createdAt: { type: string, format: date-time }
+        vehicle: { $ref: "#/components/schemas/PortalVehicleSummary" }
+        milestones:
+          type: array
+          items: { $ref: "#/components/schemas/PortalMilestone" }
+    PortalSaleList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PortalSaleSummary" }
+    PortalImage:
+      type: object
+      required: [viewpoint, url]
+      properties:
+        viewpoint: { type: string }
+        url:
+          {
+            type: string,
+            description: "A public address: catalog photos are public by design.",
+          }
+    PortalVehicle:
+      type: object
+      required:
+        [
+          model,
+          version,
+          color,
+          referencePrice,
+          categories,
+          mainImageUrl,
+          images,
+        ]
+      properties:
+        model: { type: string }
+        version: { type: string }
+        color: { type: string }
+        referencePrice:
+          {
+            type: string,
+            description: "A decimal amount in USD, as it was when the sale was made.",
+          }
+        categories: { type: array, items: { type: string } }
+        mainImageUrl: { type: string }
+        images:
+          type: array
+          items: { $ref: "#/components/schemas/PortalImage" }
+    PortalField:
+      type: object
+      required: [key, label, kind, value]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        kind:
+          {
+            type: string,
+            enum: [text, date, money],
+            description: "date is YYYY-MM-DD; money is a decimal string in USD.",
+          }
+        value: { type: string }
+    PortalDocument:
+      type: object
+      required: [id, taskNumber, label, fileName, sizeBytes, uploadedAt]
+      properties:
+        id: { type: string, format: uuid }
+        taskNumber: { type: integer }
+        label: { type: string }
+        fileName: { type: string }
+        sizeBytes: { type: integer }
+        uploadedAt: { type: string, format: date-time }
+    PortalSection:
+      type: object
+      description: What the customer reads about one completed task.
+      required:
+        [taskNumber, milestoneNumber, title, completedAt, fields, documents]
+      properties:
+        taskNumber: { type: integer, minimum: 1, maximum: 13 }
+        milestoneNumber: { type: integer, minimum: 1, maximum: 6 }
+        title: { type: string }
+        completedAt: { type: string, format: date-time }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/PortalField" }
+        documents:
+          type: array
+          items: { $ref: "#/components/schemas/PortalDocument" }
+    PortalSaleDetail:
+      type: object
+      required:
+        [
+          id,
+          code,
+          state,
+          createdAt,
+          completedAt,
+          vehicle,
+          advisor,
+          milestones,
+          sections,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, example: EF-2026-00042 }
+        state: { type: string, enum: [active, completed, cancelled] }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
+        vehicle: { $ref: "#/components/schemas/PortalVehicle" }
+        advisor: { $ref: "#/components/schemas/PortalAdvisor" }
+        milestones:
+          type: array
+          items: { $ref: "#/components/schemas/PortalMilestone" }
+        sections:
+          type: array
+          items: { $ref: "#/components/schemas/PortalSection" }
     Accepted:
       type: object
       required: [status]
