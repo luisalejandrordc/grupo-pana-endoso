@@ -52,7 +52,7 @@ type queueRecorder struct {
 }
 
 type queuedEmail struct {
-	Kind       string // employee_activation or password_reset
+	Kind       string
 	EmployeeID uuid.UUID
 	Email      string
 }
@@ -95,8 +95,18 @@ func (q *queueRecorder) CustomerActivated(ctx context.Context, tx pgx.Tx, id uui
 	return err
 }
 
-func (q *queueRecorder) PasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
-	return q.add(ctx, tx, "password_reset", id, email)
+func (q *queueRecorder) CustomerPasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	q.mu.Lock()
+	q.queued = append(q.queued, queuedEmail{"customer_password_reset", id, email})
+	q.mu.Unlock()
+	_, err := tx.Exec(ctx, `INSERT INTO notification_logs
+		(id, notification_type, recipient_customer_id, recipient_email, dedupe_key)
+		VALUES ($1, 'customer_password_reset', $2, $3, $4)`, ids.New(), id, email, "customer_password_reset:"+ids.NewString())
+	return err
+}
+
+func (q *queueRecorder) EmployeePasswordReset(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
+	return q.add(ctx, tx, "employee_password_reset", id, email)
 }
 
 func (q *queueRecorder) of(kind string, id uuid.UUID) []queuedEmail {
@@ -590,7 +600,7 @@ func TestPasswordResetFlow(t *testing.T) {
 	if err := env.svc.ForgotPassword(env.ctx, emp.DocType, emp.DocNumber, ClientInfo{}); err != nil {
 		t.Fatalf("forgot password: %v", err)
 	}
-	if got := env.queue.of("password_reset", emp.ID); len(got) != 1 || got[0].Email != emp.Email {
+	if got := env.queue.of("employee_password_reset", emp.ID); len(got) != 1 || got[0].Email != emp.Email {
 		t.Fatalf("expected one reset email queued, got %+v", got)
 	}
 	link, skipped := env.issueLink(t, LinkPasswordReset, emp.ID)
@@ -650,14 +660,14 @@ func TestForgotPasswordHasACooldown(t *testing.T) {
 			t.Fatalf("forgot password: %v", err)
 		}
 	}
-	if n := len(env.queue.of("password_reset", emp.ID)); n != 1 {
+	if n := len(env.queue.of("employee_password_reset", emp.ID)); n != 1 {
 		t.Fatalf("expected a single email inside the cooldown, got %d", n)
 	}
 	env.clock.Advance(resetCooldown + time.Second)
 	if err := env.svc.ForgotPassword(env.ctx, emp.DocType, emp.DocNumber, ClientInfo{}); err != nil {
 		t.Fatalf("forgot password: %v", err)
 	}
-	if n := len(env.queue.of("password_reset", emp.ID)); n != 2 {
+	if n := len(env.queue.of("employee_password_reset", emp.ID)); n != 2 {
 		t.Fatalf("expected a second email after the cooldown, got %d", n)
 	}
 }

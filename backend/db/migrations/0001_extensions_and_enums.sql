@@ -150,9 +150,10 @@ CREATE TYPE notification_status AS ENUM('pending', 'sent', 'failed', 'skipped');
 CREATE TYPE notification_type AS ENUM(
   'employee_activation',
   'employee_activated',
+  'employee_password_reset',
   'customer_activation',
   'customer_activated',
-  'password_reset',
+  'customer_password_reset',
   'sale_created',
   'milestone_task_1',
   'milestone_task_3',
@@ -161,7 +162,7 @@ CREATE TYPE notification_type AS ENUM(
   'milestone_task_10',
   'milestone_task_11',
   'milestone_task_13',
-  'customer_advisor_changed', -- to the customer when the advisor on their sale changes
+  'advisor_changed', -- to the customer when the advisor on their sale changes
   'sale_assigned', -- to the advisor who receives a sale (created for them or reassigned)
   'sale_unassigned', -- to the previous advisor when a sale is reassigned
   'sla_warning',

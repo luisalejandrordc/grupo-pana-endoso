@@ -1,33 +1,59 @@
 # @endosoflow/portal
 
-The customer portal: customers sign in and follow their sales and the progress of each one.
-
-**Status: placeholder.** Every address shows a "Próximamente" page (`src/features/coming-soon`). The project around it is complete, so building the real portal is a matter of adding features, not setting things up.
+The customer portal: customers sign in, follow each of their purchases through the six stages, see what staff recorded for them and download the documents meant for them. It is read-only: customers cannot edit their data, message anyone or upload files (the only thing they change is their own password).
 
 ```bash
 npm run dev:portal         # from the workspace root; http://localhost:5174
 npm run build:portal
 ```
 
-## Structure (grows like the staff site)
+## Structure
 
 ```
 src/
-├─ main.tsx              Mounts the app: design system styles, then this site's
-├─ app/App.tsx           Routes. Today: a catch-all to the holding page
-├─ features/             One folder per area, as in apps/staff
-│  └─ coming-soon/       The placeholder (delete it when the portal launches)
-└─ styles/index.css      This site's own CSS; tokens and components come from @endosoflow/ui
+├─ main.tsx              Providers: design system styles, TanStack Query, router
+├─ app/                  The shell. Nothing here knows about a purchase
+│  ├─ App.tsx            Toasts, session, the two public pages, and the login gate
+│  ├─ routes.tsx         The screens behind the login
+│  ├─ layout/PortalShell Top bar: brand, "Mis compras", "Mi cuenta", who is signed in, sign out
+│  ├─ ErrorBoundary.tsx  A crash in one screen leaves the shell standing
+│  └─ NotFoundPage.tsx
+├─ features/
+│  ├─ auth/              Login, forgotten password, activation and reset pages, the session
+│  ├─ sales/             The list and the detail of a purchase (stages, recorded data, documents, advisor)
+│  └─ account/           The customer's data (read-only) and the password change
+├─ shared/
+│  ├─ api/client.ts      CustomerApiClient: the shared ApiClient core + the customers' endpoints
+│  ├─ lib/               format (dates, sizes, WhatsApp link), passwordRules, documentTypes
+│  └─ types.ts           Everything derived from the contract (`Schemas[...]`)
+└─ styles/               shell.css and one file per feature
 ```
 
-## When you build it
+## Routes
 
-What the staff site did that the portal can copy, in this order:
+| Route                       | Screen               | Notes                                                                |
+| --------------------------- | -------------------- | -------------------------------------------------------------------- |
+| `/`                         | My purchases         | The target of "Ir a mi portal" in the emails                         |
+| `/sales/:saleId`            | One purchase         | The target of the progress emails. `/compras/:saleId` redirects here |
+| `/account`                  | My account           | Read-only data and the password change                               |
+| `/activate-account?token=…` | Activate the account | Public. The link in the welcome email (`POST /auth/activate`)        |
+| `/reset-password?token=…`   | Set a new password   | Public. The link in the reset email (`POST /auth/reset-password`)    |
 
-1. **Add `@endosoflow/api`** as a dependency and create `src/shared/api/client.ts` with `class CustomerApiClient extends ApiClient` and a `login()` for the customers' endpoint. The contract today only has `/auth/employee/login`; the backend needs to expose the customer one (customers have a `portalStatus`: `not_invited` / `invited` / `active`).
-2. **Providers in `main.tsx`:** `QueryClientProvider` (use `createQueryClient()` from the API package) and, in `App.tsx`, `ToastProvider` and an `AuthProvider` modeled on `apps/staff/src/features/auth`.
-3. **A shell** (header with the logo and the customer's name; a customer has few areas, so a top bar is likely enough) and `RequireAuth` for the routes behind the login.
-4. **Features:** `my-sales/` (list), `sale-detail/` (the 13 tasks as a read-only timeline; the contract already marks which documents are `customerVisible`).
-5. If the portal and the staff site start duplicating a component, move it to `@endosoflow/ui`.
+The two public routes and the paths are what the backend writes into emails (`auth/links.go`, `notifications/render.go`): change them there and here together.
+
+## Rules of this site
+
+1. **The server decides what a customer sees; the browser only draws it.** The milestone states, the sections and the files arrive already filtered (completed tasks, customer-visible fields). Nothing here re-derives or hides data. A reopened task simply stops arriving, and the screen follows.
+2. **The session is the customers' own.** `CustomerApiClient` renews and ends it on `/auth/customer/refresh` and `/auth/customer/logout` (the base client uses the staff routes). The cache is cleared when the session ends, so the next customer on a shared computer never sees the previous one's data.
+3. **Progress is always re-read** (`staleTime: 0`): the list and the detail refetch when opened and when the window regains focus.
+4. **A purchase that is someone else's looks exactly like one that does not exist** (404 `SALE_NOT_FOUND`), and so does the page.
+5. **Calendar dates are never shifted.** A field of kind `date` is `YYYY-MM-DD` and is written with `formatDay`, not `new Date(...)` in the viewer's time zone. Moments (`createdAt`, `completedAt`, `uploadedAt`) are shown in Lima.
+6. **Documents open through a short-lived signed address**, asked for on click (`/portal/documents/{id}/download-url`). The tab is opened first and filled in afterwards so browsers do not treat it as a pop-up.
+7. **A cancelled purchase is shown as cancelled, without the reason**, and its stage that was "in progress" is shown as _Detenida_ instead of pulsing. Its documents stay available.
+8. **Copy speaks to the customer as _usted_**, like the emails and the stage descriptions that come from the database.
+
+## Testing
+
+`npm test -w @endosoflow/portal`. `App.test.tsx` drives the whole portal through a fake of the API (`app/testSupport.tsx`): sign in and out, the list, the detail, downloads, cancelled and finished purchases, the account, and the links in the emails. Tests find things by role and visible text, not class names.
 
 The portal and the staff site are separate origins on purpose: a staff session never exists on the customers' site, and the other way round.

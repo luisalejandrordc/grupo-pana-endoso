@@ -11,10 +11,10 @@ type Preview struct {
 
 // previewTypes lists every notification type that has a template, in the order they are shown.
 var previewTypes = []string{
-	EmployeeActivation, EmployeeActivated, PasswordReset, CustomerActivation, CustomerActivated,
-	SaleCreated, "milestone_task_1", "milestone_task_3", "milestone_task_6", "milestone_task_7",
+	EmployeeActivation, EmployeeActivated, EmployeePasswordReset, CustomerActivation, CustomerActivated,
+	CustomerPasswordReset, SaleCreated, SaleAssigned, SaleUnassigned, AdvisorChanged,
+	"milestone_task_1", "milestone_task_3", "milestone_task_6", "milestone_task_7",
 	"milestone_task_10", "milestone_task_11", "milestone_task_13",
-	CustomerAdvisorChanged, SaleAssigned, SaleUnassigned,
 }
 
 // sampleData is a plausible set of values for a notification type.
@@ -71,7 +71,7 @@ func Previews(appBaseURL, portalBaseURL, logoURL string) []Preview {
 	var out []Preview
 	for _, kind := range previewTypes {
 		data := sampleData(kind, appBaseURL, portalBaseURL, logoURL)
-		if kind == PasswordReset {
+		if kind == EmployeePasswordReset || kind == CustomerPasswordReset {
 			data.Link = appBaseURL + "/reset-password?token=EJEMPLO-de-enlace-de-un-solo-uso"
 			data.LinkValidFor = "1 hora"
 		}

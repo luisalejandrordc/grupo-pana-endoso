@@ -68,7 +68,7 @@ func TestReassigningMovesTheSaleTheAccessAndTheNotifications(t *testing.T) {
 	}
 	// The customer, the new advisor and the previous advisor are told.
 	n := f.notifications(s.ID)
-	if n["customer_advisor_changed"] != 1 || n["sale_unassigned"] != 1 || n["sale_assigned"] != 2 { // the first assignment, then this one
+	if n["advisor_changed"] != 1 || n["sale_unassigned"] != 1 || n["sale_assigned"] != 2 { // the first assignment, then this one
 		t.Fatalf("notifications = %v", n)
 	}
 	// Handing it back and forth notifies every time.
@@ -76,7 +76,7 @@ func TestReassigningMovesTheSaleTheAccessAndTheNotifications(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.clock.Advance(time.Second)
-	if n := f.notifications(s.ID); n["customer_advisor_changed"] != 2 {
+	if n := f.notifications(s.ID); n["advisor_changed"] != 2 {
 		t.Fatalf("every change notifies the customer: %v", n)
 	}
 	// A cancelled sale stays where it is.

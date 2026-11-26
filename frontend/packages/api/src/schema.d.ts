@@ -1266,6 +1266,186 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/auth/customer/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sign in to the customer portal
+     * @description Document and password of a customer whose account is activated. Every failure (unknown account, wrong password, locked, inactive, not yet activated) answers INVALID_CREDENTIALS. Customers sign in with any of their document types (DNI, CE, PAS, CDI, RUC).
+     */
+    post: operations["customerLogin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/customer/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Rotate the customer's refresh token and get a new access token */
+    post: operations["customerRefreshSession"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/customer/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** End the customer's session */
+    post: operations["customerLogout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/customer/forgot-password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ask for a password reset email
+     * @description Always answers 202, whether or not the document belongs to a customer with an activated account, so it cannot be used to discover which documents exist. The reset link opens in the customer portal and is completed with POST /auth/reset-password.
+     */
+    post: operations["customerForgotPassword"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/portal/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The signed-in customer's profile */
+    get: operations["portalMe"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/portal/me/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Change the signed-in customer's password
+     * @description Every session of the account ends, including this one.
+     */
+    put: operations["portalChangePassword"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/portal/sales": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The signed-in customer's purchases, newest first
+     * @description Each with its vehicle and its six milestones. Never anyone else's.
+     */
+    get: operations["portalListSales"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/portal/sales/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    /**
+     * One of the customer's purchases in full
+     * @description Sections appear only for COMPLETED tasks and carry only the fields and files the specification marks as
+     *     customer-visible. A reopened or restarted task disappears and its milestone moves back. A cancelled purchase
+     *     is shown as cancelled, without the reason. A purchase that belongs to someone else, or does not exist,
+     *     answers 404 SALE_NOT_FOUND in exactly the same way.
+     */
+    get: operations["portalGetSale"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/portal/documents/{id}/download-url": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * A short-lived signed address to download one of the customer's files
+     * @description Issued only for a file of the customer's own purchase, in a customer-visible slot, whose task is completed.
+     *     Any other file (someone else's, internal, or of a task that was reopened) answers 404 DOCUMENT_NOT_FOUND,
+     *     exactly like a file that does not exist.
+     */
+    get: operations["portalGetDocumentDownloadUrl"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1290,6 +1470,127 @@ export interface components {
         fields?: components["schemas"]["FieldError"][];
         requestId?: string;
       };
+    };
+    CustomerLoginRequest: {
+      /** @enum {string} */
+      documentType: "DNI" | "CE" | "PAS" | "CDI" | "RUC";
+      documentNumber: string;
+      password: string;
+      rememberMe?: boolean;
+    };
+    CustomerProfile: {
+      /** Format: uuid */
+      id: string;
+      displayName: string;
+      /** @enum {string} */
+      documentType: "DNI" | "CE" | "PAS" | "CDI" | "RUC";
+      documentNumber: string;
+      email: string;
+      phone: string;
+    };
+    CustomerSessionResponse: {
+      accessToken: string;
+      /** Format: date-time */
+      expiresAt: string;
+      customer: components["schemas"]["CustomerProfile"];
+    };
+    PortalMilestone: {
+      number: number;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      state: "pending" | "in_progress" | "completed";
+    };
+    /** @description The business contact of the person in charge. Nothing personal is shared. */
+    PortalAdvisor: {
+      name: string;
+      email: string;
+      phone: string;
+      /** @enum {string} */
+      gender: "M" | "F";
+    };
+    PortalVehicleSummary: {
+      model: string;
+      version: string;
+      color: string;
+      /** @description A public address, or empty when the color has no main photo. */
+      mainImageUrl: string;
+    };
+    PortalSaleSummary: {
+      /** Format: uuid */
+      id: string;
+      /** @example EF-2026-00042 */
+      code: string;
+      /** @enum {string} */
+      state: "active" | "completed" | "cancelled";
+      /** Format: date-time */
+      createdAt: string;
+      vehicle: components["schemas"]["PortalVehicleSummary"];
+      milestones: components["schemas"]["PortalMilestone"][];
+    };
+    PortalSaleList: {
+      items: components["schemas"]["PortalSaleSummary"][];
+    };
+    PortalImage: {
+      viewpoint: string;
+      /** @description A public address: catalog photos are public by design. */
+      url: string;
+    };
+    PortalVehicle: {
+      model: string;
+      version: string;
+      color: string;
+      /** @description A decimal amount in USD, as it was when the sale was made. */
+      referencePrice: string;
+      categories: string[];
+      mainImageUrl: string;
+      images: components["schemas"]["PortalImage"][];
+    };
+    PortalField: {
+      key: string;
+      label: string;
+      /**
+       * @description date is YYYY-MM-DD; money is a decimal string in USD.
+       * @enum {string}
+       */
+      kind: "text" | "date" | "money";
+      value: string;
+    };
+    PortalDocument: {
+      /** Format: uuid */
+      id: string;
+      taskNumber: number;
+      label: string;
+      fileName: string;
+      sizeBytes: number;
+      /** Format: date-time */
+      uploadedAt: string;
+    };
+    /** @description What the customer reads about one completed task. */
+    PortalSection: {
+      taskNumber: number;
+      milestoneNumber: number;
+      title: string;
+      /** Format: date-time */
+      completedAt: string;
+      fields: components["schemas"]["PortalField"][];
+      documents: components["schemas"]["PortalDocument"][];
+    };
+    PortalSaleDetail: {
+      /** Format: uuid */
+      id: string;
+      /** @example EF-2026-00042 */
+      code: string;
+      /** @enum {string} */
+      state: "active" | "completed" | "cancelled";
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      completedAt: string | null;
+      vehicle: components["schemas"]["PortalVehicle"];
+      advisor: components["schemas"]["PortalAdvisor"];
+      milestones: components["schemas"]["PortalMilestone"][];
+      sections: components["schemas"]["PortalSection"][];
     };
     Accepted: {
       /** @enum {string} */
@@ -4503,6 +4804,238 @@ export interface operations {
       };
       401: components["responses"]["Unauthorized"];
       403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      /** @description File storage is not available (STORAGE_UNAVAILABLE). */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  customerLogin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CustomerLoginRequest"];
+      };
+    };
+    responses: {
+      /** @description Signed in. The refresh token is set as an HttpOnly cookie. */
+      200: {
+        headers: {
+          /** @description The refresh cookie (ef_customer_refresh), scoped to /api/v1/auth/customer. */
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomerSessionResponse"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      429: components["responses"]["TooManyRequests"];
+    };
+  };
+  customerRefreshSession: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must be EndosoFlow. A form on another site cannot send it. */
+        "X-Requested-With": components["parameters"]["CsrfHeader"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A new access token. The cookie is rotated, except inside the 10-second grace window. */
+      200: {
+        headers: {
+          /** @description The rotated refresh cookie. */
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomerSessionResponse"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  customerLogout: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must be EndosoFlow. A form on another site cannot send it. */
+        "X-Requested-With": components["parameters"]["CsrfHeader"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The session ended and the cookie was cleared. It never fails for an unknown token. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  customerForgotPassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ForgotPasswordRequest"];
+      };
+    };
+    responses: {
+      /** @description Accepted. */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Accepted"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      429: components["responses"]["TooManyRequests"];
+    };
+  };
+  portalMe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The profile. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomerProfile"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  portalChangePassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChangePasswordRequest"];
+      };
+    };
+    responses: {
+      /** @description The password was changed and the cookie cleared. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      422: components["responses"]["Unprocessable"];
+    };
+  };
+  portalListSales: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The purchases. */
+      200: {
+        headers: {
+          /** @description no-store */
+          "Cache-Control"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PortalSaleList"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  portalGetSale: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["SaleId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The purchase. */
+      200: {
+        headers: {
+          /** @description no-store */
+          "Cache-Control"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PortalSaleDetail"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  portalGetDocumentDownloadUrl: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The signed address. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentDownload"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
       404: components["responses"]["NotFound"];
       /** @description File storage is not available (STORAGE_UNAVAILABLE). */
       503: {

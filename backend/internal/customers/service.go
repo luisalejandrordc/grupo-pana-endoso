@@ -36,10 +36,16 @@ type ActivationQueuer interface {
 	QueueCustomerActivation(ctx context.Context, tx pgx.Tx, customerID uuid.UUID) error
 }
 
+// AccessManager ends a customer's portal sessions and cancels their open links (implemented by the auth service).
+type AccessManager interface {
+	RevokeCustomerAccess(ctx context.Context, tx pgx.Tx, customerID uuid.UUID, reason string, now time.Time) error
+}
+
 // Deps are the service's dependencies.
 type Deps struct {
 	DB         auth.Database
 	Activation ActivationQueuer // nil means no welcome email is queued
+	Access     AccessManager
 	Identity   IdentityProvider // nil means automatic name lookup is not configured
 	Logger     *slog.Logger
 	Now        func() time.Time // nil means time.Now
@@ -52,6 +58,7 @@ type Deps struct {
 type Service struct {
 	db               auth.Database
 	activation       ActivationQueuer
+	access           AccessManager
 	identity         IdentityProvider
 	logger           *slog.Logger
 	now              func() time.Time
@@ -62,8 +69,8 @@ type Service struct {
 // NewService builds the service.
 func NewService(d Deps) *Service {
 	s := &Service{
-		db: d.DB, activation: d.Activation, identity: d.Identity, logger: d.Logger, now: d.Now,
-		lookupsPerMinute: d.LookupsPerMinute, monthlyQuota: d.MonthlyQuota,
+		db: d.DB, activation: d.Activation, access: d.Access, identity: d.Identity, logger: d.Logger,
+		now: d.Now, lookupsPerMinute: d.LookupsPerMinute, monthlyQuota: d.MonthlyQuota,
 	}
 	if s.now == nil {
 		s.now = time.Now
@@ -357,6 +364,12 @@ func (s *Service) setActiveState(ctx context.Context, actor auth.Actor, id uuid.
 		}
 		if err := setActive(ctx, tx, id, active, actor.ID, now); err != nil {
 			return err
+		}
+		if !active {
+			// A deactivated customer must lose the portal at once: their sessions and open links end here.
+			if err := s.access.RevokeCustomerAccess(ctx, tx, id, "deactivated", now); err != nil {
+				return err
+			}
 		}
 		action := audit.ActionDeactivated
 		if active {

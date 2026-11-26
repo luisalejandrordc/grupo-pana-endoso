@@ -100,7 +100,7 @@ func newTestEnv(t *testing.T, tweak ...func(*Deps)) *testEnv {
 	authService := auth.NewService(auth.Deps{
 		DB: pool, JWTSecret: testSecret, AppBaseURL: "http://app.test", PortalBaseURL: "http://portal.test", Notifier: queue, Logger: logger,
 	})
-	deps := Deps{DB: pool, Activation: authService, Identity: identity, Logger: logger}
+	deps := Deps{DB: pool, Activation: authService, Access: authService, Identity: identity, Logger: logger}
 	for _, f := range tweak {
 		f(&deps)
 	}
@@ -162,6 +162,8 @@ func (e *testEnv) trackCustomer(id uuid.UUID) {
 	e.t.Cleanup(func() {
 		e.replica(func(c *pgxpool.Conn) {
 			ctx := context.Background()
+			_, _ = c.Exec(ctx, `DELETE FROM customer_refresh_tokens WHERE customer_id = $1`, id)
+			_, _ = c.Exec(ctx, `DELETE FROM access_logs WHERE customer_id = $1`, id)
 			_, _ = c.Exec(ctx, `DELETE FROM account_tokens WHERE customer_id = $1`, id)
 			_, _ = c.Exec(ctx, `DELETE FROM notification_logs WHERE recipient_customer_id = $1`, id)
 			_, _ = c.Exec(ctx, `DELETE FROM sale_registers WHERE customer_id = $1`, id)
@@ -292,6 +294,18 @@ type activationRecorder struct {
 	calls []string // customer emails
 }
 
+func (a *activationRecorder) EmployeeActivation(context.Context, pgx.Tx, uuid.UUID, string) error {
+	return errors.New("not used by customer tests")
+}
+
+func (a *activationRecorder) EmployeeActivated(context.Context, pgx.Tx, uuid.UUID, string) error {
+	return errors.New("not used by customer tests")
+}
+
+func (a *activationRecorder) EmployeePasswordReset(context.Context, pgx.Tx, uuid.UUID, string) error {
+	return errors.New("not used by customer tests")
+}
+
 func (a *activationRecorder) CustomerActivation(ctx context.Context, tx pgx.Tx, id uuid.UUID, email string) error {
 	a.mu.Lock()
 	a.calls = append(a.calls, email)
@@ -301,19 +315,11 @@ func (a *activationRecorder) CustomerActivation(ctx context.Context, tx pgx.Tx, 
 	return err
 }
 
-func (a *activationRecorder) EmployeeActivation(context.Context, pgx.Tx, uuid.UUID, string) error {
-	return errors.New("not used by customer tests")
-}
-
-func (a *activationRecorder) EmployeeActivated(context.Context, pgx.Tx, uuid.UUID, string) error {
-	return errors.New("not used by customer tests")
-}
-
 func (a *activationRecorder) CustomerActivated(context.Context, pgx.Tx, uuid.UUID, string) error {
 	return nil // the confirmation is not what these tests are about
 }
 
-func (a *activationRecorder) PasswordReset(context.Context, pgx.Tx, uuid.UUID, string) error {
+func (a *activationRecorder) CustomerPasswordReset(context.Context, pgx.Tx, uuid.UUID, string) error {
 	return errors.New("not used by customer tests")
 }
 

@@ -1,0 +1,134 @@
+.shell {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+.shell-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.shell-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  max-width: 1120px;
+  height: var(--topbar);
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+
+.shell-brand {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.shell-brand img {
+  display: block;
+  width: 138px;
+  height: auto;
+}
+
+.shell-nav {
+  display: flex;
+  flex: 1;
+  gap: var(--space-1);
+}
+
+.shell-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.shell-link:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.shell-link.active {
+  background: var(--brand-wash);
+  color: var(--brand-strong);
+}
+
+.shell-user {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.shell-name {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-main {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-8);
+}
+
+.shell-main:focus {
+  outline: none;
+}
+
+.shell-footer {
+  padding: var(--space-5);
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .shell-bar-inner {
+    gap: var(--space-3);
+    padding: 0 var(--space-3);
+  }
+
+  .shell-brand img {
+    width: 104px;
+  }
+
+  .shell-name {
+    display: none;
+  }
+
+  /* Only the icon shows, but the word stays for screen readers (display: none would remove it too). */
+  .shell-link span,
+  .shell-user .button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .shell-link {
+    padding: 0 var(--space-3);
+  }
+
+  .shell-main {
+    padding: var(--space-5) var(--space-4) var(--space-7);
+  }
+}

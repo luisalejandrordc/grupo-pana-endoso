@@ -265,7 +265,7 @@ func setCustomerPassword(ctx context.Context, q querier, id uuid.UUID, hash stri
 func latestPasswordResetQueuedAt(ctx context.Context, q querier, employeeID uuid.UUID) (*time.Time, error) {
 	var latest *time.Time
 	err := q.QueryRow(ctx, `SELECT max(created_at) FROM notification_logs
-		WHERE recipient_employee_id = $1 AND notification_type = 'password_reset'`, employeeID).Scan(&latest)
+		WHERE recipient_employee_id = $1 AND notification_type = 'employee_password_reset'`, employeeID).Scan(&latest)
 	return latest, err
 }
 

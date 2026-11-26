@@ -298,7 +298,7 @@ func TestWriterAdvisorChangedNotifiesCustomerAndBothAdvisors(t *testing.T) {
 		t.Fatalf("AdvisorChanged: %v", err)
 	}
 
-	if got := f.countCustomerRecipient(t, saleID, "customer_advisor_changed", customerID); got != 1 {
+	if got := f.countCustomerRecipient(t, saleID, "advisor_changed", customerID); got != 1 {
 		t.Errorf("customer advisor-change notifications = %d, want 1", got)
 	}
 	if got := f.countEmployeeRecipient(t, saleID, "sale_assigned", f.other.ID); got != 1 {
@@ -321,7 +321,7 @@ func TestWriterAdvisorChangedMultipleTimesCreatesDistinctEvents(t *testing.T) {
 		}
 	}
 
-	for _, kind := range []string{"customer_advisor_changed", "sale_assigned", "sale_unassigned"} {
+	for _, kind := range []string{"advisor_changed", "sale_assigned", "sale_unassigned"} {
 		if got := f.countType(t, saleID, kind); got != 2 {
 			t.Errorf("%s count after two distinct reassignments = %d, want 2", kind, got)
 		}
@@ -339,7 +339,7 @@ func TestWriterAdvisorChangedMissingPreviousEmployeeIsTolerated(t *testing.T) {
 		t.Fatalf("AdvisorChanged with missing previous employee: %v", err)
 	}
 
-	if got := f.countCustomerRecipient(t, saleID, "customer_advisor_changed", customerID); got != 1 {
+	if got := f.countCustomerRecipient(t, saleID, "advisor_changed", customerID); got != 1 {
 		t.Errorf("customer advisor-change notifications = %d, want 1", got)
 	}
 	if got := f.countEmployeeRecipient(t, saleID, "sale_assigned", f.other.ID); got != 1 {

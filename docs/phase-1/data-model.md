@@ -232,7 +232,7 @@ A model is available for new sales only when the model, the chosen version and t
 **`notification_logs`** — transactional outbox
 
 - Columns: `id`, `notification_type`, `sale_id` and `task_instance_id` (nullable, `SET NULL`), `recipient_employee_id` or `recipient_customer_id` (at most one), `recipient_email`, `dedupe_key` (unique), `status`, `attempt_count`, `last_error`, `created_at`, `dispatched_at`.
-- Types: customer_activation, sale_created, one milestone type for each of Tasks 1, 3, 6, 7, 10, 11 and 13, customer_advisor_changed (to the customer), sale_assigned (to the advisor who receives a sale, whether it is created for them or reassigned) and sale_unassigned (to the previous advisor),
+- Types: customer_activation, sale_created, one milestone type for each of Tasks 1, 3, 6, 7, 10, 11 and 13, advisor_changed (to the customer), sale_assigned (to the advisor who receives a sale, whether it is created for them or reassigned) and sale_unassigned (to the previous advisor),
 - Dedupe keys: sale plus event for customer notices; reassignment adds the new advisor and a sequence number; reminders add the task and the reminder number.
 - Flow: the row is inserted as `pending` in the same transaction as the business change, the sender claims it, sends, and marks it `sent` or `failed`; the hourly job retries failed rows.
 - Indexes: unique `dedupe_key`, `(status, created_at)`, `(sale_id)`.

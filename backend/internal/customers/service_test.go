@@ -823,3 +823,42 @@ func TestResendActivationIsRefusedWhenItMakesNoSense(t *testing.T) {
 	}
 	wantCode(t, e.svc.ResendActivation(e.ctx, admin.actor(), c.ID), "CUSTOMER_ALREADY_ACTIVATED")
 }
+
+func TestDeactivatingACustomerEndsTheirPortalSessions(t *testing.T) {
+	e := newTestEnv(t)
+	admin := e.insertEmployee(auth.RoleSystemAdmin, "")
+	c := e.createCustomer(admin.actor(), person())
+
+	hash, err := auth.HashPassword(goodPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(e.ctx, `UPDATE customers SET password_hash = $2, activated_at = now() WHERE id = $1`, c.ID, hash); err != nil {
+		t.Fatal(err)
+	}
+	session, err := e.auth.CustomerLogin(e.ctx, auth.LoginRequest{DocumentType: c.DocumentType, DocumentNumber: c.DocumentNumber, Password: goodPassword}, auth.ClientInfo{})
+	if err != nil {
+		t.Fatalf("the customer signs in: %v", err)
+	}
+	if _, err := e.auth.AuthenticateCustomer(e.ctx, session.AccessToken); err != nil {
+		t.Fatalf("and is let in: %v", err)
+	}
+
+	if _, err := e.svc.Deactivate(e.ctx, admin.actor(), c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.auth.AuthenticateCustomer(e.ctx, session.AccessToken); err == nil {
+		t.Fatal("a deactivated customer's access token must stop working at once")
+	}
+	if _, err := e.auth.CustomerRefresh(e.ctx, session.RefreshToken); err == nil {
+		t.Fatal("and their session cannot be refreshed")
+	}
+
+	// A customer who signed in can still be deleted when they have no sales: their sessions go with them.
+	if _, err := e.svc.Reactivate(e.ctx, admin.actor(), c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.Delete(e.ctx, admin.actor(), c.ID, "Creado por error"); err != nil && !strings.Contains(err.Error(), "HAS_HISTORY") {
+		t.Fatalf("unexpected delete error: %v", err)
+	}
+}
