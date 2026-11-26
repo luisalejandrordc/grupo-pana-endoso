@@ -6,7 +6,7 @@ Two sites and the packages they share, in one npm-workspaces repository.
 frontend/
 ├─ apps/
 │  ├─ staff/     Staff site: sales, customers, catalog, team.            → deployed on its own
-│  └─ portal/    Customer portal: customers follow their sales.          → deployed on its own (placeholder for now)
+│  └─ portal/    Customer portal: customers follow their sales.          → deployed on its own
 ├─ packages/
 │  ├─ ui/        @endosoflow/ui   Design tokens, CSS, React components, hooks, formatters
 │  └─ api/       @endosoflow/api  Types generated from the OpenAPI contract, HTTP client core, error helpers
@@ -48,7 +48,7 @@ Run anything in one workspace with `-w`, for example `npm run test:watch -w @end
 1. **An app may use packages. A package never uses an app. Apps never use each other.** ESLint enforces it (`no-restricted-imports`), so a violation fails `npm run check`.
 2. **The design system depends on nothing and the API package depends on nothing** of ours. They are leaves.
 3. **Shared means used by both sites, or about to be.** A component only the staff site needs stays in `apps/staff` until the portal needs it; then it moves to `@endosoflow/ui`. Do not move code "just in case".
-4. **What differs per site stays in the site:** its login and session, its routes, its screens, its shell (menu, topbar). The staff site signs in with a document and password against `/auth/employee/login`; the portal will have its own login. Both extend the same `ApiClient` core.
+4. **What differs per site stays in the site:** its login and session, its routes, its screens, its shell (menu, topbar). The staff site signs in with a document and password against `/auth/employee/login`; the portal has its own login against `/auth/customer/login`. Both extend the same `ApiClient` core.
 5. **Packages are consumed as source** (their `exports` point at `src/`), so there is no build step for them and a change shows up in both sites immediately. Import only from the package name (`@endosoflow/ui`), never from a deep path.
 
 ## Adding things

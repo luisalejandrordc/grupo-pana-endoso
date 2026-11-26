@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "EndosoFlow customer portal: where customers sign in to follow their sales. Placeholder for now.",
+  "description": "EndosoFlow customer portal: where customers sign in to follow their purchases and download their documents.",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
@@ -13,7 +13,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@endosoflow/api": "*",
     "@endosoflow/ui": "*",
+    "@tanstack/react-query": "^5.105.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.6"
