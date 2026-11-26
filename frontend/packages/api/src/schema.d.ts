@@ -1478,6 +1478,10 @@ export interface components {
       password: string;
       rememberMe?: boolean;
     };
+    CustomerForgotPasswordRequest: {
+      documentType: components["schemas"]["CustomerDocumentType"];
+      documentNumber: string;
+    };
     CustomerProfile: {
       /** Format: uuid */
       id: string;
@@ -4903,7 +4907,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["ForgotPasswordRequest"];
+        "application/json": components["schemas"]["CustomerForgotPasswordRequest"];
       };
     };
     responses: {

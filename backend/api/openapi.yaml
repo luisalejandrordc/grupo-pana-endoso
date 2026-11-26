@@ -1993,7 +1993,8 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/ForgotPasswordRequest" }
+            schema:
+              { $ref: "#/components/schemas/CustomerForgotPasswordRequest" }
       responses:
         "202":
           description: Accepted.
@@ -2253,6 +2254,12 @@ components:
         documentNumber: { type: string }
         password: { type: string }
         rememberMe: { type: boolean }
+    CustomerForgotPasswordRequest:
+      type: object
+      required: [documentType, documentNumber]
+      properties:
+        documentType: { $ref: "#/components/schemas/CustomerDocumentType" }
+        documentNumber: { type: string }
     CustomerProfile:
       type: object
       required: [id, displayName, documentType, documentNumber, email, phone]
