@@ -1,0 +1,53 @@
+.account {
+  max-width: 640px;
+}
+
+.account-card {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6);
+}
+
+.account-card h2 {
+  font-size: var(--text-xl);
+  font-weight: 650;
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.account-data {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.account-data dt {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.account-data dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.account-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
+.account-note svg {
+  flex: none;
+}
