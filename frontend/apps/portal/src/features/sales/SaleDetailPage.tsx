@@ -18,10 +18,9 @@ import {
   saleStateLabels,
   saleStateTones,
 } from "./labels";
-import { MilestoneTrack } from "./MilestoneTrack";
-import { progressOf } from "./progress";
+import { MilestoneStepper } from "./MilestoneStepper";
+import { ProgressMeter } from "./ProgressMeter";
 import { useSale } from "./queries";
-import { Timeline } from "./Timeline";
 import { VehicleGallery } from "./VehicleGallery";
 
 function Loading() {
@@ -57,7 +56,6 @@ function StateBanner({ sale }: { sale: PortalSaleDetail }) {
 function Detail({ sale }: { sale: PortalSaleDetail }) {
   const { vehicle } = sale;
   const name = `${vehicle.model} ${vehicle.version}`;
-  const progress = progressOf(sale.milestones, sale.state);
   useDocumentTitle(`${name} · ${sale.code}`);
 
   return (
@@ -96,18 +94,11 @@ function Detail({ sale }: { sale: PortalSaleDetail }) {
               <dd>{formatMoneyText(vehicle.referencePrice)}</dd>
             </div>
           </dl>
-          <div className="hero-progress">
-            <MilestoneTrack milestones={sale.milestones} state={sale.state} />
-            <p>
-              <strong>{progress.summary}</strong>
-              {sale.state === "active" && (
-                <span>
-                  {" "}
-                  · {progress.done} de {progress.total} etapas completadas
-                </span>
-              )}
-            </p>
-          </div>
+          <ProgressMeter
+            milestones={sale.milestones}
+            state={sale.state}
+            completedTasks={sale.sections.length}
+          />
         </div>
       </section>
 
@@ -118,7 +109,7 @@ function Detail({ sale }: { sale: PortalSaleDetail }) {
           <h2 id="progress-title" className="section-title">
             Avance de su compra
           </h2>
-          <Timeline
+          <MilestoneStepper
             milestones={sale.milestones}
             sections={sale.sections}
             state={sale.state}

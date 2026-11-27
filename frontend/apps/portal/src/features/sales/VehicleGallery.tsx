@@ -1,39 +1,107 @@
-import { useState } from "react";
+import { Icon } from "@endosoflow/ui";
+import { useState, type KeyboardEvent } from "react";
 import type { PortalVehicle } from "../../shared/types";
-import { labelOf, viewpointLabels } from "./labels";
+import { Lightbox } from "./Lightbox";
+import { PhotoThumbs } from "./PhotoThumbs";
+import { photosOf, useSwipe } from "./photos";
 import { VehicleImage } from "./VehicleImage";
 
-/** The main photo, large, with a thumbnail for each other view the catalog has. */
+/**
+ * The vehicle's photos. It opens on the main view; arrows, swipes, the thumbnails and the keyboard walk through
+ * the other views, and pressing the photo opens it large (with zoom) in a viewer.
+ */
 export function VehicleGallery({ vehicle }: { vehicle: PortalVehicle }) {
   const name = `${vehicle.model} ${vehicle.version}, color ${vehicle.color}`;
-  // The main view comes first; the rest follow in the order the catalog gives them.
-  const photos = vehicle.images.filter((image) => image.url);
-  const [selected, setSelected] = useState(
-    () => photos.find((image) => image.url === vehicle.mainImageUrl)?.url ?? "",
+  const photos = photosOf(vehicle);
+  const [index, setIndex] = useState(0);
+  const [open, setOpen] = useState(false);
+  const many = photos.length > 1;
+
+  const show = (next: number) =>
+    setIndex((next + photos.length) % photos.length);
+  const swipe = useSwipe(
+    () => show(index - 1),
+    () => show(index + 1),
   );
-  const shown = selected || vehicle.mainImageUrl || photos[0]?.url || "";
+
+  if (photos.length === 0)
+    return (
+      <div className="gallery">
+        <VehicleImage className="gallery-main" src="" alt={name} />
+      </div>
+    );
+
+  const photo = photos[index];
+
+  function onKeyDown(event: KeyboardEvent) {
+    // While the viewer is open it answers the keyboard itself.
+    if (!many || open) return;
+    if (event.key === "ArrowLeft") show(index - 1);
+    else if (event.key === "ArrowRight") show(index + 1);
+  }
 
   return (
-    <div className="gallery">
-      <VehicleImage className="gallery-main" src={shown} alt={name} />
-      {photos.length > 1 && (
-        <ul className="gallery-thumbs" aria-label="Vistas del vehículo">
-          {photos.map((image) => (
-            <li key={image.viewpoint}>
+    <>
+      <div className="gallery" onKeyDown={onKeyDown}>
+        <div className="gallery-stage" {...swipe}>
+          <button
+            type="button"
+            className="gallery-open"
+            aria-label={`Ampliar foto: ${photo.label}`}
+            onClick={() => setOpen(true)}
+          >
+            <VehicleImage
+              key={photo.url}
+              className="gallery-main"
+              src={photo.url}
+              alt={`${name}, ${photo.label}`}
+            />
+            <span className="gallery-expand" aria-hidden="true">
+              <Icon name="maximize" size={16} />
+            </span>
+          </button>
+          {many && (
+            <>
               <button
                 type="button"
-                className={`gallery-thumb ${image.url === shown ? "is-active" : ""}`.trim()}
-                aria-pressed={image.url === shown}
-                aria-label={labelOf(viewpointLabels, image.viewpoint)}
-                title={labelOf(viewpointLabels, image.viewpoint)}
-                onClick={() => setSelected(image.url)}
+                className="photo-arrow is-prev"
+                aria-label="Foto anterior"
+                onClick={() => show(index - 1)}
               >
-                <img src={image.url} alt="" loading="lazy" />
+                <Icon name="chevron-left" size={20} />
               </button>
-            </li>
-          ))}
-        </ul>
+              <button
+                type="button"
+                className="photo-arrow is-next"
+                aria-label="Foto siguiente"
+                onClick={() => show(index + 1)}
+              >
+                <Icon name="chevron-right" size={20} />
+              </button>
+            </>
+          )}
+          <p className="gallery-caption" aria-live="polite">
+            {photo.label}
+            {many && (
+              <span>
+                {index + 1} / {photos.length}
+              </span>
+            )}
+          </p>
+        </div>
+        {many && (
+          <PhotoThumbs photos={photos} current={index} onSelect={setIndex} />
+        )}
+      </div>
+      {open && (
+        <Lightbox
+          title={`${vehicle.model} ${vehicle.version}`}
+          photos={photos}
+          index={index}
+          onIndex={setIndex}
+          onClose={() => setOpen(false)}
+        />
       )}
-    </div>
+    </>
   );
 }

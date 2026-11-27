@@ -1,5 +1,6 @@
 import { ApiError, errorText, fieldErrors } from "@endosoflow/api";
 import {
+  BackLink,
   Callout,
   Icon,
   InitialsTile,
@@ -123,6 +124,7 @@ export function AccountPage() {
 
   return (
     <div className="stack account">
+      <BackLink to="/">Mis compras</BackLink>
       <PageHeader
         title="Mi cuenta"
         description="Sus datos de registro y la seguridad de su acceso."
