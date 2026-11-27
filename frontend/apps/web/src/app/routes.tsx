@@ -10,6 +10,11 @@ import { NotFoundPage } from "./NotFoundPage";
  * The route components below are the only place that knows where a page's inputs come from (the
  * session, the address, the notifications): the pages themselves just receive them as props.
  */
+const DashboardPage = lazy(() =>
+  import("../features/dashboard/DashboardPage").then((m) => ({
+    default: m.DashboardPage,
+  })),
+);
 const SalesPage = lazy(() =>
   import("../features/sales/SalesPage").then((m) => ({ default: m.SalesPage })),
 );
@@ -50,6 +55,11 @@ function PageFallback() {
       <span className="skeleton skeleton-block" />
     </div>
   );
+}
+
+function DashboardRoute() {
+  const { role } = useCurrentUser();
+  return <DashboardPage role={role} />;
 }
 
 function SalesRoute() {
@@ -109,6 +119,7 @@ export function AppRoutes() {
     <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/" element={<Navigate to="/sales" replace />} />
+        <Route path="/dashboard" element={<DashboardRoute />} />
         <Route path="/sales" element={<SalesRoute />} />
         <Route path="/sales/new" element={<NewSaleRoute />} />
         <Route path="/sales/:saleId" element={<SaleDetailRoute />} />

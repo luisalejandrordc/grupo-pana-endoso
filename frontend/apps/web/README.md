@@ -1,6 +1,6 @@
 # @endosoflow/staff
 
-The staff site: sales and their 13-task process, customers, the vehicle catalog and team management. Used by advisors, managers and system administrators.
+The staff site: the BI dashboard, sales and their 13-task process, customers, the vehicle catalog and team management. Used by advisors, managers and system administrators.
 
 ```bash
 npm run dev:staff          # from the workspace root; http://localhost:5173
@@ -19,7 +19,7 @@ src/
 │  ├─ ErrorBoundary.tsx  A crash in one screen leaves the shell standing
 │  └─ navigation.ts      Menu items, which roles see them, where the search box appears
 ├─ features/             One folder per area of the product
-│  ├─ auth/ sales/ customers/ catalog/ staff/ profile/
+│  ├─ auth/ sales/ customers/ catalog/ staff/ profile/ dashboard/
 │  └─ each one: api.ts (HTTP) → queries.ts (TanStack Query) → *Page.tsx (screen) → smaller components
 ├─ shared/               Only what is specific to this site and used by several features
 │  ├─ api/client.ts      EmployeeApiClient: the shared ApiClient core + the employee login and /me calls
@@ -62,6 +62,13 @@ Tests describe behavior through roles and visible text, not class names, so a re
 - **Deactivating** ends the person's sessions. The record stays open and shows the new state; whatever was typed in the form is kept and is saved against the server's new version.
 - **Deleting** is permanent and requires a reason (kept in the audit trail). The server refuses it for anyone who ever signed in or acted: the dialog then says so and points to deactivating.
 - **Nobody can lock themselves out:** the signed-in administrator's own record offers neither deactivating nor deleting, and its role field is locked. If they edit their own data the session is refreshed (`onSelfUpdated`) so the sidebar shows the new name.
+
+## Notes on the dashboard (`features/dashboard`)
+
+One tab is one request (`/dashboard/<tab>`), made only while the tab is open. The filters live in the address
+(`period`, `from`, `to`, `advisor`, `type`, `temp`, `model`, `tab`), so a view can be shared and the back button works.
+Charts are Recharts wrappers (`charts.tsx`) that read their colors from the design tokens and carry a text summary for
+screen readers. What each number means is in `docs/dashboard.md`.
 
 ## Public pages: the links in the emails
 
