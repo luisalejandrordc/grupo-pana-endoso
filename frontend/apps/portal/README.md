@@ -15,12 +15,13 @@ src/
 ├─ app/                  The shell. Nothing here knows about a purchase
 │  ├─ App.tsx            Toasts, session, the two public pages, and the login gate
 │  ├─ routes.tsx         The screens behind the login
-│  ├─ layout/PortalShell Top bar: brand, "Mis compras", "Mi cuenta", who is signed in, sign out
+│  ├─ layout/PortalShell Top bar: the logo (home) and one account dropdown (Mi cuenta, Cerrar sesión)
 │  ├─ ErrorBoundary.tsx  A crash in one screen leaves the shell standing
 │  └─ NotFoundPage.tsx
 ├─ features/
 │  ├─ auth/              Login, forgotten password, activation and reset pages, the session
-│  ├─ sales/             The list and the detail of a purchase (stages, recorded data, documents, advisor)
+│  ├─ sales/             The list and the detail of a purchase: photo gallery + viewer, percentage,
+│  │                     stage stepper (one stage open at a time), recorded data, documents, advisor
 │  └─ account/           The customer's data (read-only) and the password change
 ├─ shared/
 │  ├─ api/client.ts      CustomerApiClient: the shared ApiClient core + the customers' endpoints
@@ -31,13 +32,13 @@ src/
 
 ## Routes
 
-| Route                       | Screen               | Notes                                                                |
-| --------------------------- | -------------------- | -------------------------------------------------------------------- |
-| `/`                         | My purchases         | The target of "Ir a mi portal" in the emails                         |
-| `/sales/:saleId`            | One purchase         | The target of the progress emails. `/compras/:saleId` redirects here |
-| `/account`                  | My account           | Read-only data and the password change                               |
-| `/activate-account?token=…` | Activate the account | Public. The link in the welcome email (`POST /auth/activate`)        |
-| `/reset-password?token=…`   | Set a new password   | Public. The link in the reset email (`POST /auth/reset-password`)    |
+| Route                       | Screen               | Notes                                                                     |
+| --------------------------- | -------------------- | ------------------------------------------------------------------------- |
+| `/`                         | My purchases         | The target of "Ir a mi portal" in the emails                              |
+| `/sales/:saleId`            | One purchase         | The target of the progress emails. `/compras/:saleId` redirects here      |
+| `/account`                  | My account           | Reached from the account dropdown. Read-only data and the password change |
+| `/activate-account?token=…` | Activate the account | Public. The link in the welcome email (`POST /auth/activate`)             |
+| `/reset-password?token=…`   | Set a new password   | Public. The link in the reset email (`POST /auth/reset-password`)         |
 
 The two public routes and the paths are what the backend writes into emails (`auth/links.go`, `notifications/render.go`): change them there and here together.
 
@@ -50,7 +51,11 @@ The two public routes and the paths are what the backend writes into emails (`au
 5. **Calendar dates are never shifted.** A field of kind `date` is `YYYY-MM-DD` and is written with `formatDay`, not `new Date(...)` in the viewer's time zone. Moments (`createdAt`, `completedAt`, `uploadedAt`) are shown in Lima.
 6. **Documents open through a short-lived signed address**, asked for on click (`/portal/documents/{id}/download-url`). The tab is opened first and filled in afterwards so browsers do not treat it as a pop-up.
 7. **A cancelled purchase is shown as cancelled, without the reason**, and its stage that was "in progress" is shown as _Detenida_ instead of pulsing. Its documents stay available.
-8. **Copy speaks to the customer as _usted_**, like the emails and the stage descriptions that come from the database.
+8. **The login is the shared `AuthFormPanel` of `@endosoflow/ui`**, the same component the staff site uses: only each site's brand panel and its copy differ, so the two logins cannot drift apart.
+9. **The detail opens on the stage that matters, and shows one stage at a time.** The row of six stages is a set of tabs (arrow keys, Home and End work); it opens on the stage in progress, else the last one finished. Choosing one is the customer's, and a refresh does not undo it.
+10. **The percentage is tasks done out of 13**, from the detail's sections (one per completed task), because six stages would move in jumps of 17%. The list only has the six stages, so it shows those and never a percentage that would disagree with the detail. A completed purchase is 100%; a cancelled one keeps where it stopped, muted, and says so.
+11. **Photos: the main view first, then a walk around the car.** Arrows, swipes, thumbnails and the keyboard change the view; pressing the photo opens a large viewer (zoom 100–400%, double click, `+`/`-`/`0`, arrows). A view with no file is left out.
+12. **Copy speaks to the customer as _usted_**, like the emails and the stage descriptions that come from the database.
 
 ## Testing
 
