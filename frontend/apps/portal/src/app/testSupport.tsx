@@ -89,9 +89,11 @@ export const detail: PortalSaleDetail = {
     referencePrice: "32500.00",
     categories: ["camioneta", "familiar"],
     mainImageUrl: "https://img.example/main.jpg",
+    // Deliberately not in walking order: the portal must still put the main view first.
     images: [
-      { viewpoint: "main_view", url: "https://img.example/main.jpg" },
       { viewpoint: "interior", url: "https://img.example/interior.jpg" },
+      { viewpoint: "exterior_front", url: "https://img.example/front.jpg" },
+      { viewpoint: "main_view", url: "https://img.example/main.jpg" },
     ],
   },
   advisor: {
