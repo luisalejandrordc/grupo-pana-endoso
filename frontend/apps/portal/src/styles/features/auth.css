@@ -1,11 +1,4 @@
-.auth-layout {
-  display: grid;
-  grid-template-columns: minmax(420px, 1fr) minmax(440px, 0.9fr);
-  min-height: 100vh;
-  background: var(--surface);
-}
-
-/* ---- brand panel ---- */
+/* The brand side of the login. The page and the form side are shared with the staff site (@endosoflow/ui). */
 
 .auth-brand {
   position: relative;
@@ -14,7 +7,7 @@
   justify-content: space-between;
   gap: var(--space-7);
   min-height: 100vh;
-  padding: 56px clamp(36px, 5vw, 78px) 28px;
+  padding: 48px clamp(36px, 5vw, 78px) 28px;
   overflow: hidden;
   background:
     radial-gradient(
@@ -146,131 +139,8 @@
   box-shadow: 0 0 0 44px rgb(255 255 255 / 2%);
 }
 
-/* ---- form panel ---- */
-
-.auth-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-5);
-  padding: var(--space-7) var(--space-5);
-  background: var(--paper);
-}
-
-.auth-card {
-  display: grid;
-  gap: var(--space-5);
-  width: min(440px, 100%);
-  padding: 36px;
-  border: 1px solid var(--line);
-  border-top: 4px solid var(--brand);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-raised);
-  animation: auth-in 0.4s var(--ease);
-}
-
-@keyframes auth-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-
-.auth-logo {
-  display: block;
-  width: 168px;
-  height: auto;
-}
-
-.auth-kicker {
-  margin-bottom: var(--space-2);
-  color: var(--brand-strong);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-}
-
-.auth-heading h1 {
-  font-size: var(--text-2xl);
-  font-weight: 650;
-}
-
-.auth-lede {
-  margin-top: var(--space-2);
-  color: var(--ink-3);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-}
-
-.auth-options {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  font-size: var(--text-sm);
-}
-
-.auth-error {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--brand-line);
-  border-radius: var(--radius-sm);
-  background: var(--brand-wash);
-  color: var(--brand-deep);
-  font-size: var(--text-sm);
-}
-
-.auth-error svg {
-  flex: none;
-  margin-top: 1px;
-}
-
-.text-button.centered {
-  justify-self: center;
-}
-
-.auth-security {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--line);
-  color: var(--ink-3);
-  font-size: var(--text-xs);
-}
-
-.auth-security svg {
-  flex: none;
-  color: var(--done);
-}
-
-.auth-help {
-  color: var(--ink-3);
-  font-size: var(--text-sm);
-  text-align: center;
-}
-
 @media (max-width: 900px) {
-  .auth-layout {
-    grid-template-columns: 1fr;
-  }
-
   .auth-brand {
     display: none;
-  }
-
-  .auth-panel {
-    min-height: 100vh;
-  }
-}
-
-@media (max-width: 480px) {
-  .auth-card {
-    padding: var(--space-6) var(--space-5);
   }
 }

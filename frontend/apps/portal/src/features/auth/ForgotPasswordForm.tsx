@@ -1,6 +1,5 @@
 import { errorText } from "@endosoflow/api";
-import { Callout, Field } from "@endosoflow/ui";
-import { Icon } from "@endosoflow/ui";
+import { Field, Icon } from "@endosoflow/ui";
 import { useState, type FormEvent } from "react";
 import { api } from "../../shared/api/client";
 import { documentTypeOptions } from "../../shared/lib/documentTypes";
@@ -58,12 +57,21 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
         />
       </Field>
       {sent && (
-        <Callout tone="done" role="status">
-          Si el documento corresponde a una cuenta activa, enviaremos un enlace
-          al correo registrado. Revise también su carpeta de correo no deseado.
-        </Callout>
+        <div className="inline-success" role="status">
+          <Icon name="check-circle" size={18} />
+          <span>
+            Si el documento corresponde a una cuenta activa, enviaremos un
+            enlace al correo registrado. Revise también su carpeta de correo no
+            deseado.
+          </span>
+        </div>
       )}
-      {error && <Callout tone="error">{error}</Callout>}
+      {error && (
+        <div className="inline-error" role="alert">
+          <Icon name="alert" size={18} />
+          <span>{error}</span>
+        </div>
+      )}
       <button className="button button-primary button-wide" disabled={busy}>
         {busy ? "Enviando…" : "Enviar instrucciones"}
         {!busy && <Icon name="arrow-right" size={17} />}

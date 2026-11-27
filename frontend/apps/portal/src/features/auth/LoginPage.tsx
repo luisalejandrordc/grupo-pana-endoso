@@ -26,7 +26,7 @@ export function LoginPage({
       lede={
         forgot
           ? "Ingrese su documento y le enviaremos las instrucciones si existe una cuenta activa asociada."
-          : "Ingrese con el documento con el que fue registrado en Grupo Pana."
+          : "Ingrese con las credenciales con las que fue registrado."
       }
     >
       {forgot ? (
