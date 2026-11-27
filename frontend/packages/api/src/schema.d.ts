@@ -1266,6 +1266,136 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/dashboard/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard: summary
+     * @description The first tab: headline numbers, the monthly trend, the active sales per milestone and the sales that need
+     *     attention. Active sales and the task counts are snapshots of today; created, completed and cancelled sales
+     *     follow the period. An Advisor only ever gets their own sales; the advisorId filter cannot widen that.
+     *     The period defaults to the last 90 days (Lima time) and may not exceed three years.
+     */
+    get: operations["getDashboardSummary"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/process": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard: process
+     * @description How the work flows: the median and 90th-percentile time to complete an operation, tasks reopened, and for each
+     *     of the 13 tasks the sales waiting on it, the time spent working and waiting, and the SLA compliance of the
+     *     tasks completed in the period (only six tasks carry an SLA). Also the cancellations of the period by reason
+     *     and by the task the sale was on.
+     */
+    get: operations["getDashboardProcess"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/market": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard: market
+     * @description What is being sold and to whom, over the sales created in the period: top models, versions and colors, customer
+     *     types and how sales of each temperature ended up. Each group counts the sales by their state today.
+     */
+    get: operations["getDashboardMarket"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/finance": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard: finance
+     * @description Recorded amounts in USD, never accounting figures. A value counts only once the task that confirms it is
+     *     completed: task 1 for the quotation, task 3 for the final commission, task 4 for money received from customers,
+     *     task 5 for money paid to Toyota and task 6 for invoices. Advisors read it over their own sales.
+     */
+    get: operations["getDashboardFinance"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/advisors": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard: advisors
+     * @description The sales team side by side. Managers and Admins only; an Advisor gets 403.
+     */
+    get: operations["getDashboardAdvisors"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboard/system": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Dashboard: system
+     * @description The platform itself: staff accounts, the email outbox and employee sign-in events. Admins only; the sale filters
+     *     do not apply, only the period.
+     */
+    get: operations["getDashboardSystem"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/auth/customer/login": {
     parameters: {
       query?: never;
@@ -2539,6 +2669,260 @@ export interface components {
       /** Format: date */
       deliveryDate?: string | null;
     };
+    /**
+     * @description Decimal string with two decimals (USD). A recorded operational amount, not an accounting figure.
+     * @example 1250.50
+     */
+    Money: string;
+    DashboardPeriod: {
+      /** Format: date */
+      from: string;
+      /** Format: date */
+      to: string;
+    };
+    DashboardSummary: {
+      period: components["schemas"]["DashboardPeriod"];
+      /** Format: date-time */
+      generatedAt: string;
+      kpis: components["schemas"]["DashboardSummaryKpis"];
+      trend: components["schemas"]["DashboardTrendPoint"][];
+      milestones: components["schemas"]["DashboardMilestoneLoad"][];
+      attention: components["schemas"]["DashboardAttentionList"];
+    };
+    DashboardSummaryKpis: {
+      /** @description Snapshot of today. */
+      activeSales: number;
+      createdInPeriod: number;
+      completedInPeriod: number;
+      cancelledInPeriod: number;
+      /** @description Completed / (completed + cancelled) in the period, as a percentage. Null when there are none. */
+      closingRate: number | null;
+      /** @description Snapshot: tasks in progress past their due date. */
+      overdueTasks: number;
+      /** @description Snapshot: tasks in progress that used 80% of their time and are not yet late. */
+      approachingTasks: number;
+      /** @description Snapshot: next tasks that could start more than 48 hours ago and have not. */
+      stalledTasks: number;
+    };
+    DashboardTrendPoint: {
+      /**
+       * @description YYYY-MM in Lima time.
+       * @example 2026-11
+       */
+      month: string;
+      created: number;
+      completed: number;
+      cancelled: number;
+    };
+    DashboardMilestoneLoad: {
+      number: number;
+      name: string;
+      activeSales: number;
+    };
+    DashboardAttentionList: {
+      total: number;
+      items: components["schemas"]["DashboardAttentionItem"][];
+    };
+    DashboardAttentionItem: {
+      /** Format: uuid */
+      saleId: string;
+      /** @example EF-2026-00012 */
+      saleCode: string;
+      customerName: string;
+      vehicle: string;
+      /** Format: uuid */
+      advisorId: string;
+      advisorName: string;
+      taskNumber: number;
+      taskName: string;
+      /** @enum {string} */
+      kind: "overdue" | "approaching" | "stalled";
+      /** Format: date-time */
+      dueDate: string | null;
+      /** Format: date-time */
+      waitingSince: string | null;
+    };
+    DashboardProcess: {
+      period: components["schemas"]["DashboardPeriod"];
+      /** Format: date-time */
+      generatedAt: string;
+      cycleTime: components["schemas"]["DashboardCycleTime"];
+      reopenedTasks: number;
+      tasks: components["schemas"]["DashboardTaskStats"][];
+      cancellations: components["schemas"]["DashboardCancellations"];
+    };
+    DashboardCycleTime: {
+      /** @description Sales completed in the period. */
+      sampleSize: number;
+      medianDays: number | null;
+      p90Days: number | null;
+    };
+    DashboardTaskStats: {
+      number: number;
+      name: string;
+      milestone: number;
+      /** @description Null when the task has no SLA. */
+      recommendedHours: number | null;
+      /** @description Snapshot: active sales whose current task this is. */
+      activeSales: number;
+      completedInPeriod: number;
+      /** @description From started to completed. */
+      medianWorkHours: number | null;
+      /** @description From eligible to started. */
+      medianWaitHours: number | null;
+      /** @description Completed in the early or approaching phase. */
+      onTime: number;
+      /** @description Completed overdue. */
+      late: number;
+      /** @description Percentage; null for tasks without an SLA or without completions. */
+      onTimeRate: number | null;
+    };
+    DashboardCancellations: {
+      total: number;
+      byCategory: {
+        category: components["schemas"]["CancellationCategory"];
+        count: number;
+      }[];
+      byTask: {
+        number: number;
+        name: string;
+        count: number;
+      }[];
+    };
+    DashboardMarket: {
+      period: components["schemas"]["DashboardPeriod"];
+      /** Format: date-time */
+      generatedAt: string;
+      models: components["schemas"]["DashboardMixItem"][];
+      versions: components["schemas"]["DashboardMixItem"][];
+      colors: components["schemas"]["DashboardMixItem"][];
+      /** @description The key is a CustomerType. */
+      customerTypes: components["schemas"]["DashboardMixItem"][];
+      temperatures: components["schemas"]["DashboardTemperatureStats"][];
+    };
+    DashboardMixItem: {
+      key: string;
+      label: string;
+      total: number;
+      active: number;
+      completed: number;
+      cancelled: number;
+    };
+    DashboardTemperatureStats: {
+      temperature: components["schemas"]["SaleTemperature"];
+      total: number;
+      active: number;
+      completed: number;
+      cancelled: number;
+      /** @description Completed / (completed + cancelled) among the sales created in the period that are already resolved. */
+      closingRate: number | null;
+    };
+    DashboardFinance: {
+      period: components["schemas"]["DashboardPeriod"];
+      /** Format: date-time */
+      generatedAt: string;
+      pipeline: components["schemas"]["DashboardPipelineMoney"];
+      completed: components["schemas"]["DashboardCompletedMoney"];
+      cash: components["schemas"]["DashboardCashFlow"];
+      invoices: components["schemas"]["DashboardInvoiceTotal"][];
+      monthly: components["schemas"]["DashboardMoneyMonth"][];
+    };
+    /** @description Snapshot of the active sales whose quotation (task 1) is completed. */
+    DashboardPipelineMoney: {
+      sales: number;
+      quotedValue: components["schemas"]["Money"];
+      finalCommission: components["schemas"]["Money"];
+      provisionalCommission: components["schemas"]["Money"];
+    };
+    /** @description The sales completed in the period. */
+    DashboardCompletedMoney: {
+      sales: number;
+      quotedValue: components["schemas"]["Money"];
+      commission: components["schemas"]["Money"];
+      averageCommission: components["schemas"]["Money"];
+      accessories: components["schemas"]["Money"];
+      releaseProcessing: components["schemas"]["Money"];
+      toyotaAmount: components["schemas"]["Money"];
+    };
+    DashboardCashFlow: {
+      moneyIn: components["schemas"]["Money"];
+      moneyOut: components["schemas"]["Money"];
+      /**
+       * @description Money in minus money out; negative when more went out.
+       * @example -250.00
+       */
+      net: string;
+      /** @description Payments in the period whose amount differs from the expected one. */
+      paymentMismatches: number;
+      /**
+       * @description Snapshot: received from customers minus paid to Toyota, on active sales.
+       * @example 3500.50
+       */
+      heldInActiveSales: string;
+      inCancelledSales: components["schemas"]["Money"];
+    };
+    DashboardInvoiceTotal: {
+      /** @enum {string} */
+      kind: "toyota" | "commission" | "accessories" | "release_processing";
+      count: number;
+      amount: components["schemas"]["Money"];
+      mismatches: number;
+    };
+    DashboardMoneyMonth: {
+      /** @example 2026-11 */
+      month: string;
+      commission: components["schemas"]["Money"];
+      moneyIn: components["schemas"]["Money"];
+      moneyOut: components["schemas"]["Money"];
+    };
+    DashboardAdvisors: {
+      period: components["schemas"]["DashboardPeriod"];
+      /** Format: date-time */
+      generatedAt: string;
+      items: components["schemas"]["DashboardAdvisorRow"][];
+    };
+    DashboardAdvisorRow: {
+      /** Format: uuid */
+      advisorId: string;
+      name: string;
+      isActive: boolean;
+      hasPhoto: boolean;
+      activeSales: number;
+      createdInPeriod: number;
+      completedInPeriod: number;
+      cancelledInPeriod: number;
+      closingRate: number | null;
+      medianCycleDays: number | null;
+      overdueTasks: number;
+      pipelineValue: components["schemas"]["Money"];
+      commission: components["schemas"]["Money"];
+    };
+    DashboardSystem: {
+      period: components["schemas"]["DashboardPeriod"];
+      /** Format: date-time */
+      generatedAt: string;
+      staff: {
+        admins: number;
+        managers: number;
+        advisors: number;
+        inactive: number;
+        lockedNow: number;
+      };
+      notifications: {
+        pendingNow: number;
+        /** Format: date-time */
+        oldestPendingAt: string | null;
+        sent: number;
+        failed: number;
+        skipped: number;
+      };
+      security: {
+        successfulLogins: number;
+        failedLogins: number;
+        lockedAttempts: number;
+        passwordResets: number;
+      };
+    };
   };
   responses: {
     /** @description The request is malformed. */
@@ -2619,6 +3003,16 @@ export interface components {
     EmployeeId: string;
     /** @description Must be EndosoFlow. A form on another site cannot send it. */
     CsrfHeader: "EndosoFlow";
+    /** @description First day of the period, YYYY-MM-DD in Lima time. Defaults to 89 days before "to". */
+    DashboardFrom: string;
+    /** @description Last day of the period (included), YYYY-MM-DD in Lima time. Defaults to today. */
+    DashboardTo: string;
+    /** @description Only this advisor's sales. Ignored for an Advisor, who always sees their own. */
+    DashboardAdvisorId: string;
+    DashboardCustomerType: components["schemas"]["CustomerType"];
+    DashboardTemperature: components["schemas"]["SaleTemperature"];
+    DashboardModelId: string;
+    DashboardVersionId: string;
   };
   requestBodies: never;
   headers: never;
@@ -4818,6 +5212,210 @@ export interface operations {
           "application/json": components["schemas"]["ErrorResponse"];
         };
       };
+    };
+  };
+  getDashboardSummary: {
+    parameters: {
+      query?: {
+        /** @description First day of the period, YYYY-MM-DD in Lima time. Defaults to 89 days before "to". */
+        from?: components["parameters"]["DashboardFrom"];
+        /** @description Last day of the period (included), YYYY-MM-DD in Lima time. Defaults to today. */
+        to?: components["parameters"]["DashboardTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who always sees their own. */
+        advisorId?: components["parameters"]["DashboardAdvisorId"];
+        customerType?: components["parameters"]["DashboardCustomerType"];
+        temperature?: components["parameters"]["DashboardTemperature"];
+        modelId?: components["parameters"]["DashboardModelId"];
+        versionId?: components["parameters"]["DashboardVersionId"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The numbers of the tab. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardSummary"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getDashboardProcess: {
+    parameters: {
+      query?: {
+        /** @description First day of the period, YYYY-MM-DD in Lima time. Defaults to 89 days before "to". */
+        from?: components["parameters"]["DashboardFrom"];
+        /** @description Last day of the period (included), YYYY-MM-DD in Lima time. Defaults to today. */
+        to?: components["parameters"]["DashboardTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who always sees their own. */
+        advisorId?: components["parameters"]["DashboardAdvisorId"];
+        customerType?: components["parameters"]["DashboardCustomerType"];
+        temperature?: components["parameters"]["DashboardTemperature"];
+        modelId?: components["parameters"]["DashboardModelId"];
+        versionId?: components["parameters"]["DashboardVersionId"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The numbers of the tab. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardProcess"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getDashboardMarket: {
+    parameters: {
+      query?: {
+        /** @description First day of the period, YYYY-MM-DD in Lima time. Defaults to 89 days before "to". */
+        from?: components["parameters"]["DashboardFrom"];
+        /** @description Last day of the period (included), YYYY-MM-DD in Lima time. Defaults to today. */
+        to?: components["parameters"]["DashboardTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who always sees their own. */
+        advisorId?: components["parameters"]["DashboardAdvisorId"];
+        customerType?: components["parameters"]["DashboardCustomerType"];
+        temperature?: components["parameters"]["DashboardTemperature"];
+        modelId?: components["parameters"]["DashboardModelId"];
+        versionId?: components["parameters"]["DashboardVersionId"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The numbers of the tab. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardMarket"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getDashboardFinance: {
+    parameters: {
+      query?: {
+        /** @description First day of the period, YYYY-MM-DD in Lima time. Defaults to 89 days before "to". */
+        from?: components["parameters"]["DashboardFrom"];
+        /** @description Last day of the period (included), YYYY-MM-DD in Lima time. Defaults to today. */
+        to?: components["parameters"]["DashboardTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who always sees their own. */
+        advisorId?: components["parameters"]["DashboardAdvisorId"];
+        customerType?: components["parameters"]["DashboardCustomerType"];
+        temperature?: components["parameters"]["DashboardTemperature"];
+        modelId?: components["parameters"]["DashboardModelId"];
+        versionId?: components["parameters"]["DashboardVersionId"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The numbers of the tab. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardFinance"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getDashboardAdvisors: {
+    parameters: {
+      query?: {
+        /** @description First day of the period, YYYY-MM-DD in Lima time. Defaults to 89 days before "to". */
+        from?: components["parameters"]["DashboardFrom"];
+        /** @description Last day of the period (included), YYYY-MM-DD in Lima time. Defaults to today. */
+        to?: components["parameters"]["DashboardTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who always sees their own. */
+        advisorId?: components["parameters"]["DashboardAdvisorId"];
+        customerType?: components["parameters"]["DashboardCustomerType"];
+        temperature?: components["parameters"]["DashboardTemperature"];
+        modelId?: components["parameters"]["DashboardModelId"];
+        versionId?: components["parameters"]["DashboardVersionId"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The numbers of the tab. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardAdvisors"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getDashboardSystem: {
+    parameters: {
+      query?: {
+        /** @description First day of the period, YYYY-MM-DD in Lima time. Defaults to 89 days before "to". */
+        from?: components["parameters"]["DashboardFrom"];
+        /** @description Last day of the period (included), YYYY-MM-DD in Lima time. Defaults to today. */
+        to?: components["parameters"]["DashboardTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who always sees their own. */
+        advisorId?: components["parameters"]["DashboardAdvisorId"];
+        customerType?: components["parameters"]["DashboardCustomerType"];
+        temperature?: components["parameters"]["DashboardTemperature"];
+        modelId?: components["parameters"]["DashboardModelId"];
+        versionId?: components["parameters"]["DashboardVersionId"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The numbers of the tab. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardSystem"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
     };
   };
   customerLogin: {
