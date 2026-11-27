@@ -1,4 +1,4 @@
-import { Icon, logoLandscape } from "@endosoflow/ui";
+import { AuthFormPanel, Icon } from "@endosoflow/ui";
 import type { ReactNode } from "react";
 
 const steps = [
@@ -60,24 +60,16 @@ export function AuthLayout({
         <div className="login-decoration decoration-two" />
       </section>
 
-      <main className="login-form-panel">
-        <div className="login-form-card">
-          <img className="login-logo" src={logoLandscape} alt="EndosoFlow" />
-          <div className="login-form-heading">
-            <p className="section-kicker">PORTAL DE COLABORADORES</p>
-            <h1>{title}</h1>
-            {lede && <p className="login-form-lede">{lede}</p>}
-          </div>
-          {children}
-          <div className="login-security">
-            <Icon name="shield-check" size={17} />
-            <span>Acceso protegido para personal autorizado de Grupo Pana</span>
-          </div>
-        </div>
-        <div className="login-help">
-          <span>¿Necesitas ayuda?</span> Contacta al administrador de tu cuenta.
-        </div>
-      </main>
+      <AuthFormPanel
+        kicker="PORTAL DE COLABORADORES"
+        title={title}
+        lede={lede}
+        security="Acceso protegido para personal autorizado de Grupo Pana"
+        helpLead="¿Necesitas ayuda?"
+        help="Contacta al administrador de tu cuenta."
+      >
+        {children}
+      </AuthFormPanel>
     </div>
   );
 }

@@ -17,6 +17,16 @@ import {
 } from "./testSupport";
 
 beforeEach(installApi);
+
+/** Opens one stage of the purchase by pressing it on the stage row. */
+async function openStage(
+  user: ReturnType<typeof userEvent.setup>,
+  number: number,
+) {
+  await user.click(
+    await screen.findByRole("tab", { name: new RegExp(`Etapa ${number},`) }),
+  );
+}
 afterEach(() => vi.unstubAllGlobals());
 
 describe("signing in", () => {
@@ -107,13 +117,14 @@ describe("signing in", () => {
     expect(screen.queryByLabelText("Número de documento")).toBeNull();
   });
 
-  it("signs out and goes back to the login", async () => {
+  it("signs out from the account menu and goes back to the login", async () => {
     state.signedIn = true;
     openPortal();
     const user = userEvent.setup();
     await screen.findByRole("heading", { name: "Mis compras" });
 
-    await user.click(screen.getByRole("button", { name: /Cerrar sesión/ }));
+    await user.click(screen.getByRole("button", { name: /Cuenta de María/ }));
+    await user.click(screen.getByRole("menuitem", { name: "Cerrar sesión" }));
 
     expect(
       await screen.findByRole("heading", { name: "Bienvenido a su portal" }),
@@ -256,17 +267,10 @@ describe("one purchase", () => {
     expect(screen.getByText("Camioneta")).toBeVisible();
     expect(screen.getByText("Familiar")).toBeVisible();
     expect(screen.getByText(/32,500\.00/)).toBeVisible();
-    for (const name of stages([
-      "pending",
-      "pending",
-      "pending",
-      "pending",
-      "pending",
-      "pending",
-    ]).map((s) => s.name))
-      expect(
-        screen.getByRole("heading", { level: 3, name: new RegExp(name) }),
-      ).toBeVisible();
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs).toHaveLength(6);
+    expect(tabs[0]).toHaveTextContent("Cotización y Documentación");
+    expect(tabs[5]).toHaveTextContent("Preparación y Entrega");
     expect(document.title).toBe(
       "Corolla Cross XEI Hybrid · EF-2026-00042 · EndosoFlow",
     );
@@ -274,6 +278,8 @@ describe("one purchase", () => {
 
   it("shows what was recorded in a completed stage, with money and dates written for a person", async () => {
     openPortal(path);
+    const user = userEvent.setup();
+    await openStage(user, 1);
     const card = (
       await screen.findByRole("heading", { name: "Cotización del Vehículo" })
     ).closest("section")!;
@@ -325,6 +331,7 @@ describe("one purchase", () => {
       });
     openPortal(path);
     const user = userEvent.setup();
+    await openStage(user, 1);
 
     await user.click(
       await screen.findByRole("button", {
@@ -353,6 +360,7 @@ describe("one purchase", () => {
       );
     openPortal(path);
     const user = userEvent.setup();
+    await openStage(user, 1);
 
     await user.click(
       await screen.findByRole("button", {
@@ -373,11 +381,20 @@ describe("one purchase", () => {
     answers[`GET /portal/sales/${summary.id}`] = () =>
       json({ ...detail, state: "cancelled" });
     openPortal(path);
+    const user = userEvent.setup();
     expect(await screen.findByText("Esta compra fue cancelada.")).toBeVisible();
+    // The stage that was running is shown stopped, with its own explanation, and the meter keeps where it stopped.
     expect(screen.getByText("Detenida")).toBeVisible();
-    expect(screen.queryByText("En curso")).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Descargar Cotización oficial" }),
+      screen.getByText(/se canceló mientras esta etapa estaba en curso/),
+    ).toBeVisible();
+    expect(screen.queryByText("En curso")).toBeNull();
+    expect(screen.getByText("al cancelarse")).toBeVisible();
+    await openStage(user, 1);
+    expect(
+      await screen.findByRole("button", {
+        name: "Descargar Cotización oficial",
+      }),
     ).toBeVisible();
     expect(screen.queryByText(/motivo/i)).toBeNull();
   });

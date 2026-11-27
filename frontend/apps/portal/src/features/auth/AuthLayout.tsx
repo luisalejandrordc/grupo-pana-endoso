@@ -1,4 +1,4 @@
-import { Icon, logoLandscape, type IconName } from "@endosoflow/ui";
+import { AuthFormPanel, Icon, type IconName } from "@endosoflow/ui";
 import type { ReactNode } from "react";
 
 const promises: { icon: IconName; title: string; text: string }[] = [
@@ -9,7 +9,7 @@ const promises: { icon: IconName; title: string; text: string }[] = [
   },
   {
     icon: "file-text",
-    title: "Sus documentos a mano",
+    title: "Sus documentos a disposición",
     text: "Descargue su cotización, facturas y demás documentos cuando los necesite.",
   },
   {
@@ -33,7 +33,7 @@ export function AuthLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="auth-layout">
+    <div className="login-layout">
       <section className="auth-brand" aria-hidden="true">
         <div className="auth-brand-body">
           <div className="auth-eyebrow">
@@ -67,24 +67,16 @@ export function AuthLayout({
         <div className="auth-ring auth-ring-two" />
       </section>
 
-      <main className="auth-panel">
-        <div className="auth-card">
-          <img className="auth-logo" src={logoLandscape} alt="EndosoFlow" />
-          <div className="auth-heading">
-            <p className="auth-kicker">ACCESO DE CLIENTES</p>
-            <h1>{title}</h1>
-            {lede && <p className="auth-lede">{lede}</p>}
-          </div>
-          {children}
-          <div className="auth-security">
-            <Icon name="shield-check" size={17} />
-            <span>Su información está protegida y solo usted puede verla</span>
-          </div>
-        </div>
-        <p className="auth-help">
-          ¿Necesita ayuda? Comuníquese con su asesor de Grupo Pana.
-        </p>
-      </main>
+      <AuthFormPanel
+        kicker="ACCESO DE CLIENTES"
+        title={title}
+        lede={lede}
+        security="Su información está protegida y solo usted puede verla"
+        helpLead="¿Necesita ayuda?"
+        help="Comuníquese con su asesor de Grupo Pana."
+      >
+        {children}
+      </AuthFormPanel>
     </div>
   );
 }

@@ -35,46 +35,38 @@
   height: auto;
 }
 
-.shell-nav {
-  display: flex;
-  flex: 1;
-  gap: var(--space-1);
+.shell-bar-inner .menu {
+  margin-left: auto;
 }
 
-.shell-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  color: var(--ink-2);
-  font-weight: 550;
-  text-decoration: none;
-}
-
-.shell-link:hover {
-  background: var(--surface-3);
+.account-trigger {
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-3) 0 6px;
+  border: 1px solid transparent;
   color: var(--ink);
 }
 
-.shell-link.active {
+.account-trigger:hover,
+.account-trigger[aria-expanded="true"] {
+  border-color: var(--line);
+  background: var(--surface-3);
+}
+
+.account-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
   background: var(--brand-wash);
   color: var(--brand-strong);
 }
 
-.shell-user {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.shell-name {
+.account-name {
   max-width: 220px;
   overflow: hidden;
-  color: var(--ink-2);
-  font-size: var(--text-sm);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -109,23 +101,13 @@
     width: 104px;
   }
 
-  .shell-name {
+  /* On a phone the name would crowd the logo: the avatar and the arrow are enough (the button is labelled). */
+  .account-name {
     display: none;
   }
 
-  /* Only the icon shows, but the word stays for screen readers (display: none would remove it too). */
-  .shell-link span,
-  .shell-user .button span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .shell-link {
-    padding: 0 var(--space-3);
+  .account-trigger {
+    padding: 0 var(--space-2) 0 6px;
   }
 
   .shell-main {

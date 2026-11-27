@@ -27,6 +27,18 @@
   width: min(880px, 100%);
 }
 
+.modal-immersive {
+  width: min(1180px, 100%);
+  height: calc(100vh - 40px);
+}
+
+.modal-immersive .modal-content {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: var(--space-4);
+  overflow: hidden;
+}
+
 @keyframes modal-in {
   from {
     opacity: 0;
@@ -73,10 +85,15 @@
   }
 
   .modal,
-  .modal-wide {
+  .modal-wide,
+  .modal-immersive {
     width: 100%;
     max-height: 92vh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .modal-immersive {
+    height: 92vh;
   }
 
   .modal-heading,

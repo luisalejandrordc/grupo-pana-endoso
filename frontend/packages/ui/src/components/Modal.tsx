@@ -21,6 +21,7 @@ export function Modal({
   onClose,
   footer,
   wide = false,
+  immersive = false,
 }: {
   title: string;
   description?: string;
@@ -29,6 +30,8 @@ export function Modal({
   footer?: ReactNode;
   /** A wider window for screens that hold tables or image grids. */
   wide?: boolean;
+  /** Takes almost the whole screen: for looking at something (a photo), not for filling in a form. */
+  immersive?: boolean;
 }) {
   const titleId = useId();
   const dialog = useRef<HTMLElement>(null);
@@ -90,7 +93,13 @@ export function Modal({
     >
       <section
         ref={dialog}
-        className={wide ? "modal modal-wide" : "modal"}
+        className={
+          immersive
+            ? "modal modal-immersive"
+            : wide
+              ? "modal modal-wide"
+              : "modal"
+        }
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

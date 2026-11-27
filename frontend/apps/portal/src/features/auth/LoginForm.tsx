@@ -71,7 +71,7 @@ export function LoginForm({
         placeholder="Ingrese su contraseña"
         autoComplete="current-password"
       />
-      <div className="auth-options">
+      <div className="login-form-options">
         <label className="checkbox-label">
           <input
             type="checkbox"
@@ -85,7 +85,7 @@ export function LoginForm({
         </button>
       </div>
       {error && (
-        <div className="auth-error" role="alert">
+        <div className="inline-error" role="alert">
           <Icon name="alert" size={18} />
           <span>{error}</span>
         </div>

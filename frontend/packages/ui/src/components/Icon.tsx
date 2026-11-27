@@ -11,6 +11,11 @@ export type IconName =
   | "bell"
   | "chevron-down"
   | "chevron-right"
+  | "chevron-left"
+  | "zoom-in"
+  | "zoom-out"
+  | "maximize"
+  | "minus"
   | "arrow-left"
   | "filter"
   | "more"
@@ -121,6 +126,21 @@ const paths: Record<IconName, ReactNode> = {
   ),
   "chevron-down": <path d="m6 9 6 6 6-6" />,
   "chevron-right": <path d="m9 18 6-6-6-6" />,
+  "chevron-left": <path d="m15 18-6-6 6-6" />,
+  "zoom-in": (
+    <>
+      <circle cx="10.8" cy="10.8" r="6.8" />
+      <path d="m16 16 4.5 4.5M10.8 8v5.6M8 10.8h5.6" />
+    </>
+  ),
+  "zoom-out": (
+    <>
+      <circle cx="10.8" cy="10.8" r="6.8" />
+      <path d="m16 16 4.5 4.5M8 10.8h5.6" />
+    </>
+  ),
+  maximize: <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />,
+  minus: <path d="M5 12h14" />,
   "arrow-left": (
     <>
       <path d="M19 12H5" />
