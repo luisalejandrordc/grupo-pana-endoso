@@ -7,6 +7,7 @@ import (
 	"endosoflow/internal/auth"
 	"endosoflow/internal/catalog"
 	"endosoflow/internal/customers"
+	"endosoflow/internal/dashboard"
 	"endosoflow/internal/documents"
 	"endosoflow/internal/notifications"
 	"endosoflow/internal/platform/config"
@@ -93,12 +94,16 @@ func run() error {
 	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: salesGate, Documents: documentsService, Notifier: notificationWriter, Logger: logger})
 	tasksHandler := tasks.NewHandler(tasksService, authHandler, logger)
 
+	// The BI dashboard only reads: it aggregates what the modules above already recorded.
+	dashboardService := dashboard.NewService(dashboard.Deps{DB: pool, Logger: logger})
+	dashboardHandler := dashboard.NewHandler(dashboardService, authHandler, logger)
+
 	// The customer portal's read API: it only composes what the modules above expose for customers.
 	portalService := portal.NewService(portal.Deps{DB: pool, Vehicles: catalogService, Documents: documentsService, Logger: logger})
 	portalHandler := portal.NewHandler(portalService, authHandler, logger)
 
 	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount,
-		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount, portalHandler.Mount)
+		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount, dashboardHandler.Mount, portalHandler.Mount)
 	if localStore != nil {
 		mux := http.NewServeMux()
 		mux.Handle("/media/", http.StripPrefix("/media/", localStore.Handler()))

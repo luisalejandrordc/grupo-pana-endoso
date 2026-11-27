@@ -45,6 +45,7 @@ tags:
   - name: Sales
   - name: Tasks
   - name: Documents
+  - name: Dashboard
   - name: Portal
 paths:
   /health:
@@ -1917,6 +1918,172 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardSummary
+      summary: "Dashboard: summary"
+      description: |
+        The first tab: headline numbers, the monthly trend, the active sales per milestone and the sales that need
+        attention. Active sales and the task counts are snapshots of today; created, completed and cancelled sales
+        follow the period. An Advisor only ever gets their own sales; the advisorId filter cannot widen that.
+        The period defaults to the last 90 days (Lima time) and may not exceed three years.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+        - $ref: "#/components/parameters/DashboardAdvisorId"
+        - $ref: "#/components/parameters/DashboardCustomerType"
+        - $ref: "#/components/parameters/DashboardTemperature"
+        - $ref: "#/components/parameters/DashboardModelId"
+        - $ref: "#/components/parameters/DashboardVersionId"
+      responses:
+        "200":
+          description: The numbers of the tab.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardSummary" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /dashboard/process:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardProcess
+      summary: "Dashboard: process"
+      description: |
+        How the work flows: the median and 90th-percentile time to complete an operation, tasks reopened, and for each
+        of the 13 tasks the sales waiting on it, the time spent working and waiting, and the SLA compliance of the
+        tasks completed in the period (only six tasks carry an SLA). Also the cancellations of the period by reason
+        and by the task the sale was on.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+        - $ref: "#/components/parameters/DashboardAdvisorId"
+        - $ref: "#/components/parameters/DashboardCustomerType"
+        - $ref: "#/components/parameters/DashboardTemperature"
+        - $ref: "#/components/parameters/DashboardModelId"
+        - $ref: "#/components/parameters/DashboardVersionId"
+      responses:
+        "200":
+          description: The numbers of the tab.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardProcess" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /dashboard/market:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardMarket
+      summary: "Dashboard: market"
+      description: |
+        What is being sold and to whom, over the sales created in the period: top models, versions and colors, customer
+        types and how sales of each temperature ended up. Each group counts the sales by their state today.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+        - $ref: "#/components/parameters/DashboardAdvisorId"
+        - $ref: "#/components/parameters/DashboardCustomerType"
+        - $ref: "#/components/parameters/DashboardTemperature"
+        - $ref: "#/components/parameters/DashboardModelId"
+        - $ref: "#/components/parameters/DashboardVersionId"
+      responses:
+        "200":
+          description: The numbers of the tab.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardMarket" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /dashboard/finance:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardFinance
+      summary: "Dashboard: finance"
+      description: |
+        Recorded amounts in USD, never accounting figures. A value counts only once the task that confirms it is
+        completed: task 1 for the quotation, task 3 for the final commission, task 4 for money received from customers,
+        task 5 for money paid to Toyota and task 6 for invoices. Advisors read it over their own sales.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+        - $ref: "#/components/parameters/DashboardAdvisorId"
+        - $ref: "#/components/parameters/DashboardCustomerType"
+        - $ref: "#/components/parameters/DashboardTemperature"
+        - $ref: "#/components/parameters/DashboardModelId"
+        - $ref: "#/components/parameters/DashboardVersionId"
+      responses:
+        "200":
+          description: The numbers of the tab.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardFinance" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /dashboard/advisors:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardAdvisors
+      summary: "Dashboard: advisors"
+      description: |
+        The sales team side by side. Managers and Admins only; an Advisor gets 403.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+        - $ref: "#/components/parameters/DashboardAdvisorId"
+        - $ref: "#/components/parameters/DashboardCustomerType"
+        - $ref: "#/components/parameters/DashboardTemperature"
+        - $ref: "#/components/parameters/DashboardModelId"
+        - $ref: "#/components/parameters/DashboardVersionId"
+      responses:
+        "200":
+          description: The numbers of the tab.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardAdvisors" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /dashboard/system:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardSystem
+      summary: "Dashboard: system"
+      description: |
+        The platform itself: staff accounts, the email outbox and employee sign-in events. Admins only; the sale filters
+        do not apply, only the period.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DashboardFrom"
+        - $ref: "#/components/parameters/DashboardTo"
+        - $ref: "#/components/parameters/DashboardAdvisorId"
+        - $ref: "#/components/parameters/DashboardCustomerType"
+        - $ref: "#/components/parameters/DashboardTemperature"
+        - $ref: "#/components/parameters/DashboardModelId"
+        - $ref: "#/components/parameters/DashboardVersionId"
+      responses:
+        "200":
+          description: The numbers of the tab.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardSystem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /auth/customer/login:
     post:
       tags: [Portal]
@@ -2177,6 +2344,37 @@ components:
       required: true
       description: Must be EndosoFlow. A form on another site cannot send it.
       schema: { type: string, enum: [EndosoFlow] }
+    DashboardFrom:
+      name: from
+      in: query
+      description: First day of the period, YYYY-MM-DD in Lima time. Defaults to 89 days before "to".
+      schema: { type: string, format: date }
+    DashboardTo:
+      name: to
+      in: query
+      description: Last day of the period (included), YYYY-MM-DD in Lima time. Defaults to today.
+      schema: { type: string, format: date }
+    DashboardAdvisorId:
+      name: advisorId
+      in: query
+      description: Only this advisor's sales. Ignored for an Advisor, who always sees their own.
+      schema: { type: string, format: uuid }
+    DashboardCustomerType:
+      name: customerType
+      in: query
+      schema: { $ref: "#/components/schemas/CustomerType" }
+    DashboardTemperature:
+      name: temperature
+      in: query
+      schema: { $ref: "#/components/schemas/SaleTemperature" }
+    DashboardModelId:
+      name: modelId
+      in: query
+      schema: { type: string, format: uuid }
+    DashboardVersionId:
+      name: versionId
+      in: query
+      schema: { type: string, format: uuid }
   responses:
     BadRequest:
       description: The request is malformed.
@@ -3735,3 +3933,445 @@ components:
       properties:
         surquilloTransferDate: { type: string, format: date, nullable: true }
         deliveryDate: { type: string, format: date, nullable: true }
+    Money:
+      type: string
+      example: "1250.50"
+      description: Decimal string with two decimals (USD). A recorded operational amount, not an accounting figure.
+    DashboardPeriod:
+      type: object
+      required: [from, to]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+    DashboardSummary:
+      type: object
+      required: [period, generatedAt, kpis, trend, milestones, attention]
+      properties:
+        period: { $ref: "#/components/schemas/DashboardPeriod" }
+        generatedAt: { type: string, format: date-time }
+        kpis: { $ref: "#/components/schemas/DashboardSummaryKpis" }
+        trend:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardTrendPoint" }
+        milestones:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardMilestoneLoad" }
+        attention: { $ref: "#/components/schemas/DashboardAttentionList" }
+    DashboardSummaryKpis:
+      type: object
+      required:
+        [
+          activeSales,
+          createdInPeriod,
+          completedInPeriod,
+          cancelledInPeriod,
+          closingRate,
+          overdueTasks,
+          approachingTasks,
+          stalledTasks,
+        ]
+      properties:
+        activeSales: { type: integer, description: "Snapshot of today." }
+        createdInPeriod: { type: integer }
+        completedInPeriod: { type: integer }
+        cancelledInPeriod: { type: integer }
+        closingRate:
+          type: number
+          nullable: true
+          description: Completed / (completed + cancelled) in the period, as a percentage. Null when there are none.
+        overdueTasks:
+          {
+            type: integer,
+            description: "Snapshot: tasks in progress past their due date.",
+          }
+        approachingTasks:
+          {
+            type: integer,
+            description: "Snapshot: tasks in progress that used 80% of their time and are not yet late.",
+          }
+        stalledTasks:
+          {
+            type: integer,
+            description: "Snapshot: next tasks that could start more than 48 hours ago and have not.",
+          }
+    DashboardTrendPoint:
+      type: object
+      required: [month, created, completed, cancelled]
+      properties:
+        month:
+          {
+            type: string,
+            example: "2026-11",
+            description: "YYYY-MM in Lima time.",
+          }
+        created: { type: integer }
+        completed: { type: integer }
+        cancelled: { type: integer }
+    DashboardMilestoneLoad:
+      type: object
+      required: [number, name, activeSales]
+      properties:
+        number: { type: integer, minimum: 1, maximum: 6 }
+        name: { type: string }
+        activeSales: { type: integer }
+    DashboardAttentionList:
+      type: object
+      required: [total, items]
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardAttentionItem" }
+    DashboardAttentionItem:
+      type: object
+      required:
+        [
+          saleId,
+          saleCode,
+          customerName,
+          vehicle,
+          advisorId,
+          advisorName,
+          taskNumber,
+          taskName,
+          kind,
+          dueDate,
+          waitingSince,
+        ]
+      properties:
+        saleId: { type: string, format: uuid }
+        saleCode: { type: string, example: "EF-2026-00012" }
+        customerName: { type: string }
+        vehicle: { type: string }
+        advisorId: { type: string, format: uuid }
+        advisorName: { type: string }
+        taskNumber: { type: integer, minimum: 1, maximum: 13 }
+        taskName: { type: string }
+        kind: { type: string, enum: [overdue, approaching, stalled] }
+        dueDate: { type: string, format: date-time, nullable: true }
+        waitingSince: { type: string, format: date-time, nullable: true }
+    DashboardProcess:
+      type: object
+      required:
+        [period, generatedAt, cycleTime, reopenedTasks, tasks, cancellations]
+      properties:
+        period: { $ref: "#/components/schemas/DashboardPeriod" }
+        generatedAt: { type: string, format: date-time }
+        cycleTime: { $ref: "#/components/schemas/DashboardCycleTime" }
+        reopenedTasks: { type: integer }
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardTaskStats" }
+        cancellations: { $ref: "#/components/schemas/DashboardCancellations" }
+    DashboardCycleTime:
+      type: object
+      required: [sampleSize, medianDays, p90Days]
+      properties:
+        sampleSize:
+          { type: integer, description: Sales completed in the period. }
+        medianDays: { type: number, nullable: true }
+        p90Days: { type: number, nullable: true }
+    DashboardTaskStats:
+      type: object
+      required:
+        [
+          number,
+          name,
+          milestone,
+          recommendedHours,
+          activeSales,
+          completedInPeriod,
+          medianWorkHours,
+          medianWaitHours,
+          onTime,
+          late,
+          onTimeRate,
+        ]
+      properties:
+        number: { type: integer, minimum: 1, maximum: 13 }
+        name: { type: string }
+        milestone: { type: integer, minimum: 1, maximum: 6 }
+        recommendedHours:
+          {
+            type: integer,
+            nullable: true,
+            description: Null when the task has no SLA.,
+          }
+        activeSales:
+          {
+            type: integer,
+            description: "Snapshot: active sales whose current task this is.",
+          }
+        completedInPeriod: { type: integer }
+        medianWorkHours:
+          {
+            type: number,
+            nullable: true,
+            description: From started to completed.,
+          }
+        medianWaitHours:
+          {
+            type: number,
+            nullable: true,
+            description: From eligible to started.,
+          }
+        onTime:
+          {
+            type: integer,
+            description: Completed in the early or approaching phase.,
+          }
+        late: { type: integer, description: Completed overdue. }
+        onTimeRate:
+          {
+            type: number,
+            nullable: true,
+            description: Percentage; null for tasks without an SLA or without completions.,
+          }
+    DashboardCancellations:
+      type: object
+      required: [total, byCategory, byTask]
+      properties:
+        total: { type: integer }
+        byCategory:
+          type: array
+          items:
+            type: object
+            required: [category, count]
+            properties:
+              category: { $ref: "#/components/schemas/CancellationCategory" }
+              count: { type: integer }
+        byTask:
+          type: array
+          items:
+            type: object
+            required: [number, name, count]
+            properties:
+              number: { type: integer, minimum: 1, maximum: 13 }
+              name: { type: string }
+              count: { type: integer }
+    DashboardMarket:
+      type: object
+      required:
+        [
+          period,
+          generatedAt,
+          models,
+          versions,
+          colors,
+          customerTypes,
+          temperatures,
+        ]
+      properties:
+        period: { $ref: "#/components/schemas/DashboardPeriod" }
+        generatedAt: { type: string, format: date-time }
+        models:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardMixItem" }
+        versions:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardMixItem" }
+        colors:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardMixItem" }
+        customerTypes:
+          type: array
+          description: The key is a CustomerType.
+          items: { $ref: "#/components/schemas/DashboardMixItem" }
+        temperatures:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardTemperatureStats" }
+    DashboardMixItem:
+      type: object
+      required: [key, label, total, active, completed, cancelled]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        total: { type: integer }
+        active: { type: integer }
+        completed: { type: integer }
+        cancelled: { type: integer }
+    DashboardTemperatureStats:
+      type: object
+      required: [temperature, total, active, completed, cancelled, closingRate]
+      properties:
+        temperature: { $ref: "#/components/schemas/SaleTemperature" }
+        total: { type: integer }
+        active: { type: integer }
+        completed: { type: integer }
+        cancelled: { type: integer }
+        closingRate:
+          type: number
+          nullable: true
+          description: Completed / (completed + cancelled) among the sales created in the period that are already resolved.
+    DashboardFinance:
+      type: object
+      required:
+        [period, generatedAt, pipeline, completed, cash, invoices, monthly]
+      properties:
+        period: { $ref: "#/components/schemas/DashboardPeriod" }
+        generatedAt: { type: string, format: date-time }
+        pipeline: { $ref: "#/components/schemas/DashboardPipelineMoney" }
+        completed: { $ref: "#/components/schemas/DashboardCompletedMoney" }
+        cash: { $ref: "#/components/schemas/DashboardCashFlow" }
+        invoices:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardInvoiceTotal" }
+        monthly:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardMoneyMonth" }
+    DashboardPipelineMoney:
+      type: object
+      description: Snapshot of the active sales whose quotation (task 1) is completed.
+      required: [sales, quotedValue, finalCommission, provisionalCommission]
+      properties:
+        sales: { type: integer }
+        quotedValue: { $ref: "#/components/schemas/Money" }
+        finalCommission: { $ref: "#/components/schemas/Money" }
+        provisionalCommission: { $ref: "#/components/schemas/Money" }
+    DashboardCompletedMoney:
+      type: object
+      description: The sales completed in the period.
+      required:
+        [
+          sales,
+          quotedValue,
+          commission,
+          averageCommission,
+          accessories,
+          releaseProcessing,
+          toyotaAmount,
+        ]
+      properties:
+        sales: { type: integer }
+        quotedValue: { $ref: "#/components/schemas/Money" }
+        commission: { $ref: "#/components/schemas/Money" }
+        averageCommission: { $ref: "#/components/schemas/Money" }
+        accessories: { $ref: "#/components/schemas/Money" }
+        releaseProcessing: { $ref: "#/components/schemas/Money" }
+        toyotaAmount: { $ref: "#/components/schemas/Money" }
+    DashboardCashFlow:
+      type: object
+      required:
+        [
+          moneyIn,
+          moneyOut,
+          net,
+          paymentMismatches,
+          heldInActiveSales,
+          inCancelledSales,
+        ]
+      properties:
+        moneyIn: { $ref: "#/components/schemas/Money" }
+        moneyOut: { $ref: "#/components/schemas/Money" }
+        net:
+          {
+            type: string,
+            example: "-250.00",
+            description: Money in minus money out; negative when more went out.,
+          }
+        paymentMismatches:
+          {
+            type: integer,
+            description: Payments in the period whose amount differs from the expected one.,
+          }
+        heldInActiveSales:
+          {
+            type: string,
+            example: "3500.50",
+            description: "Snapshot: received from customers minus paid to Toyota, on active sales.",
+          }
+        inCancelledSales: { $ref: "#/components/schemas/Money" }
+    DashboardInvoiceTotal:
+      type: object
+      required: [kind, count, amount, mismatches]
+      properties:
+        kind:
+          {
+            type: string,
+            enum: [toyota, commission, accessories, release_processing],
+          }
+        count: { type: integer }
+        amount: { $ref: "#/components/schemas/Money" }
+        mismatches: { type: integer }
+    DashboardMoneyMonth:
+      type: object
+      required: [month, commission, moneyIn, moneyOut]
+      properties:
+        month: { type: string, example: "2026-11" }
+        commission: { $ref: "#/components/schemas/Money" }
+        moneyIn: { $ref: "#/components/schemas/Money" }
+        moneyOut: { $ref: "#/components/schemas/Money" }
+    DashboardAdvisors:
+      type: object
+      required: [period, generatedAt, items]
+      properties:
+        period: { $ref: "#/components/schemas/DashboardPeriod" }
+        generatedAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardAdvisorRow" }
+    DashboardAdvisorRow:
+      type: object
+      required:
+        [
+          advisorId,
+          name,
+          isActive,
+          hasPhoto,
+          activeSales,
+          createdInPeriod,
+          completedInPeriod,
+          cancelledInPeriod,
+          closingRate,
+          medianCycleDays,
+          overdueTasks,
+          pipelineValue,
+          commission,
+        ]
+      properties:
+        advisorId: { type: string, format: uuid }
+        name: { type: string }
+        isActive: { type: boolean }
+        hasPhoto: { type: boolean }
+        activeSales: { type: integer }
+        createdInPeriod: { type: integer }
+        completedInPeriod: { type: integer }
+        cancelledInPeriod: { type: integer }
+        closingRate: { type: number, nullable: true }
+        medianCycleDays: { type: number, nullable: true }
+        overdueTasks: { type: integer }
+        pipelineValue: { $ref: "#/components/schemas/Money" }
+        commission: { $ref: "#/components/schemas/Money" }
+    DashboardSystem:
+      type: object
+      required: [period, generatedAt, staff, notifications, security]
+      properties:
+        period: { $ref: "#/components/schemas/DashboardPeriod" }
+        generatedAt: { type: string, format: date-time }
+        staff:
+          type: object
+          required: [admins, managers, advisors, inactive, lockedNow]
+          properties:
+            admins: { type: integer }
+            managers: { type: integer }
+            advisors: { type: integer }
+            inactive: { type: integer }
+            lockedNow: { type: integer }
+        notifications:
+          type: object
+          required: [pendingNow, oldestPendingAt, sent, failed, skipped]
+          properties:
+            pendingNow: { type: integer }
+            oldestPendingAt: { type: string, format: date-time, nullable: true }
+            sent: { type: integer }
+            failed: { type: integer }
+            skipped: { type: integer }
+        security:
+          type: object
+          required:
+            [successfulLogins, failedLogins, lockedAttempts, passwordResets]
+          properties:
+            successfulLogins: { type: integer }
+            failedLogins: { type: integer }
+            lockedAttempts: { type: integer }
+            passwordResets: { type: integer }
