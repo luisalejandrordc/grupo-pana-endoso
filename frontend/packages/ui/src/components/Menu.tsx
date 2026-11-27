@@ -32,10 +32,13 @@ export function Menu({
   label,
   items,
   children,
+  triggerClassName = "button button-secondary",
 }: {
   label: string;
   items: MenuItem[];
   children: ReactNode;
+  /** How the button looks. Secondary by default; a top bar uses a quieter one. */
+  triggerClassName?: string;
 }) {
   const [position, setPosition] = useState<Position | null>(null);
   const open = position !== null;
@@ -112,7 +115,7 @@ export function Menu({
     <div className="menu">
       <button
         ref={trigger}
-        className="button button-secondary"
+        className={triggerClassName}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}

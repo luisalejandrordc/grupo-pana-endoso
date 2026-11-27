@@ -8,6 +8,7 @@
 export * from "./brand";
 
 // components
+export * from "./components/AuthFormPanel";
 export * from "./components/Badge";
 export * from "./components/Callout";
 export * from "./components/ConfirmDialog";
