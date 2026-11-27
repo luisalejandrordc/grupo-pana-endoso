@@ -1040,5 +1040,14 @@ SELECT
     0
   );
 
+SELECT
+  pg_temp.expect_equal (
+    'the five dashboard date indexes exist',
+    $q$SELECT count(*) FROM pg_indexes WHERE schemaname = current_schema() AND indexname IN (
+      'ix_sale_registers_completed_at', 'ix_sale_registers_cancelled_at', 'ix_task_instances_completed',
+      'ix_sale_payments_date', 'ix_sale_invoices_date')$q$,
+    5
+  );
+
 \echo 'ALL CHECKS PASSED'
 ROLLBACK;

@@ -127,6 +127,14 @@ CREATE INDEX ix_sale_registers_search_vin ON sale_registers USING gin (vin gin_t
 
 CREATE INDEX ix_sale_registers_search_plate ON sale_registers USING gin (license_plate gin_trgm_ops);
 
+CREATE INDEX ix_sale_registers_completed_at ON sale_registers (completed_at)
+WHERE
+  completed_at IS NOT NULL;
+
+CREATE INDEX ix_sale_registers_cancelled_at ON sale_registers (cancelled_at)
+WHERE
+  cancelled_at IS NOT NULL;
+
 CREATE TABLE task_instances (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   sale_id uuid NOT NULL REFERENCES sale_registers (id) ON DELETE CASCADE,
@@ -188,6 +196,10 @@ WHERE
   AND due_date IS NOT NULL;
 
 CREATE INDEX ix_task_instances_sale_status ON task_instances (sale_id, status);
+
+CREATE INDEX ix_task_instances_completed ON task_instances (task_number, completed_at)
+WHERE
+  status = 'completed';
 
 -- Task 1 and Task 3 amounts
 CREATE TABLE sale_financials (
@@ -292,6 +304,10 @@ CREATE TABLE sale_payments (
   )
 );
 
+CREATE INDEX ix_sale_payments_date ON sale_payments (payment_date)
+WHERE
+  payment_date IS NOT NULL;
+
 -- Task 6: at most one row per kind per sale
 CREATE TABLE sale_invoices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -329,6 +345,10 @@ CREATE UNIQUE INDEX ux_sale_invoices_number_pana ON sale_invoices (invoice_numbe
 WHERE
   invoice_kind IN ('commission', 'accessories', 'release_processing')
   AND invoice_number IS NOT NULL;
+
+CREATE INDEX ix_sale_invoices_date ON sale_invoices (invoice_date)
+WHERE
+  invoice_date IS NOT NULL;
 
 -- Tasks 7 to 13 (scalar fields)
 CREATE TABLE sale_fulfillment (
