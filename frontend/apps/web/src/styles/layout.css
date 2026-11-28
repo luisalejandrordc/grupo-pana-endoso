@@ -33,8 +33,9 @@
 
 .sidebar-brand img {
   display: block;
-  width: 148px;
+  width: 85%;
   height: auto;
+  margin: auto;
 }
 
 .sidebar .sidebar-close {
