@@ -45,6 +45,7 @@ tags:
   - name: Sales
   - name: Tasks
   - name: Documents
+  - name: Analytics
   - name: Portal
 paths:
   /health:
@@ -1917,6 +1918,149 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /analytics/overview:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsOverview
+      summary: Summary tab - snapshot, period KPIs, money, pipeline by milestone, trend and attention list
+      description: |
+        Every Staff role may call it. An Advisor always gets only their own sales (the advisorId filter cannot widen
+        that) and the `money.internal` block is null. Managers and Admins see every sale.
+
+        **Snapshot** figures describe the situation now and ignore the period; the other filters still apply.
+        **Period** figures use an event date: created = created_at, completed = completed_at, cancelled = cancelled_at.
+        The previous period is the equal-length range that ends the day before `from`.
+
+        **Money** is what the sales recorded (USD), never accounting figures. A sale's *value* is its quoted final
+        price (task 1) and, until that exists, the catalog reference price taken at creation; `estimatedCount` says how
+        many sales used that fallback.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AnalyticsFrom"
+        - $ref: "#/components/parameters/AnalyticsTo"
+        - $ref: "#/components/parameters/AnalyticsAdvisorId"
+        - $ref: "#/components/parameters/AnalyticsCustomerType"
+        - $ref: "#/components/parameters/AnalyticsModelId"
+        - $ref: "#/components/parameters/AnalyticsTemperature"
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalyticsOverview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /analytics/process:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsProcess
+      summary: Process tab - time, waiting, deadlines, load and rework per task
+      description: |
+        Timing uses tasks completed (completed_at) inside the period. Work time is completed_at minus started_at.
+        Waiting time is the time between the task becoming eligible (the previous task's completion, or the sale's
+        creation for task 1) and its start; negative values caused by reopened earlier tasks are ignored.
+        Deadline compliance covers only the tasks that have a recommended duration. Rework counts the audit events
+        RESTARTED, REOPENED and CORRECTED of task instances inside the period. Current load is a snapshot of active
+        sales. An Advisor only sees their own sales.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AnalyticsFrom"
+        - $ref: "#/components/parameters/AnalyticsTo"
+        - $ref: "#/components/parameters/AnalyticsAdvisorId"
+        - $ref: "#/components/parameters/AnalyticsCustomerType"
+        - $ref: "#/components/parameters/AnalyticsModelId"
+        - $ref: "#/components/parameters/AnalyticsTemperature"
+      responses:
+        "200":
+          description: The process figures.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalyticsProcess" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /analytics/commercial:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsCommercial
+      summary: Commercial tab - what sells, what is lost, and the money behind it
+      description: |
+        Groups sales created in the period. Close rate is completed divided by completed plus cancelled among the
+        sales of the group that are already resolved; sales still in progress are counted apart so they never bias it.
+        Money is recorded operational data in USD. Fields marked as Manager or Admin only are null for an Advisor.
+        An Advisor only sees their own sales.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AnalyticsFrom"
+        - $ref: "#/components/parameters/AnalyticsTo"
+        - $ref: "#/components/parameters/AnalyticsAdvisorId"
+        - $ref: "#/components/parameters/AnalyticsCustomerType"
+        - $ref: "#/components/parameters/AnalyticsModelId"
+        - $ref: "#/components/parameters/AnalyticsTemperature"
+        - name: groupBy
+          in: query
+          description: What the vehicle ranking groups by. Defaults to model; the ranking returns the ten largest groups.
+          schema: { type: string, enum: [model, version, color, category] }
+      responses:
+        "200":
+          description: The commercial figures.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalyticsCommercial" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /analytics/team:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsTeam
+      summary: Team tab - one row per advisor (Manager and Admin)
+      description: |
+        Advisors with an active sale or any sale created, completed or cancelled in the period. Sales are attributed to
+        the advisor currently assigned, even if they were reassigned. The advisorId filter is ignored here.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AnalyticsFrom"
+        - $ref: "#/components/parameters/AnalyticsTo"
+        - $ref: "#/components/parameters/AnalyticsCustomerType"
+        - $ref: "#/components/parameters/AnalyticsModelId"
+        - $ref: "#/components/parameters/AnalyticsTemperature"
+      responses:
+        "200":
+          description: The advisors.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalyticsTeam" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /analytics/system:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsSystem
+      summary: System tab - email delivery, sign-ins, accounts and storage (Admin)
+      description: |
+        Only the period applies; the sales filters do not. The monthly Codart usage is served by
+        GET /lookups/identity/quota.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AnalyticsFrom"
+        - $ref: "#/components/parameters/AnalyticsTo"
+      responses:
+        "200":
+          description: The system figures.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalyticsSystem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /auth/customer/login:
     post:
       tags: [Portal]
@@ -2130,6 +2274,33 @@ components:
       in: cookie
       name: ef_customer_refresh
   parameters:
+    AnalyticsFrom:
+      name: from
+      in: query
+      description: First day of the period (Lima date, inclusive). Defaults to 89 days before `to`, so the default period is 90 days.
+      schema: { type: string, format: date }
+    AnalyticsTo:
+      name: to
+      in: query
+      description: Last day of the period (Lima date, inclusive). Defaults to today. The period may not exceed 731 days and `from` may not be after `to`.
+      schema: { type: string, format: date }
+    AnalyticsAdvisorId:
+      name: advisorId
+      in: query
+      description: Only this advisor's sales. Ignored for an Advisor, who only ever sees their own.
+      schema: { type: string, format: uuid }
+    AnalyticsCustomerType:
+      name: customerType
+      in: query
+      schema: { $ref: "#/components/schemas/CustomerType" }
+    AnalyticsModelId:
+      name: modelId
+      in: query
+      schema: { type: string, format: uuid }
+    AnalyticsTemperature:
+      name: temperature
+      in: query
+      schema: { $ref: "#/components/schemas/SaleTemperature" }
     SaleId:
       name: id
       in: path
@@ -3735,3 +3906,654 @@ components:
       properties:
         surquilloTransferDate: { type: string, format: date, nullable: true }
         deliveryDate: { type: string, format: date, nullable: true }
+    AnalyticsMeta:
+      type: object
+      required:
+        [from, to, previousFrom, previousTo, granularity, scope, generatedAt]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        previousFrom: { type: string, format: date }
+        previousTo: { type: string, format: date }
+        granularity:
+          type: string
+          enum: [day, week, month]
+          description: Bucket size of the trends - day up to 31 days, week up to 180 days, month beyond.
+        scope:
+          type: string
+          enum: [global, own]
+          description: own when the figures cover only the caller's sales (an Advisor).
+        generatedAt: { type: string, format: date-time }
+    CountMetric:
+      type: object
+      required: [value, previous]
+      properties:
+        value: { type: integer }
+        previous:
+          {
+            type: integer,
+            description: The same figure for the previous period.,
+          }
+    MoneyMetric:
+      type: object
+      required: [value, previous]
+      description: USD amounts as decimal text with two decimals.
+      properties:
+        value: { type: string, example: "125000.00" }
+        previous: { type: string, example: "98000.00" }
+    RateMetric:
+      type: object
+      required: [value, previous]
+      description: A ratio from 0 to 1; null when the denominator is zero.
+      properties:
+        value: { type: number, nullable: true }
+        previous: { type: number, nullable: true }
+    Ratio:
+      type: object
+      required: [numerator, denominator, value]
+      description: A ratio with its parts, so the screen can show how it was calculated. value is null when the denominator is zero.
+      properties:
+        numerator: { type: integer }
+        denominator: { type: integer }
+        value: { type: number, nullable: true }
+    RatioMetric:
+      type: object
+      required: [numerator, denominator, value, previous]
+      properties:
+        numerator: { type: integer }
+        denominator: { type: integer }
+        value: { type: number, nullable: true }
+        previous: { type: number, nullable: true }
+    ValueTotal:
+      type: object
+      required: [amount, saleCount]
+      properties:
+        amount: { type: string }
+        saleCount: { type: integer }
+    ValuedTotal:
+      type: object
+      required: [amount, saleCount, estimatedCount]
+      properties:
+        amount: { type: string }
+        saleCount: { type: integer }
+        estimatedCount:
+          type: integer
+          description: How many of the sales use the catalog reference price because no quoted final price exists yet.
+    AnalyticsOverview:
+      type: object
+      required: [meta, snapshot, period, money, pipeline, trend, attention]
+      properties:
+        meta: { $ref: "#/components/schemas/AnalyticsMeta" }
+        snapshot:
+          type: object
+          required: [activeSales, overdue, approaching, idle]
+          description: The situation now. Overdue, approaching and idle are counted over active sales and never overlap (a sale has one current task).
+          properties:
+            activeSales: { type: integer }
+            overdue:
+              {
+                type: integer,
+                description: The in-progress task is past its due date.,
+              }
+            approaching:
+              {
+                type: integer,
+                description: The in-progress task is past 80% of its recommended duration but not overdue.,
+              }
+            idle:
+              type: integer
+              description: No task is in progress and the next one has been eligible for more than 24 hours.
+        period:
+          type: object
+          required: [created, completed, cancelled, closeRate, cycleTime]
+          properties:
+            created: { $ref: "#/components/schemas/CountMetric" }
+            completed: { $ref: "#/components/schemas/CountMetric" }
+            cancelled: { $ref: "#/components/schemas/CountMetric" }
+            closeRate:
+              allOf: [{ $ref: "#/components/schemas/RatioMetric" }]
+              description: Completed divided by completed plus cancelled, among sales resolved in the period.
+            cycleTime:
+              type: object
+              required: [medianHours, p90Hours, previousMedianHours, sampleSize]
+              description: Sale creation to completion, for sales completed in the period.
+              properties:
+                medianHours: { type: number, nullable: true }
+                p90Hours: { type: number, nullable: true }
+                previousMedianHours: { type: number, nullable: true }
+                sampleSize: { type: integer }
+        money:
+          type: object
+          required:
+            [
+              pipelineValue,
+              pendingCollection,
+              completedValue,
+              averageTicket,
+              collected,
+              invoiced,
+              lostValue,
+              internal,
+            ]
+          properties:
+            pipelineValue:
+              allOf: [{ $ref: "#/components/schemas/ValuedTotal" }]
+              description: Value of the active sales (snapshot).
+            pendingCollection:
+              allOf: [{ $ref: "#/components/schemas/ValueTotal" }]
+              description: Quoted final price of active sales whose task 4 (payment to Grupo Pana) is not completed (snapshot). Sales without a quoted price yet are left out.
+            completedValue:
+              allOf: [{ $ref: "#/components/schemas/MoneyMetric" }]
+              description: Quoted final price of the sales completed in the period.
+            averageTicket:
+              type: object
+              required: [value, previous]
+              description: Average quoted final price of the sales completed in the period; null when there are none.
+              properties:
+                value: { type: string, nullable: true }
+                previous: { type: string, nullable: true }
+            collected:
+              allOf: [{ $ref: "#/components/schemas/MoneyMetric" }]
+              description: Deposited amounts recorded in task 4 whose payment date falls in the period, on sales that are not cancelled.
+            invoiced:
+              allOf: [{ $ref: "#/components/schemas/MoneyMetric" }]
+              description: Invoice amounts recorded in task 6 whose invoice date falls in the period, on sales that are not cancelled.
+            lostValue:
+              allOf: [{ $ref: "#/components/schemas/ValuedTotal" }]
+              description: Value of the sales cancelled in the period.
+            internal:
+              nullable: true
+              description: Manager and Admin only; null for an Advisor.
+              allOf: [{ $ref: "#/components/schemas/InternalMoney" }]
+        pipeline:
+          type: array
+          description: One entry per milestone (1 to 6), in order, counting active sales by the milestone of their current task.
+          items: { $ref: "#/components/schemas/MilestoneLoad" }
+        trend:
+          type: array
+          description: Counts per bucket of the period, oldest first, including empty buckets.
+          items:
+            type: object
+            required: [bucket, created, completed, cancelled]
+            properties:
+              bucket:
+                {
+                  type: string,
+                  format: date,
+                  description: First day of the bucket.,
+                }
+              created: { type: integer }
+              completed: { type: integer }
+              cancelled: { type: integer }
+        attention:
+          type: object
+          required: [total, items]
+          properties:
+            total:
+              {
+                type: integer,
+                description: How many active sales need attention; items shows the first ten.,
+              }
+            items:
+              type: array
+              maxItems: 10
+              description: Overdue first (most late first), then approaching, then idle (longest first).
+              items: { $ref: "#/components/schemas/AttentionItem" }
+    InternalMoney:
+      type: object
+      required:
+        [
+          commissionFinal,
+          commissionRate,
+          commissionPipeline,
+          commissionDrift,
+          paidToToyota,
+          amountMismatches,
+        ]
+      properties:
+        commissionFinal:
+          allOf: [{ $ref: "#/components/schemas/MoneyMetric" }]
+          description: Final commission (task 3) of the sales completed in the period.
+        commissionRate:
+          allOf: [{ $ref: "#/components/schemas/RateMetric" }]
+          description: Final commission divided by quoted final price, over the same completed sales.
+        commissionPipeline:
+          allOf: [{ $ref: "#/components/schemas/ValueTotal" }]
+          description: Initial commission (task 1) of the active sales that have one (snapshot).
+        commissionDrift:
+          type: string
+          description: Final commission minus initial commission, summed over the sales completed in the period. Negative when commissions fell between quotation and settlement.
+        paidToToyota:
+          allOf: [{ $ref: "#/components/schemas/MoneyMetric" }]
+          description: Deposited amounts recorded in task 5 whose payment date falls in the period, on sales that are not cancelled.
+        amountMismatches:
+          type: object
+          required: [count, absoluteDifference]
+          description: Payments and invoices dated in the period whose recorded amount differs from the expected one (each has a written reason).
+          properties:
+            count: { type: integer }
+            absoluteDifference: { type: string }
+    MilestoneLoad:
+      type: object
+      required:
+        [
+          milestoneNumber,
+          name,
+          active,
+          onTime,
+          approaching,
+          overdue,
+          idle,
+          value,
+        ]
+      properties:
+        milestoneNumber: { type: integer, minimum: 1, maximum: 6 }
+        name: { type: string }
+        active: { type: integer }
+        onTime: { type: integer }
+        approaching: { type: integer }
+        overdue: { type: integer }
+        idle: { type: integer }
+        value:
+          {
+            type: string,
+            description: Value of the sales in this milestone,
+            as defined in the endpoint.,
+          }
+    AttentionItem:
+      type: object
+      required:
+        [
+          saleId,
+          code,
+          customerName,
+          vehicle,
+          advisorName,
+          taskNumber,
+          taskName,
+          reason,
+          dueDate,
+          hours,
+          value,
+        ]
+      properties:
+        saleId: { type: string, format: uuid }
+        code: { type: string }
+        customerName: { type: string }
+        vehicle: { type: string, description: Model and version. }
+        advisorName: { type: string }
+        taskNumber: { type: integer, minimum: 1, maximum: 13 }
+        taskName: { type: string }
+        reason: { type: string, enum: [overdue, approaching, idle] }
+        dueDate: { type: string, format: date-time, nullable: true }
+        hours:
+          type: number
+          description: Hours past the due date for overdue, hours until the due date for approaching, hours waiting for idle.
+        value: { type: string, nullable: true }
+    AnalyticsProcess:
+      type: object
+      required: [meta, onTimeRate, tasks, customs]
+      properties:
+        meta: { $ref: "#/components/schemas/AnalyticsMeta" }
+        onTimeRate:
+          allOf: [{ $ref: "#/components/schemas/RatioMetric" }]
+          description: Tasks with a recommended duration completed early or while approaching, divided by all of them, completed in the period.
+        tasks:
+          type: array
+          description: One entry per task, 1 to 13.
+          items: { $ref: "#/components/schemas/TaskTiming" }
+        customs:
+          type: array
+          description: Task 8 completed in the period, by control channel.
+          items:
+            type: object
+            required: [channel, count, workMedianHours]
+            properties:
+              channel: { type: string, enum: [green, orange, red] }
+              count: { type: integer }
+              workMedianHours: { type: number, nullable: true }
+    TaskTiming:
+      type: object
+      required:
+        [
+          taskNumber,
+          name,
+          milestoneNumber,
+          recommendedHours,
+          completedCount,
+          workMedianHours,
+          workP90Hours,
+          waitMedianHours,
+          deadlines,
+          currentCount,
+          overdueCount,
+          reworkCount,
+        ]
+      properties:
+        taskNumber: { type: integer, minimum: 1, maximum: 13 }
+        name: { type: string }
+        milestoneNumber: { type: integer, minimum: 1, maximum: 6 }
+        recommendedHours: { type: integer, nullable: true }
+        completedCount: { type: integer }
+        workMedianHours: { type: number, nullable: true }
+        workP90Hours: { type: number, nullable: true }
+        waitMedianHours: { type: number, nullable: true }
+        deadlines:
+          nullable: true
+          description: Completion phases of the tasks completed in the period; null for tasks without a recommended duration.
+          type: object
+          required: [early, inApproaching, overdue, recurringOverdue]
+          properties:
+            early: { type: integer }
+            inApproaching: { type: integer }
+            overdue: { type: integer }
+            recurringOverdue: { type: integer }
+        currentCount:
+          {
+            type: integer,
+            description: Active sales whose current task is this one (snapshot).,
+          }
+        overdueCount:
+          {
+            type: integer,
+            description: Of those,
+            how many are past due (snapshot).,
+          }
+        reworkCount: { type: integer }
+    AnalyticsCommercial:
+      type: object
+      required:
+        [
+          meta,
+          vehicles,
+          customerTypes,
+          temperatures,
+          cancellations,
+          valueTrend,
+          priceComposition,
+          invoicedByKind,
+        ]
+      properties:
+        meta: { $ref: "#/components/schemas/AnalyticsMeta" }
+        vehicles:
+          type: array
+          maxItems: 10
+          items: { $ref: "#/components/schemas/VehicleGroup" }
+        customerTypes:
+          type: array
+          items: { $ref: "#/components/schemas/CustomerTypeGroup" }
+        temperatures:
+          type: array
+          description: Hot, warm and cold, always three entries. Tests how well the temperature chosen at creation predicts the outcome.
+          items:
+            type: object
+            required:
+              [
+                temperature,
+                created,
+                completed,
+                cancelled,
+                inProgress,
+                closeRate,
+              ]
+            properties:
+              temperature: { $ref: "#/components/schemas/SaleTemperature" }
+              created: { type: integer }
+              completed: { type: integer }
+              cancelled: { type: integer }
+              inProgress: { type: integer }
+              closeRate: { $ref: "#/components/schemas/Ratio" }
+        cancellations:
+          type: object
+          required: [total, byCategory, byTask]
+          description: Sales cancelled in the period.
+          properties:
+            total: { $ref: "#/components/schemas/ValuedTotal" }
+            byCategory:
+              type: array
+              items:
+                type: object
+                required: [category, count, value]
+                properties:
+                  category:
+                    { $ref: "#/components/schemas/CancellationCategory" }
+                  count: { type: integer }
+                  value: { type: string }
+            byTask:
+              type: array
+              description: The task the sale was on when it was cancelled.
+              items:
+                type: object
+                required: [taskNumber, name, count]
+                properties:
+                  taskNumber: { type: integer, minimum: 1, maximum: 13 }
+                  name: { type: string }
+                  count: { type: integer }
+        valueTrend:
+          type: array
+          description: Money per bucket, oldest first, including empty buckets.
+          items:
+            type: object
+            required: [bucket, createdValue, completedValue, commission]
+            properties:
+              bucket: { type: string, format: date }
+              createdValue:
+                {
+                  type: string,
+                  description: Value of the sales created in the bucket.,
+                }
+              completedValue:
+                {
+                  type: string,
+                  description: Quoted final price of the sales completed in the bucket.,
+                }
+              commission:
+                {
+                  type: string,
+                  nullable: true,
+                  description: Final commission of the sales completed in the bucket. Manager and Admin only.,
+                }
+        priceComposition:
+          nullable: true
+          description: Manager and Admin only. Where the quoted final price of the sales completed in the period goes.
+          type: object
+          required:
+            [toyota, commission, accessories, releaseProcessing, saleCount]
+          properties:
+            toyota:
+              { type: string, description: Final amount to Toyota (task 3). }
+            commission: { type: string }
+            accessories: { type: string }
+            releaseProcessing: { type: string }
+            saleCount: { type: integer }
+        invoicedByKind:
+          type: array
+          description: Invoices dated in the period on sales that are not cancelled.
+          items:
+            type: object
+            required: [kind, count, amount]
+            properties:
+              kind:
+                {
+                  type: string,
+                  enum: [toyota, commission, accessories, release_processing],
+                }
+              count: { type: integer }
+              amount: { type: string }
+    VehicleGroup:
+      type: object
+      required:
+        [
+          key,
+          label,
+          created,
+          completed,
+          cancelled,
+          active,
+          quotedValue,
+          averageTicket,
+          commission,
+        ]
+      properties:
+        key:
+          {
+            type: string,
+            description: The id of the model,
+            version or color,
+            or the category value.,
+          }
+        label:
+          {
+            type: string,
+            description: The name; for a category the enum value,
+            which the screen translates.,
+          }
+        created: { type: integer }
+        completed: { type: integer }
+        cancelled: { type: integer }
+        active: { type: integer }
+        quotedValue:
+          {
+            type: string,
+            description: Value of the sales created in the period that are not cancelled.,
+          }
+        averageTicket:
+          {
+            type: string,
+            nullable: true,
+            description: Average quoted final price of the completed sales.,
+          }
+        commission:
+          {
+            type: string,
+            nullable: true,
+            description: Final commission of the completed sales. Manager and Admin only.,
+          }
+    CustomerTypeGroup:
+      type: object
+      required:
+        [
+          customerType,
+          created,
+          completed,
+          cancelled,
+          active,
+          closeRate,
+          quotedValue,
+          commission,
+        ]
+      properties:
+        customerType: { $ref: "#/components/schemas/CustomerType" }
+        created: { type: integer }
+        completed: { type: integer }
+        cancelled: { type: integer }
+        active: { type: integer }
+        closeRate: { $ref: "#/components/schemas/Ratio" }
+        quotedValue: { type: string }
+        commission:
+          { type: string, nullable: true, description: Manager and Admin only. }
+    AnalyticsTeam:
+      type: object
+      required: [meta, advisors]
+      properties:
+        meta: { $ref: "#/components/schemas/AnalyticsMeta" }
+        advisors:
+          type: array
+          items: { $ref: "#/components/schemas/AdvisorPerformance" }
+    AdvisorPerformance:
+      type: object
+      required:
+        [
+          advisorId,
+          name,
+          isActive,
+          active,
+          overdue,
+          idle,
+          created,
+          completed,
+          cancelled,
+          closeRate,
+          cycleMedianHours,
+          onTimeRate,
+          pipelineValue,
+          completedValue,
+          commission,
+        ]
+      properties:
+        advisorId: { type: string, format: uuid }
+        name: { type: string }
+        isActive: { type: boolean }
+        active: { type: integer, description: Snapshot. }
+        overdue: { type: integer, description: Snapshot. }
+        idle: { type: integer, description: Snapshot. }
+        created: { type: integer }
+        completed: { type: integer }
+        cancelled: { type: integer }
+        closeRate: { $ref: "#/components/schemas/Ratio" }
+        cycleMedianHours: { type: number, nullable: true }
+        onTimeRate: { $ref: "#/components/schemas/Ratio" }
+        pipelineValue:
+          {
+            type: string,
+            description: Value of the advisor's active sales (snapshot).,
+          }
+        completedValue:
+          {
+            type: string,
+            description: Quoted final price of the sales completed in the period.,
+          }
+        commission:
+          {
+            type: string,
+            description: Final commission of the sales completed in the period.,
+          }
+    AnalyticsSystem:
+      type: object
+      required: [meta, notifications, security, accounts, storage]
+      properties:
+        meta: { $ref: "#/components/schemas/AnalyticsMeta" }
+        notifications:
+          type: object
+          required: [pending, sent, failed, skipped, failedByType]
+          description: Emails queued in the period (pending is the current backlog).
+          properties:
+            pending: { type: integer }
+            sent: { type: integer }
+            failed: { type: integer }
+            skipped: { type: integer }
+            failedByType:
+              type: array
+              items:
+                type: object
+                required: [type, count]
+                properties:
+                  type: { type: string }
+                  count: { type: integer }
+        security:
+          type: object
+          required: [successfulSignIns, failedSignIns, lockedAccounts]
+          properties:
+            successfulSignIns: { type: integer }
+            failedSignIns: { type: integer }
+            lockedAccounts:
+              { type: integer, description: Employees locked now. }
+        accounts:
+          type: object
+          required: [activeEmployees, notActivatedEmployees]
+          properties:
+            activeEmployees: { type: integer }
+            notActivatedEmployees:
+              {
+                type: integer,
+                description: Active accounts that have not set a password yet.,
+              }
+        storage:
+          type: object
+          required: [pendingDeletions]
+          properties:
+            pendingDeletions:
+              {
+                type: integer,
+                description: Files whose deletion failed and is waiting for a retry.,
+              }
