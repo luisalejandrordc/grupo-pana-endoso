@@ -1,0 +1,222 @@
+/* Dashboard: filters, headline cards, chart panels and the small tables around them. */
+
+.dash-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.dash-filters .filter-control input[type="date"] {
+  width: auto;
+  min-height: 36px;
+  padding-block: 4px;
+}
+
+.dash-period,
+.dash-note,
+.dash-fresh {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
+.dash-fresh {
+  text-align: right;
+  font-size: var(--text-xs);
+}
+
+.dash-section {
+  margin: var(--space-2) 0 calc(var(--space-2) * -1);
+  color: var(--ink-2);
+  font-size: var(--text-lg);
+}
+
+/* ---- headline cards ---- */
+
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 108px;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: inherit;
+  text-decoration: none;
+}
+
+.kpi.is-link {
+  transition:
+    transform 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+}
+
+.kpi.is-link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-raised);
+}
+
+.kpi-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  font-weight: 550;
+}
+
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: 1.1;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.kpi.is-late .kpi-value {
+  color: var(--brand-strong);
+}
+
+.kpi.is-warn .kpi-value {
+  color: var(--warn);
+}
+
+.kpi.is-done .kpi-value {
+  color: var(--done);
+}
+
+.kpi-hint {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+
+/* ---- chart panels ---- */
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.dash-grid-wide {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: var(--space-3);
+}
+
+.chart-card-head {
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.chart-card-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.chart-card-head p {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+}
+
+.chart-frame {
+  padding: 0 var(--space-3);
+}
+
+.chart-empty {
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  color: var(--ink-3);
+  text-align: center;
+}
+
+.chart-card .table-scroll {
+  padding: 0 var(--space-1);
+}
+
+.chart-card .table {
+  min-width: 0;
+}
+
+.table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.attention-table {
+  min-width: 720px;
+}
+
+.dash-defs {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0 var(--space-4);
+}
+
+.dash-defs dt {
+  color: var(--ink-3);
+}
+
+.dash-defs dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-weight: 600;
+}
+
+.is-refreshing {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.skeleton-kpi {
+  height: 108px;
+  border-radius: var(--radius);
+}
+
+.skeleton-chart {
+  height: 280px;
+  border-radius: var(--radius);
+}
+
+@media (max-width: 1000px) {
+  .dash-grid,
+  .dash-grid-wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .dash-filters {
+    align-items: stretch;
+  }
+
+  .dash-filters .filter-control {
+    justify-content: space-between;
+  }
+
+  .kpi-value {
+    font-size: var(--text-2xl);
+  }
+}
