@@ -9,7 +9,8 @@ import { taskForms } from "./taskForms";
  * exists in the backend's OpenAPI document (a misspelt key is a 400 at runtime), and that no field the backend
  * accepts is missing from its form. It reads ../backend/api/openapi.yaml, so it only runs inside the monorepo.
  */
-const file = resolve(__dirname, "../../../../backend/api/openapi.yaml");
+// apps/web/src/features/sales → the repository root, where backend/ sits next to frontend/.
+const file = resolve(__dirname, "../../../../../../backend/api/openapi.yaml");
 type Schema = { properties?: Record<string, { $ref?: string }> };
 
 const spec = existsSync(file)
@@ -35,7 +36,6 @@ const schemaOf: Record<number, string> = {
 
 /** Fields the backend returns but a person never types: they come from the server. */
 const serverOnly: Record<string, string[]> = {
-  Task2Data: ["signerNameSource"],
   PaymentData: ["expectedAmount"],
   InvoiceData: ["expectedAmount", "amountsMatch"],
 };

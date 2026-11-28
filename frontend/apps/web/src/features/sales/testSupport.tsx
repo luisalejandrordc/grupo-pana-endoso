@@ -148,6 +148,8 @@ export interface Request {
   method: string;
   path: string;
   body: unknown;
+  /** The query string, with its "?" (empty when there is none). */
+  search: string;
 }
 
 /** Stubs fetch with a router; every request is recorded. */
@@ -164,7 +166,7 @@ export function stubApi(
       let body: unknown = undefined;
       if (typeof init?.body === "string") body = JSON.parse(init.body);
       else if (init?.body instanceof FormData) body = init.body;
-      const req = { method, path, body };
+      const req = { method, path, body, search: url.search };
       requests.push(req);
       const handler = routes[`${method} ${path}`];
       if (handler) return handler(req);
