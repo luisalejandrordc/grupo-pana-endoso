@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Role } from "../../shared/types";
@@ -136,20 +143,25 @@ function renderPage(role: Role = "sales_manager", query = "") {
       mutations: { retry: false },
     },
   });
+  // The search lives in the page's own box, kept in the address as ?q=.
   const view = render(
     <QueryClientProvider client={client}>
-      <CustomersPage query={query} role={role} toast={toast} />
+      <MemoryRouter
+        initialEntries={[query ? `/?q=${encodeURIComponent(query)}` : "/"]}
+      >
+        <CustomersPage role={role} toast={toast} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return {
     toast,
     client,
     ...view,
+    /** Types into the search box, as a person would. */
     rerenderWith: (q: string) =>
-      view.rerender(
-        <QueryClientProvider client={client}>
-          <CustomersPage query={q} role={role} toast={toast} />
-        </QueryClientProvider>,
+      fireEvent.change(
+        screen.getByRole("searchbox", { name: "Buscar clientes" }),
+        { target: { value: q } },
       ),
   };
 }

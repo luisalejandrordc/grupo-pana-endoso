@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth, useCurrentUser } from "../features/auth/useAuth";
-import { useSearchQuery, useToast } from "@endosoflow/ui";
+import { useToast } from "@endosoflow/ui";
 import { RequireRole } from "./guards/RequireRole";
 import { NotFoundPage } from "./NotFoundPage";
 
@@ -54,8 +54,7 @@ function PageFallback() {
 
 function SalesRoute() {
   const { role } = useCurrentUser();
-  const [query] = useSearchQuery();
-  return <SalesPage role={role} query={query} />;
+  return <SalesPage role={role} />;
 }
 
 function NewSaleRoute() {
@@ -71,16 +70,14 @@ function SaleDetailRoute() {
 
 function CustomersRoute() {
   const { role } = useCurrentUser();
-  const [query] = useSearchQuery();
   const { notify } = useToast();
-  return <CustomersPage role={role} query={query} toast={notify} />;
+  return <CustomersPage role={role} toast={notify} />;
 }
 
 function CatalogRoute() {
   const { role } = useCurrentUser();
-  const [query] = useSearchQuery();
   const { notify } = useToast();
-  return <CatalogPage role={role} query={query} toast={notify} />;
+  return <CatalogPage role={role} toast={notify} />;
 }
 
 function StaffRoute() {

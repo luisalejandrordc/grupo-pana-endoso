@@ -94,12 +94,26 @@ describe("routes", () => {
     );
   });
 
+  it("puts the search in the list itself, beside its filters, and not in a bar of its own", async () => {
+    start("/sales", "sales_manager");
+    await screen.findByRole("heading", { name: "Ventas" });
+    const search = screen.getByRole("searchbox", { name: "Buscar ventas" });
+    const toolbar = search.closest(".toolbar") as HTMLElement;
+    // The same row as the filters it works with.
+    expect(
+      within(toolbar).getByRole("combobox", { name: "Prioridad" }),
+    ).toBeVisible();
+    // On a wide screen no top bar is drawn at all: only the narrow layout has one, for the menu and the logo.
+    const bar = document.querySelector("header.topbar") as HTMLElement;
+    expect(within(bar).queryByRole("searchbox")).toBeNull();
+  });
+
   it("keeps the search in the address, and asks the server for it", async () => {
     const user = userEvent.setup();
     const urls = start("/sales", "sales_manager");
     await screen.findByRole("heading", { name: "Ventas" });
     await user.type(
-      screen.getByRole("searchbox", { name: "Buscar" }),
+      screen.getByRole("searchbox", { name: "Buscar ventas" }),
       "Tanaka",
     );
     expect(screen.getByTestId("where")).toHaveTextContent("/sales?q=Tanaka");
@@ -117,8 +131,41 @@ describe("routes", () => {
   it("starts a search from the address, as when a link is shared", async () => {
     start("/sales?q=Embajada", "sales_manager");
     expect(
-      await screen.findByRole("searchbox", { name: "Buscar" }),
+      await screen.findByRole("searchbox", { name: "Buscar ventas" }),
     ).toHaveValue("Embajada");
+  });
+
+  it("has the same search in the staff list, kept in the address too", async () => {
+    const user = userEvent.setup();
+    start("/staff", "system_admin");
+    await screen.findByRole("heading", { name: "Equipo de trabajo" });
+    await user.type(
+      screen.getByRole("searchbox", { name: "Buscar colaboradores" }),
+      "Lucía",
+    );
+    expect(screen.getByTestId("where")).toHaveTextContent("/staff?q=");
+  });
+
+  it("gives each list its own search, and a search does not follow the person to another list", async () => {
+    const user = userEvent.setup();
+    start("/sales?q=Tanaka", "sales_manager");
+    await screen.findByRole("searchbox", { name: "Buscar ventas" });
+    await user.click(
+      within(
+        screen.getByRole("navigation", { name: "Navegación principal" }),
+      ).getByRole("link", { name: "Clientes" }),
+    );
+    const clients = await screen.findByRole("searchbox", {
+      name: "Buscar clientes",
+    });
+    expect(clients).toHaveValue("");
+    expect(screen.getByTestId("where")).toHaveTextContent(/^\/customers$/);
+  });
+
+  it("has no search where there is no list to narrow", async () => {
+    start("/profile", "sales_manager");
+    await screen.findByRole("heading", { name: "Mi perfil" });
+    expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
   it("names the browser tab after the screen", async () => {

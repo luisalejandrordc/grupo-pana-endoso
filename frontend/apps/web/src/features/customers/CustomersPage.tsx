@@ -8,6 +8,8 @@ import {
   InitialsTile,
   PageHeader,
   Pagination,
+  SearchField,
+  useSearchQuery,
   type Toast,
 } from "@endosoflow/ui";
 import type { Role } from "../../shared/types";
@@ -19,14 +21,13 @@ import { useCustomerList } from "./queries";
 const PAGE_SIZE = 20;
 
 export function CustomersPage({
-  query,
   role,
   toast,
 }: {
-  query: string;
   role: Role;
   toast: (toast: Toast) => void;
 }) {
+  const [query, setQuery] = useSearchQuery();
   const [typeFilter, setTypeFilter] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [pageState, setPageState] = useState({ key: "", page: 1 });
@@ -68,6 +69,13 @@ export function CustomersPage({
 
       <section className="panel">
         <div className="toolbar">
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            label="Buscar clientes"
+            placeholder="Nombre o documento"
+            shortcut
+          />
           <div className="filter-bar">
             <label className="filter-control">
               <span>Tipo de cliente</span>

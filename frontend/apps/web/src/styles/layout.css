@@ -150,7 +150,6 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  display: flex;
   align-items: center;
   gap: var(--space-3);
   height: var(--topbar);
@@ -160,8 +159,8 @@
   border-bottom: 1px solid var(--line);
 }
 
-/* A page without a search box needs no bar on a wide screen. */
-.topbar.is-empty {
+/* The bar only exists on narrow screens, where the sidebar becomes a drawer. */
+.topbar {
   display: none;
 }
 
@@ -219,8 +218,7 @@
     margin-left: 0;
   }
 
-  .topbar,
-  .topbar.is-empty {
+  .topbar {
     display: flex;
     padding: 0 var(--space-4);
   }

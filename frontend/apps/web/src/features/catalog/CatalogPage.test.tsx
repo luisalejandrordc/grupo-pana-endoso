@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Role } from "../../shared/types";
@@ -315,16 +322,25 @@ function renderPage(role: Role = "sales_manager", query = "") {
       mutations: { retry: false },
     },
   });
-  const wrap = (q: string) => (
+  // The search lives in the page's own box, kept in the address as ?q=.
+  const view = render(
     <QueryClientProvider client={client}>
-      <CatalogPage query={q} role={role} toast={toast} />
-    </QueryClientProvider>
+      <MemoryRouter
+        initialEntries={[query ? `/?q=${encodeURIComponent(query)}` : "/"]}
+      >
+        <CatalogPage role={role} toast={toast} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
-  const view = render(wrap(query));
   return {
     toast,
     ...view,
-    rerenderWith: (q: string) => view.rerender(wrap(q)),
+    /** Types into the search box, as a person would. */
+    rerenderWith: (q: string) =>
+      fireEvent.change(
+        screen.getByRole("searchbox", { name: "Buscar en el catálogo" }),
+        { target: { value: q } },
+      ),
   };
 }
 

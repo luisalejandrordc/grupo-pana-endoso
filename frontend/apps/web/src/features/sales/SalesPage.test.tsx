@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -131,11 +137,11 @@ function renderPage(role: Role = "sales_manager", query = "", path = "/sales") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
-  const view = (q: string) => (
+  const view = () => (
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[withQuery(path, query)]}>
         <Routes>
-          <Route path="/sales" element={<SalesPage role={role} query={q} />} />
+          <Route path="/sales" element={<SalesPage role={role} />} />
           <Route path="/sales/:id" element={<p>Detalle de venta</p>} />
           <Route path="/sales/new" element={<p>Registrar una venta</p>} />
         </Routes>
@@ -143,8 +149,23 @@ function renderPage(role: Role = "sales_manager", query = "", path = "/sales") {
       </MemoryRouter>
     </QueryClientProvider>
   );
-  const rendered = render(view(query));
-  return { rerenderWith: (q: string) => rendered.rerender(view(q)) };
+  render(view());
+  return {
+    /** Types into the search box, as a person would. */
+    rerenderWith: (q: string) =>
+      fireEvent.change(
+        screen.getByRole("searchbox", { name: "Buscar ventas" }),
+        {
+          target: { value: q },
+        },
+      ),
+  };
+}
+
+/** The search is kept in the address as ?q=. */
+function withQuery(path: string, query: string) {
+  if (!query) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}q=${encodeURIComponent(query)}`;
 }
 
 const listCalls = () => calls.filter((c) => c.path === "/sales");

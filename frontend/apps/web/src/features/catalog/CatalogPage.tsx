@@ -6,6 +6,8 @@ import {
   ErrorState,
   Icon,
   PageHeader,
+  SearchField,
+  useSearchQuery,
   Pagination,
   type Toast,
 } from "@endosoflow/ui";
@@ -19,14 +21,13 @@ import { useModelList } from "./queries";
 const PAGE_SIZE = 12;
 
 export function CatalogPage({
-  query,
   role,
   toast,
 }: {
-  query: string;
   role: Role;
   toast: (toast: Toast) => void;
 }) {
+  const [query, setQuery] = useSearchQuery();
   const canManage = role === "system_admin" || role === "sales_manager";
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "archived">("active");
@@ -72,6 +73,13 @@ export function CatalogPage({
       />
 
       <div className="panel toolbar">
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          label="Buscar en el catálogo"
+          placeholder="Modelo o versión"
+          shortcut
+        />
         <div className="filter-bar">
           <select
             aria-label="Categoría"

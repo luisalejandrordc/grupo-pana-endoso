@@ -7,19 +7,41 @@
   box-shadow: var(--shadow);
 }
 
+/*
+ * What narrows a table, above it: the search first, the filters beside it, the result count at the far end.
+ * Everything that changes the rows sits in one place, and the count answers it right there.
+ */
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--line);
 }
 
+.toolbar .search {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
 .toolbar-count {
+  margin-left: auto;
   color: var(--ink-3);
   font-size: var(--text-sm);
+}
+
+/* A row of tabs above the search and filters: the two read as one block, with a single line under them. */
+.toolbar-tabs {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .toolbar .search {
+    flex-basis: 100%;
+    max-width: none;
+  }
 }
 
 .table-scroll {
