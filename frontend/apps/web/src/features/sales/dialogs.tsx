@@ -7,6 +7,7 @@ import {
   errorText,
   fieldErrors,
 } from "./labels";
+import { LIMITS } from "../../shared/lib/limits";
 
 /** The footer every dialog shares: cancel on the left, the confirming action on the right. */
 function DialogFooter({
@@ -126,7 +127,7 @@ export function ReasonDialog({
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           rows={3}
-          maxLength={500}
+          maxLength={LIMITS.reason}
           autoFocus
         />
       </Field>
@@ -230,7 +231,7 @@ export function CancelSaleDialog({
           value={text}
           onChange={(event) => setText(event.target.value)}
           rows={3}
-          maxLength={500}
+          maxLength={LIMITS.cancelReason}
           autoFocus
         />
       </Field>
@@ -299,7 +300,7 @@ export function ReassignDialog({
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           rows={2}
-          maxLength={500}
+          maxLength={LIMITS.reason}
         />
       </Field>
       <ErrorLine message={error} />
@@ -351,7 +352,7 @@ export function DeleteSaleDialog({
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           rows={2}
-          maxLength={500}
+          maxLength={LIMITS.reason}
         />
       </Field>
       <Field

@@ -3,6 +3,7 @@ import { ApiError } from "@endosoflow/api";
 import { Field, Modal, type Toast } from "@endosoflow/ui";
 import type { ApiCustomer } from "./api";
 import { useCustomerStatus, useDeleteCustomer } from "./queries";
+import { LIMITS } from "../../shared/lib/limits";
 
 function messageOf(error: unknown) {
   return error instanceof Error ? error.message : "Inténtalo nuevamente.";
@@ -146,6 +147,7 @@ export function DeleteDialog({
         <textarea
           rows={3}
           value={reason}
+          maxLength={LIMITS.reason}
           onChange={(event) => setReason(event.target.value)}
           placeholder="Por ejemplo: registro duplicado creado por error"
         />

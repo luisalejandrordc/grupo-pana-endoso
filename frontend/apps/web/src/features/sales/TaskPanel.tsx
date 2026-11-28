@@ -22,6 +22,7 @@ import {
   type Draft,
   type FieldDef,
 } from "./taskForms";
+import { LIMITS } from "../../shared/lib/limits";
 
 /** One task of the open sale: its data form, its documents and the actions the server says the person may take. */
 export function TaskPanel({
@@ -589,7 +590,7 @@ function TaskNotes({
           rows={2}
           value={value}
           disabled={!editable}
-          maxLength={2000}
+          maxLength={LIMITS.notes}
           onChange={(event) => setValue(event.target.value)}
         />
       </Field>

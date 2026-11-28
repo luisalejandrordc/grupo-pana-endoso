@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Field, Modal } from "@endosoflow/ui";
+import { LIMITS } from "../../shared/lib/limits";
 
 function messageOf(error: unknown) {
   return error instanceof Error ? error.message : "Inténtalo nuevamente.";
@@ -127,6 +128,7 @@ export function ReasonDialog({
         <textarea
           rows={3}
           value={reason}
+          maxLength={LIMITS.reason}
           onChange={(event) => setReason(event.target.value)}
           placeholder="Por ejemplo: registro creado por error"
         />

@@ -4,7 +4,10 @@
  * show and which fields are locked once later tasks are completed (the same table the backend uses).
  */
 
-export type FieldKind = "text" | "money" | "date" | "select";
+import { LIMITS } from "../../shared/lib/limits";
+
+/** `hidden` is data the form carries and sends but never draws (task 2's name source). */
+export type FieldKind = "text" | "money" | "date" | "select" | "hidden";
 
 export interface FieldDef {
   key: string;
@@ -17,6 +20,8 @@ export interface FieldDef {
   readOnly?: boolean;
   /** Spans two columns. */
   wide?: boolean;
+  /** The most characters the server accepts; the box shows a counter. */
+  limit?: number;
 }
 
 export interface FieldGroup {
@@ -61,6 +66,7 @@ const payment = (expectedLabel: string): FieldGroup[] => [
         label: "Motivo de la diferencia",
         kind: "text",
         wide: true,
+        limit: LIMITS.reason,
         hint: "Obligatorio cuando el monto depositado no coincide con el esperado; se guarda junto con el monto.",
       },
     ],
@@ -99,6 +105,7 @@ const invoice = (
       label: "Motivo de la diferencia",
       kind: "text",
       wide: true,
+      limit: LIMITS.reason,
     },
   ],
 });

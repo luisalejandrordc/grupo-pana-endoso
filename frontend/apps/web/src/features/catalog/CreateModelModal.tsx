@@ -13,6 +13,7 @@ import { imageProblem } from "./images";
 import { ImagePicker } from "./ImagePicker";
 import { categories, categoryLabels, type VehicleCategory } from "./labels";
 import { useCatalogMutation } from "./queries";
+import { LIMITS } from "../../shared/lib/limits";
 
 /** Creates a model with its first version, first color and that color's Main view image, all at once. */
 export function CreateModelModal({
@@ -136,6 +137,7 @@ export function CreateModelModal({
           <textarea
             rows={2}
             value={form.description}
+            maxLength={LIMITS.description}
             onChange={(e) => set("description", e.target.value)}
           />
         </Field>
