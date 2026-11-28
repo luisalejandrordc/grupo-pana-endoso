@@ -11,6 +11,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { to: "/sales", label: "Ventas", icon: "sales" },
+  { to: "/analytics", label: "Analítica", icon: "chart" },
   { to: "/customers", label: "Clientes", icon: "users" },
   { to: "/catalog", label: "Catálogo", icon: "car" },
   {
@@ -30,6 +31,7 @@ export const searchPlaceholders: Record<string, string> = {
 
 const sectionTitles: Record<string, string> = {
   "/sales": "Ventas",
+  "/analytics": "Analítica",
   "/customers": "Clientes",
   "/catalog": "Catálogo",
   "/staff": "Colaboradores",

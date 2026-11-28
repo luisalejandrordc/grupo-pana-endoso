@@ -5,6 +5,9 @@
 // It refuses to run outside local or test environments, and when the data is already there.
 //
 //	ENV=local DATABASE_URL=... go run ./cmd/seed
+//
+// With SEED_HISTORY=1 it also creates about fifty sales spread over the last eleven months, with varied prices
+// and outcomes, so the analytics trends have something to show.
 package main
 
 import (
@@ -88,6 +91,11 @@ func run() error {
 	if err := s.operations(); err != nil {
 		return fmt.Errorf("sales: %w", err)
 	}
+	if os.Getenv("SEED_HISTORY") != "" {
+		if err := s.history(); err != nil {
+			return fmt.Errorf("history: %w", err)
+		}
+	}
 	fmt.Printf("Seed ready. Sign in with a document number and the password %q:\n", password)
 	for _, p := range s.staff {
 		fmt.Printf("  %-26s DNI %s  (%s)\n", p.name, p.doc, p.role)
@@ -117,6 +125,12 @@ type seeder struct {
 	advisors []person
 	cars     []vehicle
 	clients  []uuid.UUID
+
+	// History mode (see history.go): a backdated clock, a hook that moves it between steps, and the prices
+	// of the sale being built. All are nil in the normal seed.
+	clk   *fakeClock
+	tick  func(kind string, task int)
+	price *pricing
 }
 
 func (s *seeder) exec(sql string, args ...any) error {
@@ -322,25 +336,56 @@ func digits(n int) string {
 }
 
 func (s *seeder) today() string {
-	return time.Now().In(time.FixedZone("Lima", -5*3600)).Format("2006-01-02")
+	now := time.Now()
+	if s.clk != nil {
+		now = s.clk.Now()
+	}
+	return now.In(time.FixedZone("Lima", -5*3600)).Format("2006-01-02")
+}
+
+// pause lets history mode move its clock; it does nothing in the normal seed.
+func (s *seeder) pause(kind string, task int) {
+	if s.tick != nil {
+		s.tick(kind, task)
+	}
 }
 
 func (s *seeder) data(n int) string {
 	d := s.today()
 	switch n {
 	case 1:
+		if p := s.price; p != nil {
+			return fmt.Sprintf(`{"initialToyotaAmount":"%s","initialCommission":"%s","accessoryAmount":"%s","releaseProcessingAmount":"%s"}`,
+				cents(p.toyota), cents(p.commission), cents(p.accessories), cents(p.release))
+		}
 		return `{"initialToyotaAmount":"30000","initialCommission":"2500","accessoryAmount":"1200.50","releaseProcessingAmount":"800"}`
 	case 2:
 		return fmt.Sprintf(`{"signerDocumentType":"DNI","signerDocumentNumber":"%s","signerFirstName":"Ana","signerLastName":"Rojas","pepStatus":"no_pep","ddcRegime":"general"}`, digits(8))
 	case 3:
-		return fmt.Sprintf(`{"vehicleSeries":"S%s","vin":"JT4RN81A0M5%s","finalToyotaAmount":"31000"}`, digits(8), digits(6))
+		final := "31000"
+		if p := s.price; p != nil {
+			final = cents(p.finalToyota)
+		}
+		return fmt.Sprintf(`{"vehicleSeries":"S%s","vin":"JT4RN81A0M5%s","finalToyotaAmount":"%s"}`, digits(8), digits(6), final)
 	case 4:
-		return fmt.Sprintf(`{"bank":"bcp","paymentDate":"%s","transactionNumber":"T%s","depositedAmount":"34500.50"}`, d, digits(8))
+		deposit := "34500.50"
+		if p := s.price; p != nil {
+			deposit = cents(p.quoted())
+		}
+		return fmt.Sprintf(`{"bank":"bcp","paymentDate":"%s","transactionNumber":"T%s","depositedAmount":"%s"}`, d, digits(8), deposit)
 	case 5:
-		return fmt.Sprintf(`{"bank":"bbva","paymentDate":"%s","transactionNumber":"T%s","depositedAmount":"31000"}`, d, digits(8))
+		deposit := "31000"
+		if p := s.price; p != nil {
+			deposit = cents(p.finalToyota)
+		}
+		return fmt.Sprintf(`{"bank":"bbva","paymentDate":"%s","transactionNumber":"T%s","depositedAmount":"%s"}`, d, digits(8), deposit)
 	case 6:
-		return fmt.Sprintf(`{"toyota":{"number":"F001-%s","date":"%s","amount":"31000"},"commission":{"number":"F002-%s","date":"%s","amount":"1500"},"accessories":{"number":"F003-%s","date":"%s","amount":"1200.50"},"releaseProcessing":{"number":"F004-%s","date":"%s","amount":"800"}}`,
-			digits(6), d, digits(6), d, digits(6), d, digits(6), d)
+		amounts := [4]string{"31000", "1500", "1200.50", "800"} // Toyota, commission, accessories, release
+		if p := s.price; p != nil {
+			amounts = [4]string{cents(p.finalToyota), cents(p.finalCommission()), cents(p.accessories), cents(p.release)}
+		}
+		return fmt.Sprintf(`{"toyota":{"number":"F001-%s","date":"%s","amount":"%s"},"commission":{"number":"F002-%s","date":"%s","amount":"%s"},"accessories":{"number":"F003-%s","date":"%s","amount":"%s"},"releaseProcessing":{"number":"F004-%s","date":"%s","amount":"%s"}}`,
+			digits(6), d, amounts[0], digits(6), d, amounts[1], digits(6), d, amounts[2], digits(6), d, amounts[3])
 	case 8:
 		return fmt.Sprintf(`{"damNumber":"118-2026-%s","customsOffice":"callao_maritima","controlChannel":"green"}`, digits(8))
 	case 9:
@@ -375,6 +420,7 @@ func xlsx() []byte {
 func (s *seeder) work(sale uuid.UUID, advisor person, upTo int, startNext bool) error {
 	actor := auth.Actor{ID: advisor.id, Role: advisor.role}
 	do := func(n int, finish bool) error {
+		s.pause("wait", n)
 		if _, err := s.tasks.Start(s.ctx, actor, sale, n); err != nil {
 			return fmt.Errorf("start %d: %w", n, err)
 		}
@@ -394,6 +440,7 @@ func (s *seeder) work(sale uuid.UUID, advisor person, upTo int, startNext bool) 
 		if !finish {
 			return nil
 		}
+		s.pause("work", n)
 		detail, err := s.tasks.Get(s.ctx, actor, sale, n)
 		if err != nil {
 			return err

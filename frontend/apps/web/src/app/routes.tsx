@@ -23,6 +23,11 @@ const SaleDetailPage = lazy(() =>
     default: m.SaleDetailPage,
   })),
 );
+const AnalyticsPage = lazy(() =>
+  import("../features/analytics/AnalyticsPage").then((m) => ({
+    default: m.AnalyticsPage,
+  })),
+);
 const CustomersPage = lazy(() =>
   import("../features/customers/CustomersPage").then((m) => ({
     default: m.CustomersPage,
@@ -69,6 +74,11 @@ function SaleDetailRoute() {
   return <SaleDetailPage toast={notify} />;
 }
 
+function AnalyticsRoute() {
+  const { role } = useCurrentUser();
+  return <AnalyticsPage role={role} />;
+}
+
 function CustomersRoute() {
   const { role } = useCurrentUser();
   const [query] = useSearchQuery();
@@ -113,6 +123,7 @@ export function AppRoutes() {
         <Route path="/sales/new" element={<NewSaleRoute />} />
         <Route path="/sales/:saleId" element={<SaleDetailRoute />} />
         <Route path="/sales/:saleId/:tab" element={<SaleDetailRoute />} />
+        <Route path="/analytics" element={<AnalyticsRoute />} />
         <Route path="/customers" element={<CustomersRoute />} />
         <Route path="/catalog" element={<CatalogRoute />} />
         <Route

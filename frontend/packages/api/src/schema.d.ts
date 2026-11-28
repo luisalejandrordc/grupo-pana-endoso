@@ -1266,6 +1266,125 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/analytics/overview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Summary tab - snapshot, period KPIs, money, pipeline by milestone, trend and attention list
+     * @description Every Staff role may call it. An Advisor always gets only their own sales (the advisorId filter cannot widen
+     *     that) and the `money.internal` block is null. Managers and Admins see every sale.
+     *
+     *     **Snapshot** figures describe the situation now and ignore the period; the other filters still apply.
+     *     **Period** figures use an event date: created = created_at, completed = completed_at, cancelled = cancelled_at.
+     *     The previous period is the equal-length range that ends the day before `from`.
+     *
+     *     **Money** is what the sales recorded (USD), never accounting figures. A sale's *value* is its quoted final
+     *     price (task 1) and, until that exists, the catalog reference price taken at creation; `estimatedCount` says how
+     *     many sales used that fallback.
+     */
+    get: operations["getAnalyticsOverview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/analytics/process": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Process tab - time, waiting, deadlines, load and rework per task
+     * @description Timing uses tasks completed (completed_at) inside the period. Work time is completed_at minus started_at.
+     *     Waiting time is the time between the task becoming eligible (the previous task's completion, or the sale's
+     *     creation for task 1) and its start; negative values caused by reopened earlier tasks are ignored.
+     *     Deadline compliance covers only the tasks that have a recommended duration. Rework counts the audit events
+     *     RESTARTED, REOPENED and CORRECTED of task instances inside the period. Current load is a snapshot of active
+     *     sales. An Advisor only sees their own sales.
+     */
+    get: operations["getAnalyticsProcess"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/analytics/commercial": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Commercial tab - what sells, what is lost, and the money behind it
+     * @description Groups sales created in the period. Close rate is completed divided by completed plus cancelled among the
+     *     sales of the group that are already resolved; sales still in progress are counted apart so they never bias it.
+     *     Money is recorded operational data in USD. Fields marked as Manager or Admin only are null for an Advisor.
+     *     An Advisor only sees their own sales.
+     */
+    get: operations["getAnalyticsCommercial"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/analytics/team": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Team tab - one row per advisor (Manager and Admin)
+     * @description Advisors with an active sale or any sale created, completed or cancelled in the period. Sales are attributed to
+     *     the advisor currently assigned, even if they were reassigned. The advisorId filter is ignored here.
+     */
+    get: operations["getAnalyticsTeam"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/analytics/system": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * System tab - email delivery, sign-ins, accounts and storage (Admin)
+     * @description Only the period applies; the sales filters do not. The monthly Codart usage is served by
+     *     GET /lookups/identity/quota.
+     */
+    get: operations["getAnalyticsSystem"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/auth/customer/login": {
     parameters: {
       query?: never;
@@ -2539,6 +2658,356 @@ export interface components {
       /** Format: date */
       deliveryDate?: string | null;
     };
+    AnalyticsMeta: {
+      /** Format: date */
+      from: string;
+      /** Format: date */
+      to: string;
+      /** Format: date */
+      previousFrom: string;
+      /** Format: date */
+      previousTo: string;
+      /**
+       * @description Bucket size of the trends - day up to 31 days, week up to 180 days, month beyond.
+       * @enum {string}
+       */
+      granularity: "day" | "week" | "month";
+      /**
+       * @description own when the figures cover only the caller's sales (an Advisor).
+       * @enum {string}
+       */
+      scope: "global" | "own";
+      /** Format: date-time */
+      generatedAt: string;
+    };
+    CountMetric: {
+      value: number;
+      /** @description The same figure for the previous period. */
+      previous: number;
+    };
+    /** @description USD amounts as decimal text with two decimals. */
+    MoneyMetric: {
+      /** @example 125000.00 */
+      value: string;
+      /** @example 98000.00 */
+      previous: string;
+    };
+    /** @description A ratio from 0 to 1; null when the denominator is zero. */
+    RateMetric: {
+      value: number | null;
+      previous: number | null;
+    };
+    /** @description A ratio with its parts, so the screen can show how it was calculated. value is null when the denominator is zero. */
+    Ratio: {
+      numerator: number;
+      denominator: number;
+      value: number | null;
+    };
+    RatioMetric: {
+      numerator: number;
+      denominator: number;
+      value: number | null;
+      previous: number | null;
+    };
+    ValueTotal: {
+      amount: string;
+      saleCount: number;
+    };
+    ValuedTotal: {
+      amount: string;
+      saleCount: number;
+      /** @description How many of the sales use the catalog reference price because no quoted final price exists yet. */
+      estimatedCount: number;
+    };
+    AnalyticsOverview: {
+      meta: components["schemas"]["AnalyticsMeta"];
+      /** @description The situation now. Overdue, approaching and idle are counted over active sales and never overlap (a sale has one current task). */
+      snapshot: {
+        activeSales: number;
+        /** @description The in-progress task is past its due date. */
+        overdue: number;
+        /** @description The in-progress task is past 80% of its recommended duration but not overdue. */
+        approaching: number;
+        /** @description No task is in progress and the next one has been eligible for more than 24 hours. */
+        idle: number;
+      };
+      period: {
+        created: components["schemas"]["CountMetric"];
+        completed: components["schemas"]["CountMetric"];
+        cancelled: components["schemas"]["CountMetric"];
+        /** @description Completed divided by completed plus cancelled, among sales resolved in the period. */
+        closeRate: components["schemas"]["RatioMetric"];
+        /** @description Sale creation to completion, for sales completed in the period. */
+        cycleTime: {
+          medianHours: number | null;
+          p90Hours: number | null;
+          previousMedianHours: number | null;
+          sampleSize: number;
+        };
+      };
+      money: {
+        /** @description Value of the active sales (snapshot). */
+        pipelineValue: components["schemas"]["ValuedTotal"];
+        /** @description Quoted final price of active sales whose task 4 (payment to Grupo Pana) is not completed (snapshot). Sales without a quoted price yet are left out. */
+        pendingCollection: components["schemas"]["ValueTotal"];
+        /** @description Quoted final price of the sales completed in the period. */
+        completedValue: components["schemas"]["MoneyMetric"];
+        /** @description Average quoted final price of the sales completed in the period; null when there are none. */
+        averageTicket: {
+          value: string | null;
+          previous: string | null;
+        };
+        /** @description Deposited amounts recorded in task 4 whose payment date falls in the period, on sales that are not cancelled. */
+        collected: components["schemas"]["MoneyMetric"];
+        /** @description Invoice amounts recorded in task 6 whose invoice date falls in the period, on sales that are not cancelled. */
+        invoiced: components["schemas"]["MoneyMetric"];
+        /** @description Value of the sales cancelled in the period. */
+        lostValue: components["schemas"]["ValuedTotal"];
+        /** @description Manager and Admin only; null for an Advisor. */
+        internal: components["schemas"]["InternalMoney"] | null;
+      };
+      /** @description One entry per milestone (1 to 6), in order, counting active sales by the milestone of their current task. */
+      pipeline: components["schemas"]["MilestoneLoad"][];
+      /** @description Counts per bucket of the period, oldest first, including empty buckets. */
+      trend: {
+        /**
+         * Format: date
+         * @description First day of the bucket.
+         */
+        bucket: string;
+        created: number;
+        completed: number;
+        cancelled: number;
+      }[];
+      attention: {
+        /** @description How many active sales need attention; items shows the first ten. */
+        total: number;
+        /** @description Overdue first (most late first), then approaching, then idle (longest first). */
+        items: components["schemas"]["AttentionItem"][];
+      };
+    };
+    InternalMoney: {
+      /** @description Final commission (task 3) of the sales completed in the period. */
+      commissionFinal: components["schemas"]["MoneyMetric"];
+      /** @description Final commission divided by quoted final price, over the same completed sales. */
+      commissionRate: components["schemas"]["RateMetric"];
+      /** @description Initial commission (task 1) of the active sales that have one (snapshot). */
+      commissionPipeline: components["schemas"]["ValueTotal"];
+      /** @description Final commission minus initial commission, summed over the sales completed in the period. Negative when commissions fell between quotation and settlement. */
+      commissionDrift: string;
+      /** @description Deposited amounts recorded in task 5 whose payment date falls in the period, on sales that are not cancelled. */
+      paidToToyota: components["schemas"]["MoneyMetric"];
+      /** @description Payments and invoices dated in the period whose recorded amount differs from the expected one (each has a written reason). */
+      amountMismatches: {
+        count: number;
+        absoluteDifference: string;
+      };
+    };
+    MilestoneLoad: {
+      milestoneNumber: number;
+      name: string;
+      active: number;
+      onTime: number;
+      approaching: number;
+      overdue: number;
+      idle: number;
+      /** @description Value of the sales in this milestone */
+      value: string;
+    };
+    AttentionItem: {
+      /** Format: uuid */
+      saleId: string;
+      code: string;
+      customerName: string;
+      /** @description Model and version. */
+      vehicle: string;
+      advisorName: string;
+      taskNumber: number;
+      taskName: string;
+      /** @enum {string} */
+      reason: "overdue" | "approaching" | "idle";
+      /** Format: date-time */
+      dueDate: string | null;
+      /** @description Hours past the due date for overdue, hours until the due date for approaching, hours waiting for idle. */
+      hours: number;
+      value: string | null;
+    };
+    AnalyticsProcess: {
+      meta: components["schemas"]["AnalyticsMeta"];
+      /** @description Tasks with a recommended duration completed early or while approaching, divided by all of them, completed in the period. */
+      onTimeRate: components["schemas"]["RatioMetric"];
+      /** @description One entry per task, 1 to 13. */
+      tasks: components["schemas"]["TaskTiming"][];
+      /** @description Task 8 completed in the period, by control channel. */
+      customs: {
+        /** @enum {string} */
+        channel: "green" | "orange" | "red";
+        count: number;
+        workMedianHours: number | null;
+      }[];
+    };
+    TaskTiming: {
+      taskNumber: number;
+      name: string;
+      milestoneNumber: number;
+      recommendedHours: number | null;
+      completedCount: number;
+      workMedianHours: number | null;
+      workP90Hours: number | null;
+      waitMedianHours: number | null;
+      /** @description Completion phases of the tasks completed in the period; null for tasks without a recommended duration. */
+      deadlines: {
+        early: number;
+        inApproaching: number;
+        overdue: number;
+        recurringOverdue: number;
+      } | null;
+      /** @description Active sales whose current task is this one (snapshot). */
+      currentCount: number;
+      /** @description Of those */
+      overdueCount: number;
+      reworkCount: number;
+    };
+    AnalyticsCommercial: {
+      meta: components["schemas"]["AnalyticsMeta"];
+      vehicles: components["schemas"]["VehicleGroup"][];
+      customerTypes: components["schemas"]["CustomerTypeGroup"][];
+      /** @description Hot, warm and cold, always three entries. Tests how well the temperature chosen at creation predicts the outcome. */
+      temperatures: {
+        temperature: components["schemas"]["SaleTemperature"];
+        created: number;
+        completed: number;
+        cancelled: number;
+        inProgress: number;
+        closeRate: components["schemas"]["Ratio"];
+      }[];
+      /** @description Sales cancelled in the period. */
+      cancellations: {
+        total: components["schemas"]["ValuedTotal"];
+        byCategory: {
+          category: components["schemas"]["CancellationCategory"];
+          count: number;
+          value: string;
+        }[];
+        /** @description The task the sale was on when it was cancelled. */
+        byTask: {
+          taskNumber: number;
+          name: string;
+          count: number;
+        }[];
+      };
+      /** @description Money per bucket, oldest first, including empty buckets. */
+      valueTrend: {
+        /** Format: date */
+        bucket: string;
+        /** @description Value of the sales created in the bucket. */
+        createdValue: string;
+        /** @description Quoted final price of the sales completed in the bucket. */
+        completedValue: string;
+        /** @description Final commission of the sales completed in the bucket. Manager and Admin only. */
+        commission: string | null;
+      }[];
+      /** @description Manager and Admin only. Where the quoted final price of the sales completed in the period goes. */
+      priceComposition: {
+        /** @description Final amount to Toyota (task 3). */
+        toyota: string;
+        commission: string;
+        accessories: string;
+        releaseProcessing: string;
+        saleCount: number;
+      } | null;
+      /** @description Invoices dated in the period on sales that are not cancelled. */
+      invoicedByKind: {
+        /** @enum {string} */
+        kind: "toyota" | "commission" | "accessories" | "release_processing";
+        count: number;
+        amount: string;
+      }[];
+    };
+    VehicleGroup: {
+      /** @description The id of the model */
+      key: string;
+      /** @description The name; for a category the enum value */
+      label: string;
+      created: number;
+      completed: number;
+      cancelled: number;
+      active: number;
+      /** @description Value of the sales created in the period that are not cancelled. */
+      quotedValue: string;
+      /** @description Average quoted final price of the completed sales. */
+      averageTicket: string | null;
+      /** @description Final commission of the completed sales. Manager and Admin only. */
+      commission: string | null;
+    };
+    CustomerTypeGroup: {
+      customerType: components["schemas"]["CustomerType"];
+      created: number;
+      completed: number;
+      cancelled: number;
+      active: number;
+      closeRate: components["schemas"]["Ratio"];
+      quotedValue: string;
+      /** @description Manager and Admin only. */
+      commission: string | null;
+    };
+    AnalyticsTeam: {
+      meta: components["schemas"]["AnalyticsMeta"];
+      advisors: components["schemas"]["AdvisorPerformance"][];
+    };
+    AdvisorPerformance: {
+      /** Format: uuid */
+      advisorId: string;
+      name: string;
+      isActive: boolean;
+      /** @description Snapshot. */
+      active: number;
+      /** @description Snapshot. */
+      overdue: number;
+      /** @description Snapshot. */
+      idle: number;
+      created: number;
+      completed: number;
+      cancelled: number;
+      closeRate: components["schemas"]["Ratio"];
+      cycleMedianHours: number | null;
+      onTimeRate: components["schemas"]["Ratio"];
+      /** @description Value of the advisor's active sales (snapshot). */
+      pipelineValue: string;
+      /** @description Quoted final price of the sales completed in the period. */
+      completedValue: string;
+      /** @description Final commission of the sales completed in the period. */
+      commission: string;
+    };
+    AnalyticsSystem: {
+      meta: components["schemas"]["AnalyticsMeta"];
+      /** @description Emails queued in the period (pending is the current backlog). */
+      notifications: {
+        pending: number;
+        sent: number;
+        failed: number;
+        skipped: number;
+        failedByType: {
+          type: string;
+          count: number;
+        }[];
+      };
+      security: {
+        successfulSignIns: number;
+        failedSignIns: number;
+        /** @description Employees locked now. */
+        lockedAccounts: number;
+      };
+      accounts: {
+        activeEmployees: number;
+        /** @description Active accounts that have not set a password yet. */
+        notActivatedEmployees: number;
+      };
+      storage: {
+        /** @description Files whose deletion failed and is waiting for a retry. */
+        pendingDeletions: number;
+      };
+    };
   };
   responses: {
     /** @description The request is malformed. */
@@ -2608,6 +3077,15 @@ export interface components {
     };
   };
   parameters: {
+    /** @description First day of the period (Lima date, inclusive). Defaults to 89 days before `to`, so the default period is 90 days. */
+    AnalyticsFrom: string;
+    /** @description Last day of the period (Lima date, inclusive). Defaults to today. The period may not exceed 731 days and `from` may not be after `to`. */
+    AnalyticsTo: string;
+    /** @description Only this advisor's sales. Ignored for an Advisor, who only ever sees their own. */
+    AnalyticsAdvisorId: string;
+    AnalyticsCustomerType: components["schemas"]["CustomerType"];
+    AnalyticsModelId: string;
+    AnalyticsTemperature: components["schemas"]["SaleTemperature"];
     SaleId: string;
     TaskNumber: number;
     /** @description The slot code, such as quotation_pdf. It must belong to the task in the path. */
@@ -4818,6 +5296,166 @@ export interface operations {
           "application/json": components["schemas"]["ErrorResponse"];
         };
       };
+    };
+  };
+  getAnalyticsOverview: {
+    parameters: {
+      query?: {
+        /** @description First day of the period (Lima date, inclusive). Defaults to 89 days before `to`, so the default period is 90 days. */
+        from?: components["parameters"]["AnalyticsFrom"];
+        /** @description Last day of the period (Lima date, inclusive). Defaults to today. The period may not exceed 731 days and `from` may not be after `to`. */
+        to?: components["parameters"]["AnalyticsTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who only ever sees their own. */
+        advisorId?: components["parameters"]["AnalyticsAdvisorId"];
+        customerType?: components["parameters"]["AnalyticsCustomerType"];
+        modelId?: components["parameters"]["AnalyticsModelId"];
+        temperature?: components["parameters"]["AnalyticsTemperature"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The summary. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalyticsOverview"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getAnalyticsProcess: {
+    parameters: {
+      query?: {
+        /** @description First day of the period (Lima date, inclusive). Defaults to 89 days before `to`, so the default period is 90 days. */
+        from?: components["parameters"]["AnalyticsFrom"];
+        /** @description Last day of the period (Lima date, inclusive). Defaults to today. The period may not exceed 731 days and `from` may not be after `to`. */
+        to?: components["parameters"]["AnalyticsTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who only ever sees their own. */
+        advisorId?: components["parameters"]["AnalyticsAdvisorId"];
+        customerType?: components["parameters"]["AnalyticsCustomerType"];
+        modelId?: components["parameters"]["AnalyticsModelId"];
+        temperature?: components["parameters"]["AnalyticsTemperature"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The process figures. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalyticsProcess"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getAnalyticsCommercial: {
+    parameters: {
+      query?: {
+        /** @description First day of the period (Lima date, inclusive). Defaults to 89 days before `to`, so the default period is 90 days. */
+        from?: components["parameters"]["AnalyticsFrom"];
+        /** @description Last day of the period (Lima date, inclusive). Defaults to today. The period may not exceed 731 days and `from` may not be after `to`. */
+        to?: components["parameters"]["AnalyticsTo"];
+        /** @description Only this advisor's sales. Ignored for an Advisor, who only ever sees their own. */
+        advisorId?: components["parameters"]["AnalyticsAdvisorId"];
+        customerType?: components["parameters"]["AnalyticsCustomerType"];
+        modelId?: components["parameters"]["AnalyticsModelId"];
+        temperature?: components["parameters"]["AnalyticsTemperature"];
+        /** @description What the vehicle ranking groups by. Defaults to model; the ranking returns the ten largest groups. */
+        groupBy?: "model" | "version" | "color" | "category";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The commercial figures. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalyticsCommercial"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getAnalyticsTeam: {
+    parameters: {
+      query?: {
+        /** @description First day of the period (Lima date, inclusive). Defaults to 89 days before `to`, so the default period is 90 days. */
+        from?: components["parameters"]["AnalyticsFrom"];
+        /** @description Last day of the period (Lima date, inclusive). Defaults to today. The period may not exceed 731 days and `from` may not be after `to`. */
+        to?: components["parameters"]["AnalyticsTo"];
+        customerType?: components["parameters"]["AnalyticsCustomerType"];
+        modelId?: components["parameters"]["AnalyticsModelId"];
+        temperature?: components["parameters"]["AnalyticsTemperature"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The advisors. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalyticsTeam"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  getAnalyticsSystem: {
+    parameters: {
+      query?: {
+        /** @description First day of the period (Lima date, inclusive). Defaults to 89 days before `to`, so the default period is 90 days. */
+        from?: components["parameters"]["AnalyticsFrom"];
+        /** @description Last day of the period (Lima date, inclusive). Defaults to today. The period may not exceed 731 days and `from` may not be after `to`. */
+        to?: components["parameters"]["AnalyticsTo"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The system figures. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalyticsSystem"];
+        };
+      };
+      400: components["responses"]["BadRequest"];
+      401: components["responses"]["Unauthorized"];
+      403: components["responses"]["Forbidden"];
     };
   };
   customerLogin: {

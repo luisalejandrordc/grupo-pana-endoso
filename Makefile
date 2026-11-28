@@ -77,7 +77,7 @@ bootstrap-admin:
 	cd backend && set -a && . ./.env && set +a && go run ./cmd/bootstrap-admin $(ARGS)
 
 seed:
-	cd backend && ENV=local DATABASE_URL="${DATABASE_URL}" go run ./cmd/seed
+	cd backend && ENV=local DATABASE_URL="${DATABASE_URL}" SEED_HISTORY=1 go run ./cmd/seed
 
 email-preview:
 	cd backend && go run ./cmd/email-preview -out tmp/email-previews
