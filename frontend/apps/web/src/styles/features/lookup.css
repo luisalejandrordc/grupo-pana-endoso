@@ -1,0 +1,37 @@
+/* The small result card of a document lookup, and the row that holds the button: customer, employee and task 2. */
+
+.check-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+
+.check-card strong {
+  color: var(--ink);
+}
+
+.check-card.check-ok {
+  border-color: var(--done-line);
+  background: var(--done-wash);
+}
+
+.check-card.check-warn {
+  border-color: var(--warn-line);
+  background: var(--warn-wash);
+}
+
+.lookup-row {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.lookup-row .button {
+  justify-self: start;
+}

@@ -24,6 +24,7 @@ import {
   type VehicleCategory,
 } from "./labels";
 import { useCatalogMutation, useModel } from "./queries";
+import { LIMITS } from "../../shared/lib/limits";
 
 type Dialog =
   | { kind: "addVersion" }
@@ -597,6 +598,7 @@ function InfoSection({
         <textarea
           rows={2}
           value={description}
+          maxLength={LIMITS.description}
           onChange={(e) => setDescription(e.target.value)}
         />
       </Field>

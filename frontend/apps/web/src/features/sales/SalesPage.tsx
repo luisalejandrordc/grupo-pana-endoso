@@ -3,11 +3,13 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   formatDate,
   useDebounced,
+  useSearchQuery,
   EmptyState,
   ErrorState,
   Icon,
   PageHeader,
   Pagination,
+  SearchField,
   Tabs,
   type TabItem,
 } from "@endosoflow/ui";
@@ -54,8 +56,9 @@ function dueText(sale: SaleListItem) {
   return `${task.isOverdue ? "Venció" : "Vence"} ${formatDate(task.dueDate)}`;
 }
 
-export function SalesPage({ role, query }: { role: Role; query: string }) {
+export function SalesPage({ role }: { role: Role }) {
   const navigate = useNavigate();
+  const [query, setQuery] = useSearchQuery();
   const [params, setParams] = useSearchParams();
   const management = role !== "sales_advisor";
   const rawState = params.get("state");
@@ -152,13 +155,22 @@ export function SalesPage({ role, query }: { role: Role; query: string }) {
       />
 
       <section className="panel">
-        <div className="toolbar sales-toolbar">
+        <div className="toolbar toolbar-tabs">
           <Tabs
             variant="segmented"
             label="Estado de la venta"
             items={tabs}
             value={state}
             onChange={(id) => change({ state: id === "active" ? null : id })}
+          />
+        </div>
+        <div className="toolbar">
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            label="Buscar ventas"
+            placeholder="Cliente, código o vehículo"
+            shortcut
           />
           <div className="filter-bar">
             <select

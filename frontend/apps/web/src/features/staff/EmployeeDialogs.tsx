@@ -7,6 +7,7 @@ import {
   useDeleteEmployee,
   useReactivateEmployee,
 } from "./queries";
+import { LIMITS } from "../../shared/lib/limits";
 
 const fullName = (employee: Employee) =>
   `${employee.firstName} ${employee.lastName}`;
@@ -144,6 +145,7 @@ export function DeleteDialog({
         <textarea
           rows={3}
           value={reason}
+          maxLength={LIMITS.reason}
           onChange={(event) => setReason(event.target.value)}
           placeholder="Por ejemplo: cuenta creada por error"
         />

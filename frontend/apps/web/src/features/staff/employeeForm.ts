@@ -7,6 +7,8 @@ export interface EmployeeForm {
   documentNumber: string;
   firstName: string;
   lastName: string;
+  /** Whether the name was filled from a lookup (and is locked) or typed. Sent when the employee is created. */
+  nameSource: "manual" | "looked_up";
   nationality: string;
   gender: "M" | "F";
   birthdate: string;
@@ -23,6 +25,7 @@ export const emptyEmployeeForm: EmployeeForm = {
   documentNumber: "",
   firstName: "",
   lastName: "",
+  nameSource: "manual",
   nationality: "Peruana",
   gender: "F",
   birthdate: "",
@@ -40,6 +43,7 @@ export function formFromEmployee(employee: Employee): EmployeeForm {
     documentNumber: employee.documentNumber,
     firstName: employee.firstName,
     lastName: employee.lastName,
+    nameSource: employee.nameSource,
     nationality: employee.nationality,
     gender: employee.gender,
     birthdate: employee.birthdate,

@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmployeeProfile } from "../../shared/types";
 import type { Employee } from "./api";
@@ -136,12 +137,14 @@ function setup(
   const onSelfUpdated = vi.fn();
   render(
     <QueryClientProvider client={createQueryClient()}>
-      <StaffPage
-        user={user}
-        toast={toast}
-        onSelfUpdated={onSelfUpdated}
-        {...props}
-      />
+      <MemoryRouter>
+        <StaffPage
+          user={user}
+          toast={toast}
+          onSelfUpdated={onSelfUpdated}
+          {...props}
+        />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return { user: userEvent.setup(), onSelfUpdated };
@@ -811,5 +814,180 @@ describe("StaffPage", () => {
       );
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     });
+  });
+});
+
+describe("StaffPage: filling a new person's name from their DNI", () => {
+  const found = {
+    documentType: "DNI",
+    documentNumber: "45871236",
+    source: "provider",
+    firstName: "LUIS ALBERTO",
+    lastName: "QUISPE HUAMÁN",
+  };
+
+  async function openCreate() {
+    const { user } = setup();
+    await user.click(
+      await screen.findByRole("button", { name: /Nuevo colaborador/ }),
+    );
+    return {
+      user,
+      dialog: within(screen.getByRole("dialog", { name: "Nuevo colaborador" })),
+    };
+  }
+
+  const consult = (dialog: ReturnType<typeof within>) =>
+    dialog.getByRole("button", { name: /Consultar RENIEC/ });
+
+  it("offers the lookup for a DNI only, and only once the DNI has eight digits", async () => {
+    const { user, dialog } = await openCreate();
+    expect(consult(dialog)).toBeDisabled();
+    await user.type(dialog.getByLabelText("Número de documento"), "4587123");
+    expect(consult(dialog)).toBeDisabled();
+    await user.type(dialog.getByLabelText("Número de documento"), "6");
+    expect(consult(dialog)).toBeEnabled();
+
+    await user.selectOptions(dialog.getByLabelText("Tipo de documento"), "CE");
+    expect(
+      dialog.queryByRole("button", { name: /Consultar RENIEC/ }),
+    ).toBeNull();
+  });
+
+  it("fills the names, locks them, and creates the person with the name marked as looked up", async () => {
+    answers["GET /lookups/identity"] = () => json(found);
+    answers["POST /employees"] = () =>
+      json(
+        { employee: employee({ id: "nuevo" }), activationLinkIssued: true },
+        201,
+      );
+    const { user, dialog } = await openCreate();
+
+    await user.type(dialog.getByLabelText("Número de documento"), "45871236");
+    await user.click(consult(dialog));
+
+    expect(await dialog.findByDisplayValue("LUIS ALBERTO")).toBeVisible();
+    expect(dialog.getByDisplayValue("QUISPE HUAMÁN")).toBeVisible();
+    expect(dialog.getByLabelText("Nombres")).toHaveAttribute("readonly");
+    expect(dialog.getByLabelText("Apellidos")).toHaveAttribute("readonly");
+    expect(dialog.getByText(/Nombre obtenido de RENIEC/)).toBeVisible();
+    expect(dialog.getByText(/Obtenido de RENIEC\./)).toBeVisible();
+    // Asked with the document, once; the button is gone so the allowance is not spent twice.
+    expect(calling("GET", "/lookups/identity")).toHaveLength(1);
+    expect(
+      calling("GET", "/lookups/identity")[0].params.get("documentType"),
+    ).toBe("DNI");
+    expect(
+      calling("GET", "/lookups/identity")[0].params.get("documentNumber"),
+    ).toBe("45871236");
+    expect(
+      dialog.queryByRole("button", { name: /Consultar RENIEC/ }),
+    ).toBeNull();
+
+    fireEvent.change(dialog.getByLabelText("Fecha de nacimiento"), {
+      target: { value: "1990-01-01" },
+    });
+    fireEvent.change(dialog.getByLabelText("Fecha de contratación"), {
+      target: { value: "2024-02-01" },
+    });
+    await user.type(
+      dialog.getByLabelText("Teléfono corporativo"),
+      "+51 1 555 0100",
+    );
+    await user.type(
+      dialog.getByLabelText("Correo corporativo"),
+      "luis@grupopana.pe",
+    );
+    await user.click(dialog.getByRole("button", { name: "Crear colaborador" }));
+
+    await waitFor(() => expect(calling("POST", "/employees")).toHaveLength(1));
+    expect(calling("POST", "/employees")[0].body).toMatchObject({
+      documentNumber: "45871236",
+      firstName: "LUIS ALBERTO",
+      lastName: "QUISPE HUAMÁN",
+      nameSource: "looked_up",
+    });
+  });
+
+  it("sends a typed name as manual", async () => {
+    answers["POST /employees"] = () =>
+      json(
+        { employee: employee({ id: "nuevo" }), activationLinkIssued: true },
+        201,
+      );
+    const { user, dialog } = await openCreate();
+    await user.type(dialog.getByLabelText("Número de documento"), "45871236");
+    await user.type(dialog.getByLabelText("Nombres"), "Luis");
+    await user.type(dialog.getByLabelText("Apellidos"), "Quispe");
+    fireEvent.change(dialog.getByLabelText("Fecha de nacimiento"), {
+      target: { value: "1990-01-01" },
+    });
+    fireEvent.change(dialog.getByLabelText("Fecha de contratación"), {
+      target: { value: "2024-02-01" },
+    });
+    await user.type(
+      dialog.getByLabelText("Teléfono corporativo"),
+      "+51 1 555 0100",
+    );
+    await user.type(
+      dialog.getByLabelText("Correo corporativo"),
+      "luis@grupopana.pe",
+    );
+    await user.click(dialog.getByRole("button", { name: "Crear colaborador" }));
+    await waitFor(() => expect(calling("POST", "/employees")).toHaveLength(1));
+    expect(calling("POST", "/employees")[0].body).toMatchObject({
+      nameSource: "manual",
+    });
+  });
+
+  it("when the lookup fails, says why and leaves the names to be typed", async () => {
+    answers["GET /lookups/identity"] = () =>
+      failure(
+        429,
+        "LOOKUP_RATE_LIMITED",
+        "Hiciste demasiadas consultas. Espera un momento.",
+      );
+    const { user, dialog } = await openCreate();
+    await user.type(dialog.getByLabelText("Número de documento"), "45871236");
+    await user.click(consult(dialog));
+
+    expect(
+      await dialog.findByText(
+        /Hiciste demasiadas consultas.*Puedes ingresar los datos manualmente/,
+      ),
+    ).toBeVisible();
+    expect(dialog.getByLabelText("Nombres")).not.toHaveAttribute("readonly");
+    await user.type(dialog.getByLabelText("Nombres"), "Luis");
+    expect(dialog.getByLabelText("Nombres")).toHaveValue("Luis");
+    // The button stays, to try again.
+    expect(consult(dialog)).toBeEnabled();
+  });
+
+  it("clears the looked-up names when the document changes, since they belonged to the old one", async () => {
+    answers["GET /lookups/identity"] = () => json(found);
+    const { user, dialog } = await openCreate();
+    await user.type(dialog.getByLabelText("Número de documento"), "45871236");
+    await user.click(consult(dialog));
+    await dialog.findByDisplayValue("LUIS ALBERTO");
+
+    await user.type(dialog.getByLabelText("Número de documento"), "0");
+    expect(dialog.getByLabelText("Nombres")).toHaveValue("");
+    expect(dialog.getByLabelText("Apellidos")).toHaveValue("");
+    expect(dialog.getByLabelText("Nombres")).not.toHaveAttribute("readonly");
+    expect(dialog.queryByText(/Nombre obtenido de RENIEC/)).toBeNull();
+  });
+
+  it("unlocks the names on 'Editar manualmente', keeping them to correct", async () => {
+    answers["GET /lookups/identity"] = () => json(found);
+    const { user, dialog } = await openCreate();
+    await user.type(dialog.getByLabelText("Número de documento"), "45871236");
+    await user.click(consult(dialog));
+    await dialog.findByDisplayValue("LUIS ALBERTO");
+
+    await user.click(
+      dialog.getByRole("button", { name: "Editar manualmente" }),
+    );
+    expect(dialog.getByLabelText("Nombres")).not.toHaveAttribute("readonly");
+    expect(dialog.getByLabelText("Nombres")).toHaveValue("LUIS ALBERTO");
   });
 });

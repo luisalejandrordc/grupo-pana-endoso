@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { ApiError } from "@endosoflow/api";
-import { Field, Icon, Modal, type Toast } from "@endosoflow/ui";
+import { ApiError, errorText } from "@endosoflow/api";
+import { Badge, Field, Icon, Modal, type Toast } from "@endosoflow/ui";
 import type { Role } from "../../shared/types";
 import { customersApi, type ApiCustomer } from "./api";
 import { DeleteDialog, StatusDialog } from "./CustomerDialogs";
@@ -26,7 +26,12 @@ import {
   normalizeDocumentNumber,
   type CustomerType,
 } from "./labels";
-import { customerKeys, useCreateCustomer, useUpdateCustomer } from "./queries";
+import {
+  customerKeys,
+  useCreateCustomer,
+  useResendCustomerActivation,
+  useUpdateCustomer,
+} from "./queries";
 import { useQueryClient } from "@tanstack/react-query";
 
 export type FormMode =
@@ -76,10 +81,14 @@ export function CustomerFormModal({
   const client = useQueryClient();
   const create = useCreateCustomer();
   const update = useUpdateCustomer(current?.id ?? "");
+  const resend = useResendCustomerActivation();
   const saving = create.isPending || update.isPending;
 
   const person = isPerson(form.customerType);
   const canManage = role === "system_admin" || role === "sales_manager";
+  /** An active customer who has not set a password: their activation link can be sent again. */
+  const pendingActivation =
+    !!current && current.isActive && !current.activatedAt;
   const lockedNames = !editing && form.nameSource === "looked_up";
   const changed = current ? toUpdateBody(current, form).changed : true;
   // A customer that already exists must not be created again.
@@ -186,10 +195,27 @@ export function CustomerFormModal({
       setCheck({
         state: "failed",
         message:
-          (error instanceof Error
+          error instanceof Error
             ? error.message
-            : "La consulta automática falló.") +
-          " Puedes ingresar los datos manualmente.",
+            : "La consulta automática falló.",
+      });
+    }
+  }
+
+  async function resendActivation() {
+    if (!current) return;
+    try {
+      await resend.mutateAsync(current.id);
+      toast({
+        title: "Enlace de activación enviado",
+        message: `Se envió a ${current.email}.`,
+        tone: "success",
+      });
+    } catch (error) {
+      toast({
+        title: "No se pudo reenviar la activación",
+        message: errorText(error),
+        tone: "error",
       });
     }
   }
@@ -275,7 +301,7 @@ export function CustomerFormModal({
         description={
           editing
             ? `${current?.displayName ?? ""} · ${current?.documentType} ${current?.documentNumber}`
-            : "Verifica el documento primero: si el cliente ya existe, no se duplica."
+            : "Se creará la cuenta y se enviará un enlace de activación al correo de contacto ingresado."
         }
         onClose={onClose}
         footer={
@@ -321,6 +347,19 @@ export function CustomerFormModal({
                   Cargar los cambios
                 </button>
               )}
+            </div>
+          )}
+
+          {current && (
+            <div className="cluster">
+              <Badge tone={current.isActive ? "done" : "neutral"}>
+                {current.isActive ? "Activo" : "Inactivo"}
+              </Badge>
+              <Badge plain tone={current.activatedAt ? "done" : "warn"}>
+                {current.activatedAt
+                  ? "Cuenta activada"
+                  : "Activación pendiente"}
+              </Badge>
             </div>
           )}
 
@@ -373,19 +412,20 @@ export function CustomerFormModal({
                 }
               />
             </Field>
-            {!editing && (
+            {!editing && (canLookUp(form.documentType) || lockedNames) && (
               <button
                 type="button"
                 className="button button-secondary"
                 onClick={runCheck}
-                disabled={check.state === "checking"}
+                disabled={
+                  check.state === "checking" ||
+                  !isValidDocumentNumber(form.documentType, form.documentNumber)
+                }
               >
-                <Icon name="search" size={15} />
-                {check.state === "checking"
-                  ? "Verificando…"
-                  : canLookUp(form.documentType)
-                    ? "Verificar y autocompletar"
-                    : "Verificar documento"}
+                <Icon
+                  name={check.state === "checking" ? "dots" : "search"}
+                  size={15}
+                />
               </button>
             )}
           </div>
@@ -527,6 +567,24 @@ export function CustomerFormModal({
 
         {editing && current && canManage && (
           <div className="admin-zone">
+            {pendingActivation && (
+              <div className="admin-zone-row">
+                <div>
+                  <strong>Reenviar activación</strong>
+                  Envía un enlace nuevo al correo del cliente para que cree su
+                  contraseña y entre al portal. El enlace anterior deja de
+                  funcionar.
+                </div>
+                <button
+                  type="button"
+                  className="button button-secondary button-sm"
+                  onClick={resendActivation}
+                  disabled={resend.isPending}
+                >
+                  {resend.isPending ? "Enviando…" : "Reenviar enlace"}
+                </button>
+              </div>
+            )}
             <div className="admin-zone-row">
               <div>
                 <strong>

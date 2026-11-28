@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Role } from "../../shared/types";
@@ -136,20 +143,25 @@ function renderPage(role: Role = "sales_manager", query = "") {
       mutations: { retry: false },
     },
   });
+  // The search lives in the page's own box, kept in the address as ?q=.
   const view = render(
     <QueryClientProvider client={client}>
-      <CustomersPage query={query} role={role} toast={toast} />
+      <MemoryRouter
+        initialEntries={[query ? `/?q=${encodeURIComponent(query)}` : "/"]}
+      >
+        <CustomersPage role={role} toast={toast} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return {
     toast,
     client,
     ...view,
+    /** Types into the search box, as a person would. */
     rerenderWith: (q: string) =>
-      view.rerender(
-        <QueryClientProvider client={client}>
-          <CustomersPage query={q} role={role} toast={toast} />
-        </QueryClientProvider>,
+      fireEvent.change(
+        screen.getByRole("searchbox", { name: "Buscar clientes" }),
+        { target: { value: q } },
       ),
   };
 }
@@ -279,5 +291,103 @@ describe("listing", () => {
     expect(
       await screen.findByText("Sin resultados", {}, { timeout: 2000 }),
     ).toBeInTheDocument();
+  });
+});
+
+// ---- resending the activation link ----
+
+describe("resending the activation link", () => {
+  const open = async (name: string, role: Role = "sales_manager") => {
+    const view = renderPage(role);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText(name));
+    return {
+      ...view,
+      user,
+      dialog: within(await screen.findByRole("dialog")),
+    };
+  };
+
+  it("offers it for an active customer who has not set a password, and sends it", async () => {
+    // person() has no activation date: they were registered but never set a password.
+    const { user, dialog, toast } = await open("Lucía Quispe");
+    expect(dialog.getByText("Activación pendiente")).toBeVisible();
+    expect(dialog.getByText("Reenviar activación")).toBeVisible();
+
+    override = (call) =>
+      call.method === "POST" && call.path.endsWith("/resend-activation")
+        ? json({ status: "accepted" }, 202)
+        : undefined;
+    await user.click(dialog.getByRole("button", { name: "Reenviar enlace" }));
+
+    await waitFor(() =>
+      expect(
+        calls.filter(
+          (c) =>
+            c.method === "POST" &&
+            c.path ===
+              "/customers/11111111-aaaa-bbbb-cccc-000000000001/resend-activation",
+        ),
+      ).toHaveLength(1),
+    );
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Enlace de activación enviado",
+          message: "Se envió a lucia@test.pe.",
+          tone: "success",
+        }),
+      ),
+    );
+  });
+
+  it("does not offer it once the customer has set a password", async () => {
+    customers = [person({ activatedAt: "2026-02-01T10:00:00Z" })];
+    const { dialog } = await open("Lucía Quispe");
+    expect(dialog.getByText("Cuenta activada")).toBeVisible();
+    expect(dialog.queryByText("Reenviar activación")).toBeNull();
+    expect(
+      dialog.queryByRole("button", { name: "Reenviar enlace" }),
+    ).toBeNull();
+  });
+
+  it("does not offer it for a customer who is inactive, since the server refuses them", async () => {
+    customers = [person({ isActive: false })];
+    const { dialog } = await open("Lucía Quispe");
+    expect(dialog.getByText("Inactivo")).toBeVisible();
+    expect(
+      dialog.queryByRole("button", { name: "Reenviar enlace" }),
+    ).toBeNull();
+  });
+
+  it("does not offer it to an advisor, who cannot manage customers' access", async () => {
+    const { dialog } = await open("Lucía Quispe", "sales_advisor");
+    expect(
+      dialog.queryByRole("button", { name: "Reenviar enlace" }),
+    ).toBeNull();
+  });
+
+  it("says so when the server refuses, in an error notification", async () => {
+    const { user, dialog, toast } = await open("Lucía Quispe");
+    override = (call) =>
+      call.path.endsWith("/resend-activation")
+        ? apiError(
+            409,
+            "ALREADY_ACTIVATED",
+            "Este cliente ya activó su cuenta.",
+          )
+        : undefined;
+    await user.click(dialog.getByRole("button", { name: "Reenviar enlace" }));
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "No se pudo reenviar la activación",
+          message: "Este cliente ya activó su cuenta.",
+          tone: "error",
+        }),
+      ),
+    );
+    // The record stays open.
+    expect(screen.getByRole("dialog")).toBeVisible();
   });
 });

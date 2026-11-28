@@ -22,6 +22,7 @@ import type { Role } from "../../shared/types";
 import { salesApi, type CreateSaleBody, type Temperature } from "./api";
 import { errorText, fieldErrors, temperatureLabels } from "./labels";
 import { useAdvisors, useSaleMutation, useSelectableCatalog } from "./queries";
+import { LIMITS } from "../../shared/lib/limits";
 
 interface Picked {
   id: string;
@@ -327,7 +328,7 @@ export function NewSalePage({
                 <textarea
                   rows={3}
                   value={notes}
-                  maxLength={2000}
+                  maxLength={LIMITS.notes}
                   onChange={(event) => setNotes(event.target.value)}
                 />
               </Field>

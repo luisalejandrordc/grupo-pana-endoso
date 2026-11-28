@@ -4,7 +4,10 @@
  * show and which fields are locked once later tasks are completed (the same table the backend uses).
  */
 
-export type FieldKind = "text" | "money" | "date" | "select";
+import { LIMITS } from "../../shared/lib/limits";
+
+/** `hidden` is data the form carries and sends but never draws (task 2's name source). */
+export type FieldKind = "text" | "money" | "date" | "select" | "hidden";
 
 export interface FieldDef {
   key: string;
@@ -17,6 +20,8 @@ export interface FieldDef {
   readOnly?: boolean;
   /** Spans two columns. */
   wide?: boolean;
+  /** The most characters the server accepts; the box shows a counter. */
+  limit?: number;
 }
 
 export interface FieldGroup {
@@ -61,6 +66,7 @@ const payment = (expectedLabel: string): FieldGroup[] => [
         label: "Motivo de la diferencia",
         kind: "text",
         wide: true,
+        limit: LIMITS.reason,
         hint: "Obligatorio cuando el monto depositado no coincide con el esperado; se guarda junto con el monto.",
       },
     ],
@@ -99,6 +105,7 @@ const invoice = (
       label: "Motivo de la diferencia",
       kind: "text",
       wide: true,
+      limit: LIMITS.reason,
     },
   ],
 });
@@ -166,6 +173,11 @@ export const taskForms: Record<number, FieldGroup[]> = {
           key: "signerLastName",
           label: "Apellidos del firmante",
           kind: "text",
+        },
+        {
+          key: "signerNameSource",
+          label: "Origen del nombre del firmante",
+          kind: "hidden",
         },
         {
           key: "pepStatus",
@@ -436,4 +448,58 @@ export function amountsDiffer(a: string | undefined, b: string | undefined) {
   )
     return false;
   return Math.round(x * 100) !== Math.round(y * 100);
+}
+
+/** Task 2's lookup: only a DNI can be looked up; the other documents are always typed. */
+export const SIGNER_LOOKUP_TYPE = "DNI";
+
+const SIGNER_NAME_KEYS = ["signerFirstName", "signerLastName"];
+const SIGNER_DOCUMENT_KEYS = ["signerDocumentType", "signerDocumentNumber"];
+
+/**
+ * One change to the draft. Task 2 also keeps the signer's name source honest, because the server records
+ * exactly what it is sent: typing a name makes it manual (unless it is back to what the server holds), and
+ * changing the document of a looked-up name clears that name, since it belonged to the old document.
+ * Every other task is a plain edit.
+ */
+export function applyChange(
+  number: number,
+  saved: Draft,
+  draft: Draft,
+  key: string,
+  value: string,
+): Draft {
+  const next = { ...draft, [key]: value };
+  if (number !== 2) return next;
+  if (SIGNER_NAME_KEYS.includes(key)) {
+    const untouched =
+      (next.signerFirstName ?? "") === (saved.signerFirstName ?? "") &&
+      (next.signerLastName ?? "") === (saved.signerLastName ?? "");
+    next.signerNameSource = untouched
+      ? (saved.signerNameSource ?? "")
+      : "manual";
+  }
+  if (
+    SIGNER_DOCUMENT_KEYS.includes(key) &&
+    value !== (draft[key] ?? "") &&
+    draft.signerNameSource === "looked_up"
+  ) {
+    next.signerFirstName = "";
+    next.signerLastName = "";
+    next.signerNameSource = "manual";
+  }
+  return next;
+}
+
+/** The names a lookup found, filled into the draft as looked up. */
+export function applyLookup(
+  draft: Draft,
+  found: { firstName?: string; lastName?: string },
+): Draft {
+  return {
+    ...draft,
+    signerFirstName: found.firstName ?? draft.signerFirstName ?? "",
+    signerLastName: found.lastName ?? draft.signerLastName ?? "",
+    signerNameSource: "looked_up",
+  };
 }

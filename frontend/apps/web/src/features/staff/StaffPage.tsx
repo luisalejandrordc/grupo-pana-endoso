@@ -8,6 +8,7 @@ import {
   PageHeader,
   Pagination,
   SearchField,
+  useSearchQuery,
   useDebounced,
   type Toast,
 } from "@endosoflow/ui";
@@ -37,7 +38,7 @@ export function StaffPage({
   /** Called after the signed-in administrator edits their own record, so the session shows the new data. */
   onSelfUpdated?: () => void;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useSearchQuery();
   const [status, setStatus] = useState<Status>("all");
   const [role, setRole] = useState<Role | "all">("all");
   const [page, setPage] = useState(1);
@@ -99,6 +100,7 @@ export function StaffPage({
             onChange={setQuery}
             label="Buscar colaboradores"
             placeholder="Nombre, documento o correo"
+            shortcut
           />
           <div className="filter-bar">
             <label className="filter-control">

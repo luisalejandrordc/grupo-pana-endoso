@@ -3,6 +3,7 @@ import { formatDateTime, Field, Icon, type Toast } from "@endosoflow/ui";
 import { documentsApi, salesApi, type ApiSale } from "./api";
 import { describeChanges, describeEvent, errorText } from "./labels";
 import { useDocuments, useHistory, useSaleMutation } from "./queries";
+import { LIMITS } from "../../shared/lib/limits";
 
 /** Every file of the sale, by task, with the same download as the task screen. */
 export function DocumentsTab({
@@ -133,7 +134,7 @@ export function NotesTab({
           rows={7}
           value={value}
           disabled={!editable}
-          maxLength={2000}
+          maxLength={LIMITS.notes}
           onChange={(event) => setValue(event.target.value)}
         />
       </Field>

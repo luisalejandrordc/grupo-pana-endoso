@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   formatDateTime,
   formatMoneyText,
@@ -6,6 +6,13 @@ import {
   Icon,
   type Toast,
 } from "@endosoflow/ui";
+import { LockedNameHint, LookupNotice } from "../../shared/lookup/LookupNotice";
+import {
+  isDni,
+  lookupSource,
+  normalizeDocument,
+  useIdentityLookup,
+} from "../../shared/lookup/useIdentityLookup";
 import { tasksApi, type ApiSale, type ApiTaskDetail } from "./api";
 import { ReasonDialog } from "./dialogs";
 import { errorText, fieldErrors, phaseLabels } from "./labels";
@@ -14,14 +21,18 @@ import { useSaleMutation, useTask } from "./queries";
 import { TaskDocuments } from "./TaskDocuments";
 import {
   amountsDiffer,
+  applyChange,
+  applyLookup,
   isDirty,
   lockedKeys,
+  SIGNER_LOOKUP_TYPE,
   taskForms,
   toDraft,
   toPayload,
   type Draft,
   type FieldDef,
 } from "./taskForms";
+import { LIMITS } from "../../shared/lib/limits";
 
 /** One task of the open sale: its data form, its documents and the actions the server says the person may take. */
 export function TaskPanel({
@@ -96,6 +107,7 @@ function TaskBody({
   const [banner, setBanner] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const lookup = useIdentityLookup();
   const warnings = task.warnings.map((warning) => warning.message);
 
   // A new version or status from the server replaces whatever was typed: it is now what the server holds.
@@ -108,6 +120,7 @@ function TaskBody({
     setSeen({ version: task.version, status: task.status });
     setDraft(saved);
     setEditing(false);
+    lookup.reset();
   }
 
   const start = useSaleMutation(() => tasksApi.start(sale.id, number));
@@ -144,10 +157,34 @@ function TaskBody({
     reopen.isPending;
   const groups = taskForms[number] ?? [];
 
+  // Task 2's signer: a DNI can be looked up, and what was looked up stays locked until the person chooses to type.
+  const signer = number === 2;
+  const nameLooked = signer && draft.signerNameSource === "looked_up";
+  const namesLocked = nameLooked && editable;
+  // A lookup that answers after the document changed must not fill the names of the new one.
+  const latestSignerDocument = useRef(draft.signerDocumentNumber ?? "");
+  useEffect(() => {
+    latestSignerDocument.current = draft.signerDocumentNumber ?? "";
+  });
+
   useEffect(() => {
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
   }, [dirty, onDirtyChange]);
+
+  async function consultSigner() {
+    const dni = normalizeDocument(draft.signerDocumentNumber ?? "");
+    const found = await lookup.run(dni);
+    if (!found || normalizeDocument(latestSignerDocument.current) !== dni)
+      return;
+    setDraft((old) => applyLookup(old, found));
+    setErrors(({ signerFirstName: _f, signerLastName: _l, ...rest }) => rest);
+  }
+
+  function unlockSignerNames() {
+    setDraft((old) => ({ ...old, signerNameSource: "manual" }));
+    lookup.reset();
+  }
 
   function failure(error: unknown) {
     setErrors(fieldErrors(error));
@@ -199,6 +236,7 @@ function TaskBody({
   }
 
   function renderField(def: FieldDef, key: string) {
+    if (def.kind === "hidden") return null;
     const value = draft[key] ?? "";
     const disabled = !editable || locked.includes(def.key);
     let hint = def.hint;
@@ -234,8 +272,14 @@ function TaskBody({
           </div>
         </Field>
       );
-    const set = (next: string) => setDraft((old) => ({ ...old, [key]: next }));
-    return (
+    const set = (next: string) => {
+      setDraft((old) => applyChange(number, saved, old, key, next));
+      if (signer && key.startsWith("signerDocument")) lookup.reset();
+    };
+    const readOnly =
+      namesLocked &&
+      (def.key === "signerFirstName" || def.key === "signerLastName");
+    const field = (
       <Field
         key={key}
         label={def.label}
@@ -262,12 +306,59 @@ function TaskBody({
             inputMode={def.kind === "money" ? "decimal" : undefined}
             value={value}
             disabled={disabled}
+            readOnly={readOnly}
+            maxLength={def.limit}
             placeholder={def.placeholder}
             onChange={(event) => set(event.target.value)}
           />
         )}
       </Field>
     );
+    if (!signer) return field;
+    // The lookup sits right under the signer's document, and the way to unlock the names right under them.
+    if (def.key === "signerDocumentNumber")
+      return (
+        <Fragment key={key}>
+          {field}
+          {editable &&
+            (draft.signerDocumentType === SIGNER_LOOKUP_TYPE || nameLooked) && (
+              <div className="span-2 lookup-row">
+                {!nameLooked && (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={consultSigner}
+                    disabled={
+                      lookup.state.status === "checking" ||
+                      !isDni(draft.signerDocumentNumber ?? "")
+                    }
+                  >
+                    <Icon
+                      name={
+                        lookup.state.status === "checking" ? "dots" : "search"
+                      }
+                      size={15}
+                    />
+                  </button>
+                )}
+                <LookupNotice state={lookup.state} />
+              </div>
+            )}
+        </Fragment>
+      );
+    if (def.key === "signerLastName" && nameLooked)
+      return (
+        <Fragment key={key}>
+          {field}
+          <div className="span-2">
+            <LockedNameHint
+              source={lookupSource.DNI}
+              onUnlock={editable ? unlockSignerNames : undefined}
+            />
+          </div>
+        </Fragment>
+      );
+    return field;
   }
 
   const messages = Array.from(new Set(Object.values(errors)));
@@ -463,6 +554,7 @@ function TaskBody({
                       setEditing(false);
                       setErrors({});
                       setBanner(null);
+                      lookup.reset();
                     }}
                     disabled={busy}
                   >
@@ -589,7 +681,7 @@ function TaskNotes({
           rows={2}
           value={value}
           disabled={!editable}
-          maxLength={2000}
+          maxLength={LIMITS.notes}
           onChange={(event) => setValue(event.target.value)}
         />
       </Field>

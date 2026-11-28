@@ -1,7 +1,10 @@
-import { Link, useLocation } from "react-router-dom";
-import { useSearchQuery, Icon, SearchField, logoSquare } from "@endosoflow/ui";
-import { searchPlaceholderFor } from "../navigation";
+import { Link } from "react-router-dom";
+import { Icon, logoSquare } from "@endosoflow/ui";
 
+/**
+ * The bar of narrow screens: the button that opens the menu and the logo. On a wide screen the sidebar already
+ * does both, so no bar is drawn. (Search is not here: each list has its own, beside the filters it works with.)
+ */
 export function Topbar({
   onMenu,
   menuOpen,
@@ -9,11 +12,8 @@ export function Topbar({
   onMenu: () => void;
   menuOpen: boolean;
 }) {
-  const { pathname } = useLocation();
-  const [query, setQuery] = useSearchQuery();
-  const placeholder = searchPlaceholderFor(pathname);
   return (
-    <header className={`topbar ${placeholder ? "" : "is-empty"}`}>
+    <header className="topbar">
       <button
         className="icon-button topbar-menu"
         onClick={onMenu}
@@ -26,14 +26,6 @@ export function Topbar({
       <Link className="topbar-brand" to="/sales" aria-label="EndosoFlow">
         <img src={logoSquare} alt="" />
       </Link>
-      {placeholder && (
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          placeholder={placeholder}
-          shortcut
-        />
-      )}
     </header>
   );
 }
