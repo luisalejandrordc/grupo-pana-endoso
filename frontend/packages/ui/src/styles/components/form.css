@@ -88,6 +88,37 @@ input[type="radio"] {
   font-size: var(--text-xs);
 }
 
+/* The message (hint or error) on the left, the counter on the right. */
+.field-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.field-foot .field-hint,
+.field-foot .field-error {
+  flex: 1;
+}
+
+.field-count {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.field-count.is-near {
+  color: var(--warn-ink);
+  font-weight: 600;
+}
+
+.field-count.is-full {
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+
 .field-error {
   color: var(--brand-strong);
   font-size: var(--text-xs);

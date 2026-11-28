@@ -8,6 +8,47 @@ import {
 
 const CONTROLS = new Set(["input", "select", "textarea"]);
 
+/** From this share of the limit on, the counter warns; at the limit it says so. */
+const WARN_AT = 0.9;
+
+/**
+ * "123 / 2000" under a box that has a limit. It counts what the box counts (UTF-16 units, the same as the
+ * browser's own `maxLength`), which is never more than what the server counts, so a text the box accepts is
+ * always accepted. Screen readers hear the limit when they enter the box, and a short note only when the
+ * limit gets close or is reached (not on every key).
+ */
+function Counter({
+  id,
+  used,
+  limit,
+}: {
+  id: string;
+  used: number;
+  limit: number;
+}) {
+  const level =
+    used >= limit ? "full" : used >= limit * WARN_AT ? "near" : "ok";
+  const note =
+    level === "full"
+      ? `Llegaste al límite de ${limit} caracteres.`
+      : level === "near"
+        ? "Te estás acercando al límite de caracteres."
+        : "";
+  return (
+    <>
+      <span className={`field-count is-${level}`} aria-hidden="true">
+        {used} / {limit}
+      </span>
+      <span className="sr-only" id={id}>
+        Máximo {limit} caracteres.
+      </span>
+      <span className="sr-only" role="status">
+        {note}
+      </span>
+    </>
+  );
+}
+
 /**
  * A labelled form control with an optional hint or error underneath.
  *
@@ -30,6 +71,7 @@ export function Field({
 }) {
   const id = useId();
   const messageId = `${id}-message`;
+  const countId = `${id}-count`;
   const classes = `field ${className} ${error ? "has-error" : ""}`.trim();
   const message = error ? (
     <small className="field-error" id={messageId} role="alert">
@@ -47,6 +89,18 @@ export function Field({
     CONTROLS.has(children.type)
   ) {
     const control = children as ReactElement<Record<string, unknown>>;
+    // A box with a limit and a text value gets a counter.
+    const limit =
+      typeof control.props.maxLength === "number" &&
+      typeof control.props.value === "string"
+        ? control.props.maxLength
+        : undefined;
+    const used =
+      limit === undefined ? 0 : (control.props.value as string).length;
+    const describedBy =
+      [message ? messageId : "", limit !== undefined ? countId : ""]
+        .filter(Boolean)
+        .join(" ") || undefined;
     return (
       <div className={classes}>
         <label className="field-label" htmlFor={id}>
@@ -55,9 +109,16 @@ export function Field({
         {cloneElement(control, {
           id,
           "aria-invalid": error ? true : undefined,
-          "aria-describedby": message ? messageId : undefined,
+          "aria-describedby": describedBy,
         })}
-        {message}
+        {(message || limit !== undefined) && (
+          <div className="field-foot">
+            {message}
+            {limit !== undefined && (
+              <Counter id={countId} used={used} limit={limit} />
+            )}
+          </div>
+        )}
       </div>
     );
   }
