@@ -4,5 +4,6 @@
 @import "./features/login.css";
 @import "./features/sales.css";
 @import "./features/customers.css";
+@import "./features/lookup.css";
 @import "./features/catalog.css";
 @import "./features/profile.css";

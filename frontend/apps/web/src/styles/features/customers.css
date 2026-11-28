@@ -1,36 +1,10 @@
-/* Customer form and its document check. */
+/* Customer form and its document check (the result cards are in lookup.css). */
 
 .document-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
   align-items: end;
   gap: var(--space-3) 14px;
-}
-
-.check-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 11px;
-  padding: 11px 13px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font-size: var(--text-sm);
-}
-
-.check-card strong {
-  color: var(--ink);
-}
-
-.check-card.check-ok {
-  border-color: var(--done-line);
-  background: var(--done-wash);
-}
-
-.check-card.check-warn {
-  border-color: var(--warn-line);
-  background: var(--warn-wash);
 }
 
 @media (max-width: 760px) {

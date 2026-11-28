@@ -1,7 +1,14 @@
 import { ApiError, errorText, fieldErrors } from "@endosoflow/api";
-import { Badge, Callout, Field, Modal } from "@endosoflow/ui";
-import { useState, type FormEvent } from "react";
+import { Badge, Callout, Field, Icon, Modal } from "@endosoflow/ui";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { documentTypeOptions } from "../../shared/lib/documentTypes";
+import { LockedNameHint, LookupNotice } from "../../shared/lookup/LookupNotice";
+import {
+  isDni,
+  lookupSource,
+  normalizeDocument,
+  useIdentityLookup,
+} from "../../shared/lookup/useIdentityLookup";
 import { roleLabel, roleOptions } from "../../shared/lib/roles";
 import type { DocumentType, Role } from "../../shared/types";
 import type { Toast } from "@endosoflow/ui";
@@ -59,8 +66,16 @@ export function EmployeeFormModal({
   const update = useUpdateEmployee();
   const fetchLatest = useFetchEmployee();
   const resend = useResendActivation();
+  const lookup = useIdentityLookup();
 
   const editing = current !== null;
+  /** After a lookup the names are the registry's and stay locked until the person chooses to type them. */
+  const lockedNames = !editing && form.nameSource === "looked_up";
+  // A lookup that answers after the document changed must not fill the names of the new one.
+  const latestDocument = useRef(form.documentNumber);
+  useEffect(() => {
+    latestDocument.current = form.documentNumber;
+  });
   const isSelf = current?.id === currentUserId;
   /** An active account that has not set its password: its activation link can be sent again. */
   const pendingActivation =
@@ -73,6 +88,40 @@ export function EmployeeFormModal({
     onChange: (event: { target: { value: string } }) =>
       setForm((old) => ({ ...old, [key]: event.target.value })),
   });
+
+  /** A different document makes a looked-up name wrong: it is cleared, unlocked, and the lookup starts over. */
+  function changeDocument(patch: Partial<EmployeeForm>) {
+    setForm((old) =>
+      old.nameSource === "looked_up"
+        ? {
+            ...old,
+            ...patch,
+            nameSource: "manual",
+            firstName: "",
+            lastName: "",
+          }
+        : { ...old, ...patch },
+    );
+    lookup.reset();
+  }
+
+  async function consultDocument() {
+    const number = normalizeDocument(form.documentNumber);
+    const found = await lookup.run(number);
+    if (!found || normalizeDocument(latestDocument.current) !== number) return;
+    setForm((old) => ({
+      ...old,
+      nameSource: "looked_up",
+      firstName: found.firstName ?? old.firstName,
+      lastName: found.lastName ?? old.lastName,
+    }));
+    setErrors(({ firstName: _f, lastName: _l, ...rest }) => rest);
+  }
+
+  function unlockNames() {
+    setForm((old) => ({ ...old, nameSource: "manual" }));
+    lookup.reset();
+  }
 
   async function resendActivation() {
     if (!current) return;
@@ -208,15 +257,14 @@ export function EmployeeFormModal({
 
           <div className="form-section">
             <p className="form-section-title">Identificación</p>
-            <div className="form-grid-two">
+            <div className="document-row">
               <Field label="Tipo de documento">
                 <select
                   value={form.documentType}
                   onChange={(event) =>
-                    setForm((old) => ({
-                      ...old,
+                    changeDocument({
                       documentType: event.target.value as DocumentType,
-                    }))
+                    })
                   }
                 >
                   {documentTypeOptions.map((option) => (
@@ -227,20 +275,63 @@ export function EmployeeFormModal({
                 </select>
               </Field>
               <Field label="Número de documento" error={errors.documentNumber}>
-                <input required {...text("documentNumber")} />
+                <input
+                  required
+                  value={form.documentNumber}
+                  onChange={(event) =>
+                    changeDocument({ documentNumber: event.target.value })
+                  }
+                />
               </Field>
+              {!editing && (form.documentType === "DNI" || lockedNames) && (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={consultDocument}
+                  disabled={
+                    lookup.state.status === "checking" ||
+                    !isDni(form.documentNumber)
+                  }
+                >
+                  <Icon
+                    name={
+                      lookup.state.status === "checking" ? "dots" : "search"
+                    }
+                    size={15}
+                  />
+                </button>
+              )}
             </div>
+
+            <LookupNotice state={lookup.state} />
           </div>
 
           <div className="form-section">
             <p className="form-section-title">Datos personales</p>
             <div className="form-grid-two">
               <Field label="Nombres" error={errors.firstName}>
-                <input required {...text("firstName")} />
+                <input required readOnly={lockedNames} {...text("firstName")} />
               </Field>
               <Field label="Apellidos" error={errors.lastName}>
-                <input required {...text("lastName")} />
+                <input required readOnly={lockedNames} {...text("lastName")} />
               </Field>
+              {(lockedNames ||
+                (editing && current?.nameSource === "looked_up")) && (
+                <div className="span-2">
+                  {lockedNames && (
+                    <LockedNameHint
+                      source={lookupSource.DNI}
+                      onUnlock={unlockNames}
+                    />
+                  )}
+                  {editing && current?.nameSource === "looked_up" && (
+                    <small className="field-hint">
+                      El nombre vino de {lookupSource.DNI}. Si lo editas,
+                      quedará registrado como ingresado manualmente.
+                    </small>
+                  )}
+                </div>
+              )}
               <Field label="Fecha de nacimiento" error={errors.birthdate}>
                 <input required type="date" {...text("birthdate")} />
               </Field>

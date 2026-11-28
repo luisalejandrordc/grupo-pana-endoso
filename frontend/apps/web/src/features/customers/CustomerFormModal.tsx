@@ -195,10 +195,9 @@ export function CustomerFormModal({
       setCheck({
         state: "failed",
         message:
-          (error instanceof Error
+          error instanceof Error
             ? error.message
-            : "La consulta automática falló.") +
-          " Puedes ingresar los datos manualmente.",
+            : "La consulta automática falló.",
       });
     }
   }
@@ -302,7 +301,7 @@ export function CustomerFormModal({
         description={
           editing
             ? `${current?.displayName ?? ""} · ${current?.documentType} ${current?.documentNumber}`
-            : "Verifica el documento primero: si el cliente ya existe, no se duplica."
+            : "Se creará la cuenta y se enviará un enlace de activación al correo de contacto ingresado."
         }
         onClose={onClose}
         footer={
@@ -413,19 +412,20 @@ export function CustomerFormModal({
                 }
               />
             </Field>
-            {!editing && (
+            {!editing && (canLookUp(form.documentType) || lockedNames) && (
               <button
                 type="button"
                 className="button button-secondary"
                 onClick={runCheck}
-                disabled={check.state === "checking"}
+                disabled={
+                  check.state === "checking" ||
+                  !isValidDocumentNumber(form.documentType, form.documentNumber)
+                }
               >
-                <Icon name="search" size={15} />
-                {check.state === "checking"
-                  ? "Verificando…"
-                  : canLookUp(form.documentType)
-                    ? "Verificar y autocompletar"
-                    : "Verificar documento"}
+                <Icon
+                  name={check.state === "checking" ? "dots" : "search"}
+                  size={15}
+                />
               </button>
             )}
           </div>

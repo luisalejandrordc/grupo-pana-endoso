@@ -1,11 +1,5 @@
 /* Sales: list, detail, the route, the task panel, history and the new-sale form. */
 
-/* ---- list ---- */
-
-.sales-toolbar {
-  align-items: center;
-}
-
 /* ---- progress: thirteen thin segments ---- */
 
 .progress {

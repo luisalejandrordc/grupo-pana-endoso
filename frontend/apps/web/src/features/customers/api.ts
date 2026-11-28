@@ -1,4 +1,5 @@
 import { api } from "../../shared/api/client";
+import { lookupsApi } from "../../shared/api/lookups";
 import { queryString, type Schemas } from "@endosoflow/api";
 
 export type ApiCustomer = Schemas["Customer"];
@@ -49,7 +50,5 @@ export const customersApi = {
       `/customers/lookup${queryString({ documentType, documentNumber })}`,
     ),
   lookupIdentity: (documentType: string, documentNumber: string) =>
-    api.request<IdentityResult>(
-      `/lookups/identity${queryString({ documentType, documentNumber })}`,
-    ),
+    lookupsApi.identity(documentType as "DNI" | "RUC", documentNumber),
 };
