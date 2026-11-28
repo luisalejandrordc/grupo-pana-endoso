@@ -39,6 +39,11 @@ export const customersApi = {
     api.request<void>(`/customers/${id}${queryString({ reason })}`, {
       method: "DELETE",
     }),
+  /** A new activation link, for a customer who has not set a password yet. */
+  resendActivation: (id: string) =>
+    api.request<{ status: "accepted" }>(`/customers/${id}/resend-activation`, {
+      method: "POST",
+    }),
   lookup: (documentType: string, documentNumber: string) =>
     api.request<CustomerLookupResult>(
       `/customers/lookup${queryString({ documentType, documentNumber })}`,

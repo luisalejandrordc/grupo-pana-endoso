@@ -42,6 +42,12 @@ export function useUpdateCustomer(id: string) {
   });
 }
 
+export function useResendCustomerActivation() {
+  return useMutation({
+    mutationFn: (id: string) => customersApi.resendActivation(id),
+  });
+}
+
 export function useCustomerStatus(id: string) {
   const client = useQueryClient();
   return useMutation({
