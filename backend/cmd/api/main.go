@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"endosoflow/internal/adapters/codart"
+	"endosoflow/internal/analytics"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/catalog"
 	"endosoflow/internal/customers"
@@ -92,13 +93,15 @@ func run() error {
 	documentsHandler := documents.NewHandler(documentsService, authHandler, logger)
 	tasksService := tasks.NewService(tasks.Deps{DB: pool, Sales: salesGate, Documents: documentsService, Notifier: notificationWriter, Logger: logger})
 	tasksHandler := tasks.NewHandler(tasksService, authHandler, logger)
+	analyticsService := analytics.NewService(analytics.Deps{DB: pool, Logger: logger})
+	analyticsHandler := analytics.NewHandler(analyticsService, authHandler, logger)
 
 	// The customer portal's read API: it only composes what the modules above expose for customers.
 	portalService := portal.NewService(portal.Deps{DB: pool, Vehicles: catalogService, Documents: documentsService, Logger: logger})
 	portalHandler := portal.NewHandler(portalService, authHandler, logger)
 
 	var handler http.Handler = newRouter(logger, pool, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount,
-		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount, portalHandler.Mount)
+		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount, analyticsHandler.Mount, portalHandler.Mount)
 	if localStore != nil {
 		mux := http.NewServeMux()
 		mux.Handle("/media/", http.StripPrefix("/media/", localStore.Handler()))

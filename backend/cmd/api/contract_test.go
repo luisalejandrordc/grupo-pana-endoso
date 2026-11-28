@@ -1,6 +1,7 @@
 package main
 
 import (
+	"endosoflow/internal/analytics"
 	"endosoflow/internal/auth"
 	"endosoflow/internal/catalog"
 	"endosoflow/internal/customers"
@@ -49,8 +50,9 @@ func TestRoutesMatchTheOpenAPIContract(t *testing.T) {
 	tasksHandler := tasks.NewHandler(nil, authHandler, logger)
 	documentsHandler := documents.NewHandler(nil, authHandler, logger)
 	portalHandler := portal.NewHandler(nil, authHandler, logger)
+	analyticsHandler := analytics.NewHandler(nil, authHandler, logger)
 	router := newRouter(logger, okPinger{}, authHandler.Mount, staffHandler.Mount, customersHandler.Mount, catalogHandler.Mount,
-		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount, portalHandler.Mount)
+		salesHandler.Mount, tasksHandler.Mount, documentsHandler.Mount, analyticsHandler.Mount, portalHandler.Mount)
 
 	inCode := map[string]bool{}
 	err = chi.Walk(router.(chi.Routes), func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
